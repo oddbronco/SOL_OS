@@ -17,6 +17,7 @@ import { QuestionAssignmentModal } from '../components/interviews/QuestionAssign
 import { AnswerQuestionsModal } from '../components/interviews/AnswerQuestionsModal';
 import { StakeholderInterviewView } from '../components/interviews/StakeholderInterviewView';
 import { CSVUploadManager } from '../components/csv/CSVUploadManager';
+import { QuestionCollectionImporter } from '../components/questions/QuestionCollectionImporter';
 import { FilesTab } from '../components/project/FilesTab';
 import { DocumentRunsManager } from '../components/documents/DocumentRunsManager';
 import { ProjectSidekick } from '../components/sidekick/ProjectSidekick';
@@ -963,6 +964,16 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         {/* Questions Tab */}
         {activeTab === 'questions' && (
           <div className="space-y-6">
+            {/* Collection Import */}
+            <Card>
+              <QuestionCollectionImporter
+                projectId={project.id}
+                onSuccess={loadProjectData}
+                currentUsage={questions.length}
+                maxQuestions={50}
+              />
+            </Card>
+
             {/* CSV Upload */}
             <CSVUploadManager
               type="questions"

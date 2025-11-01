@@ -69,10 +69,10 @@ export const CSVUploadManager: React.FC<CSVUploadManagerProps> = ({
     questions: {
       filename: 'questions_template.csv',
       headers: [
-        'text*', 'category*', 'target_roles', 'is_required', 'response_format'
+        'text*', 'category*', 'target_roles'
       ],
       requiredFields: ['text', 'category'],
-      description: 'Upload questions for this project'
+      description: 'Upload questions for this project (same format as question collections)'
     }
   };
 
@@ -365,17 +365,15 @@ export const CSVUploadManager: React.FC<CSVUploadManagerProps> = ({
   };
 
   const uploadQuestion = async (data: any, projectId: string) => {
-    const targetRoles = data.target_roles ? data.target_roles.split(';').map((r: string) => r.trim()) : [];
-    
+    const targetRoles = data.target_roles ? data.target_roles.split(';').map((r: string) => r.trim()).filter((r: string) => r) : [];
+
     const { error } = await supabase
       .from('questions')
       .insert({
         project_id: projectId,
         text: data.text,
         category: data.category,
-        target_roles: targetRoles,
-        is_required: data.is_required === 'true' || data.is_required === '1',
-        response_format: data.response_format || 'text'
+        target_roles: targetRoles
       });
 
     if (error) throw error;
