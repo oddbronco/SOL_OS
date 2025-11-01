@@ -196,14 +196,15 @@ export const QuestionCollectionImporter: React.FC<QuestionCollectionImporterProp
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1"
             />
-            <Select
+            <select
               value={scopeFilter}
               onChange={(e) => setScopeFilter(e.target.value as 'all' | 'org' | 'personal')}
+              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Collections</option>
               <option value="org">Organization</option>
               <option value="personal">Personal</option>
-            </Select>
+            </select>
           </div>
 
           {/* Collections List */}
