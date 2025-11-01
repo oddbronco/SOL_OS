@@ -178,11 +178,11 @@ function App() {
     return (
       <div className="min-h-screen flex" style={{ backgroundColor: '#f6f4ef' }}>
         <div className="flex h-screen w-64 flex-col border-r border-gray-200" style={{ backgroundColor: '#f6f4ef' }}>
-          <div className="flex items-center justify-center h-20 border-b border-gray-200 px-4">
+          <div className="flex items-center justify-center h-24 border-b border-gray-200 px-6">
             <img
               src="https://cdn.prod.website-files.com/5f90af0ff6ef7c0d8b8e7e58/690637c1b998350930983727_projectos%20dark.png"
               alt="Speak"
-              className="h-16 w-auto max-w-full object-contain"
+              className="h-20 w-auto max-w-full object-contain"
             />
           </div>
           <nav className="flex-1 px-4 py-6">
@@ -233,7 +233,7 @@ function App() {
                 <img
                   src="https://cdn.prod.website-files.com/5f90af0ff6ef7c0d8b8e7e58/690637c1b998350930983727_projectos%20dark.png"
                   alt="Speak"
-                  className="h-16 w-auto mx-auto mb-4"
+                  className="h-24 w-auto mx-auto mb-4"
                 />
                 <p className="text-gray-400 mt-2">
                   {isSignUp ? 'Turn complex projects into clear plans.' : 'Sign in to your account'}

@@ -65,11 +65,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user,
       minHeight: '100vh'
     }}>
       {/* Logo */}
-      <div className="flex items-center justify-center h-20 border-b px-4 border-gray-200">
+      <div className="flex items-center justify-center h-24 border-b px-6 border-gray-200">
         <img
           src="https://cdn.prod.website-files.com/5f90af0ff6ef7c0d8b8e7e58/690637c1b998350930983727_projectos%20dark.png"
           alt="Speak"
-          className="h-16 w-auto max-w-full object-contain"
+          className="h-20 w-auto max-w-full object-contain"
         />
       </div>
 
