@@ -956,24 +956,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                     >
                       View Interview
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      icon={Trash2}
-                      onClick={async () => {
-                        if (confirm(`Are you sure you want to delete ${stakeholder.name}? This will remove all their interview responses.`)) {
-                          try {
-                            await deleteStakeholder(stakeholder.id);
-                            await loadProjectData();
-                          } catch (error) {
-                            console.error('Failed to delete stakeholder:', error);
-                            alert('Failed to delete stakeholder. Please try again.');
-                          }
-                        }
-                      }}
-                    >
-                      Delete
-                    </Button>
                   </div>
                 </Card>
               ))}
