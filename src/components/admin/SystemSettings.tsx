@@ -13,6 +13,8 @@ interface SystemConfig {
   email_notifications_enabled: boolean;
   max_file_size_mb: number;
   max_recording_minutes: number;
+  storage_bucket_file_size_limit_mb: number;
+  estimated_recording_bitrate_kbps: number;
   api_rate_limit_per_hour: number;
   interview_rate_limiting_enabled: boolean;
   default_subscription_plan: string;
@@ -43,6 +45,8 @@ export const SystemSettings: React.FC = () => {
     email_notifications_enabled: true,
     max_file_size_mb: 100,
     max_recording_minutes: 30,
+    storage_bucket_file_size_limit_mb: 200,
+    estimated_recording_bitrate_kbps: 128,
     api_rate_limit_per_hour: 1000,
     interview_rate_limiting_enabled: true,
     default_subscription_plan: 'starter',
@@ -165,6 +169,8 @@ export const SystemSettings: React.FC = () => {
         email_notifications_enabled: true,
         max_file_size_mb: 100,
         max_recording_minutes: 30,
+        storage_bucket_file_size_limit_mb: 200,
+        estimated_recording_bitrate_kbps: 128,
         api_rate_limit_per_hour: 1000,
         interview_rate_limiting_enabled: true,
         default_subscription_plan: 'starter',
@@ -373,6 +379,32 @@ export const SystemSettings: React.FC = () => {
           }`}>System Limits & Security</h3>
         </div>
 
+        <div className="space-y-4">
+          <h4 className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Storage & Recording Limits
+          </h4>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Input
+              label="Storage Bucket File Size Limit (MB)"
+              type="number"
+              value={config.storage_bucket_file_size_limit_mb}
+              onChange={(e) => setConfig({ ...config, storage_bucket_file_size_limit_mb: parseInt(e.target.value) || 200 })}
+              min="10"
+              max="5000"
+              helperText="Maximum size per file upload to storage (prevents failed uploads)"
+            />
+            <Input
+              label="Estimated Recording Bitrate (kbps)"
+              type="number"
+              value={config.estimated_recording_bitrate_kbps}
+              onChange={(e) => setConfig({ ...config, estimated_recording_bitrate_kbps: parseInt(e.target.value) || 128 })}
+              min="32"
+              max="512"
+              helperText="Used to calculate recording time limits and show time remaining"
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <Input
             label="Max File Size (MB)"
@@ -381,6 +413,7 @@ export const SystemSettings: React.FC = () => {
             onChange={(e) => setConfig({ ...config, max_file_size_mb: parseInt(e.target.value) || 100 })}
             min="1"
             max="1000"
+            helperText="File size limit enforced in subscription plans"
           />
           <Input
             label="Max Recording Length (Minutes)"
@@ -389,6 +422,7 @@ export const SystemSettings: React.FC = () => {
             onChange={(e) => setConfig({ ...config, max_recording_minutes: parseInt(e.target.value) || 30 })}
             min="1"
             max="120"
+            helperText="Recording time limit per session in subscription plans"
           />
           <Input
             label="API Rate Limit (per hour)"

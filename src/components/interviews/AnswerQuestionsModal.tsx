@@ -90,6 +90,8 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [recordingStartTime, setRecordingStartTime] = useState(0);
+  const [estimatedSize, setEstimatedSize] = useState(0);
+  const [maxRecordingTime, setMaxRecordingTime] = useState(300); // default 5 minutes
   const [transcribing, setTranscribing] = useState(false);
   const [showOverview, setShowOverview] = useState(false);
   const [recordingTimer, setRecordingTimer] = useState<NodeJS.Timeout | null>(null);
@@ -194,13 +196,29 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
     }
   }, [currentQuestionIndex, questions]);
 
+  // Calculate max recording time based on system settings
+  useEffect(() => {
+    const systemConfig = localStorage.getItem('system_config');
+    if (systemConfig) {
+      const config = JSON.parse(systemConfig);
+      const bucketLimitMB = config.storage_bucket_file_size_limit_mb || 200;
+      const bitrate = config.estimated_recording_bitrate_kbps || 128;
+
+      // Calculate max time in seconds: (MB * 1024 * 8) / (kbps) = seconds
+      const maxTimeSeconds = Math.floor((bucketLimitMB * 1024 * 8) / bitrate);
+      setMaxRecordingTime(maxTimeSeconds);
+
+      console.log(`📊 Max recording time: ${Math.floor(maxTimeSeconds / 60)} minutes (${bucketLimitMB}MB @ ${bitrate}kbps)`);
+    }
+  }, []);
+
   // Track changes to determine button state
   useEffect(() => {
     const currentResponse = getCurrentResponse();
     const hasNewText = textResponses.some(text => text.trim() !== '');
     const hasNewRecording = recordingBlob !== null;
     const hasNewFile = uploadedFiles.length > 0;
-    
+
     setHasUnsavedChanges(hasNewText || hasNewRecording || hasNewFile);
   }, [textResponses, recordingBlob, uploadedFiles, currentQuestionIndex]);
 
@@ -407,10 +425,19 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
       const timer = setInterval(() => {
         setRecordingDuration(prev => {
           const newDuration = prev + 1;
-          // Auto-stop at 5 minutes (300 seconds)
-          if (newDuration >= 300) {
+
+          // Calculate estimated size (bitrate * time / 8 for bytes, then to MB)
+          const systemConfig = localStorage.getItem('system_config');
+          const bitrate = systemConfig ? (JSON.parse(systemConfig).estimated_recording_bitrate_kbps || 128) : 128;
+          const estimatedMB = (bitrate * newDuration) / (8 * 1024);
+          setEstimatedSize(estimatedMB);
+
+          // Auto-stop at max recording time
+          if (newDuration >= maxRecordingTime) {
+            console.warn(`⚠️ Reached maximum recording time (${Math.floor(maxRecordingTime / 60)} minutes)`);
             stopRecording();
-            return 300;
+            alert(`Recording stopped: Maximum recording time reached (${Math.floor(maxRecordingTime / 60)} minutes)`);
+            return maxRecordingTime;
           }
           return newDuration;
         });
@@ -1325,9 +1352,25 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
                     <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse"></div>
                     <span className="text-red-700 font-medium">Recording Audio...</span>
                   </div>
-                  
-                  <div className="text-3xl font-mono font-bold text-red-700 mb-4">
-                    {formatDuration(recordingDuration)} / 5:00
+
+                  <div className="text-3xl font-mono font-bold text-red-700 mb-2">
+                    {formatDuration(recordingDuration)} / {formatDuration(maxRecordingTime)}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full max-w-md mx-auto mb-4">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${recordingDuration / maxRecordingTime > 0.9 ? 'bg-red-600' : recordingDuration / maxRecordingTime > 0.7 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                        style={{ width: `${Math.min(100, (recordingDuration / maxRecordingTime) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-600 mt-1">
+                      <span>Estimated: {estimatedSize.toFixed(1)} MB</span>
+                      <span className={recordingDuration / maxRecordingTime > 0.9 ? 'text-red-600 font-bold' : ''}>
+                        {formatDuration(maxRecordingTime - recordingDuration)} remaining
+                      </span>
+                    </div>
                   </div>
 
                   {/* Audio Waveform */}
