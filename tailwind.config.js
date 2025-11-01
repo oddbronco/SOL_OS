@@ -2,7 +2,34 @@
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        primary: {
+          50: '#f0f5ff',
+          100: '#e0ebff',
+          200: '#c7d9ff',
+          300: '#a3bfff',
+          400: '#7a9cff',
+          500: '#5479ff',
+          600: '#3d5cff',
+          700: '#2e47eb',
+          800: '#2639c0',
+          900: '#253597',
+        },
+        accent: {
+          50: '#fef2f2',
+          100: '#fee2e2',
+          200: '#fecaca',
+          300: '#fca5a5',
+          400: '#f87171',
+          500: '#ef4444',
+          600: '#dc2626',
+          700: '#b91c1c',
+          800: '#991b1b',
+          900: '#7f1d1d',
+        },
+      },
+    },
   },
   plugins: [],
 };

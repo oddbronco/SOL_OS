@@ -362,10 +362,10 @@ export const AccessCodeManager: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                  code.is_active ? 'bg-green-100' : 'bg-gray-100'
+                  code.is_active ? 'bg-primary-100' : 'bg-gray-100'
                 }`}>
                   <span className={`font-mono font-bold text-sm ${
-                    code.is_active ? 'text-green-600' : 'text-gray-400'
+                    code.is_active ? 'text-primary-600' : 'text-gray-400'
                   }`}>
                     {code.code.substring(0, 4)}
                   </span>

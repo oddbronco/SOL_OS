@@ -268,7 +268,7 @@ export const InterviewSessionManager: React.FC = () => {
         </Card>
         <Card>
           <div className="text-center">
-            <div className="text-3xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-3xl font-bold text-primary-600">{stats.active}</div>
             <div className="text-sm text-gray-600 mt-1">Active</div>
           </div>
         </Card>

@@ -45,21 +45,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
       description: 'Start a new stakeholder discovery project',
       icon: Plus,
       action: () => onNavigate('/projects'),
-      color: 'bg-green-500'
+      color: 'bg-primary-500'
     },
     {
       title: 'Add Client',
       description: 'Add a new client to your portfolio',
       icon: Users,
       action: () => onNavigate('/clients'),
-      color: 'bg-green-500'
+      color: 'bg-primary-500'
     },
     {
       title: 'View Analytics',
       description: 'See detailed project insights',
       icon: BarChart3,
       action: () => onNavigate('/analytics'),
-      color: 'bg-green-500'
+      color: 'bg-primary-500'
     }
   ];
 
@@ -83,7 +83,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
             <Button 
               icon={Plus}
               onClick={() => onNavigate('/projects')}
-              className="hover:bg-green-700"
+              className="hover:bg-primary-700"
             >
               New Project
             </Button>
@@ -100,7 +100,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
             change={metrics.totalProjects > 0 ? `+${metrics.totalProjects} this month` : 'Get started'}
             changeType="positive"
             icon={Target}
-            iconColor="text-green-500"
+            iconColor="text-primary-500"
           />
           <StatsCard
             title="Active Projects"
@@ -108,7 +108,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
             change={`${metrics.completedProjects} completed`}
             changeType="positive"
             icon={Clock}
-            iconColor="text-green-500"
+            iconColor="text-primary-500"
           />
           <StatsCard
             title="Total Clients"
@@ -116,7 +116,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
             change={metrics.totalClients > 0 ? 'Growing portfolio' : 'Add your first client'}
             changeType="positive"
             icon={Users}
-            iconColor="text-green-500"
+            iconColor="text-primary-500"
           />
           <StatsCard
             title="Avg Completion"
@@ -124,7 +124,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
             change={metrics.avgCompletion > 75 ? 'Excellent progress' : 'Keep going!'}
             changeType={metrics.avgCompletion > 75 ? 'positive' : 'neutral'}
             icon={CheckCircle}
-            iconColor="text-green-500"
+            iconColor="text-primary-500"
           />
         </div>
 
@@ -140,7 +140,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
                   variant="outline" 
                   size="sm"
                   onClick={() => onNavigate('/projects')}
-                  className="hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+                  className="hover:bg-primary-50 hover:border-green-300 hover:text-primary-700"
                 >
                   View All
                 </Button>
@@ -153,7 +153,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
                   <p className="mb-4 text-gray-600">Create your first project to get started</p>
                   <Button 
                     onClick={() => onNavigate('/projects')}
-                    className="hover:bg-green-700"
+                    className="hover:bg-primary-700"
                   >
                     Create Your First Project
                   </Button>
@@ -200,7 +200,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
                         </div>
                         <div className="w-full rounded-full h-2 bg-gray-200">
                           <div 
-                            className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                            className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${project.progress}%` }}
                           />
                         </div>
@@ -239,7 +239,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
                     <button
                       key={index}
                       onClick={action.action}
-                      className="w-full flex items-center p-3 rounded-lg border transition-all hover:shadow-sm hover:border-green-300 border-gray-200 hover:bg-green-50"
+                      className="w-full flex items-center p-3 rounded-lg border transition-all hover:shadow-sm hover:border-green-300 border-gray-200 hover:bg-primary-50"
                       style={{
                         backgroundColor: '#f9fafb',
                         color: '#111827'

@@ -859,10 +859,10 @@ export const QuestionGenerator: React.FC<QuestionGeneratorProps> = ({
 
           {/* Summary */}
           {filteredGroups.length > 0 && (
-            <Card className="bg-green-50 border-green-200">
+            <Card className="bg-primary-50 border-green-200">
               <div className="flex items-center">
-                <Sparkles className="h-5 w-5 text-green-600 mr-2" />
-                <p className="text-sm text-green-800">
+                <Sparkles className="h-5 w-5 text-primary-600 mr-2" />
+                <p className="text-sm text-primary-800">
                   {filterBy === 'person' && selectedStakeholder !== 'all' 
                     ? `Showing ${filteredTotalQuestions} questions for ${selectedStakeholder}`
                     : filterBy === 'category' && selectedCategory !== 'all'

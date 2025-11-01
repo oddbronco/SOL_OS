@@ -104,7 +104,7 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
               <p className="text-sm text-gray-600">Overall Progress</p>
               <p className="text-2xl font-bold text-gray-900">{overallProgress}%</p>
             </div>
-            <CheckCircle className="h-8 w-8 text-green-500" />
+            <CheckCircle className="h-8 w-8 text-primary-500" />
           </div>
         </Card>
         
@@ -114,7 +114,7 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
               <p className="text-sm text-gray-600">Completed</p>
               <p className="text-2xl font-bold text-gray-900">{completedInterviews}</p>
             </div>
-            <CheckCircle className="h-8 w-8 text-green-500" />
+            <CheckCircle className="h-8 w-8 text-primary-500" />
           </div>
         </Card>
         
@@ -220,27 +220,27 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
 
             {/* Session Info */}
             <Card className={`${
-              isDark ? 'bg-green-900/20 border-green-500/30' : 'bg-green-50 border-green-200'
+              isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
             }`}>
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className={`font-medium ${
-                    isDark ? 'text-green-300' : 'text-green-900'
+                    isDark ? 'text-primary-300' : 'text-primary-900'
                   }`}>Session Details</h4>
                   <p className={`text-sm ${
-                    isDark ? 'text-green-200' : 'text-green-700'
+                    isDark ? 'text-green-200' : 'text-primary-700'
                   }`}>
                     Status: {selectedSession.status} • Progress: {selectedSession.completion_percentage}%
                   </p>
                 </div>
                 <div className="text-right">
                   <p className={`text-2xl font-bold ${
-                    isDark ? 'text-green-300' : 'text-green-900'
+                    isDark ? 'text-primary-300' : 'text-primary-900'
                   }`}>
                     {selectedSession.completion_percentage}%
                   </p>
                   <p className={`text-xs ${
-                    isDark ? 'text-green-200' : 'text-green-700'
+                    isDark ? 'text-green-200' : 'text-primary-700'
                   }`}>
                     Complete
                   </p>

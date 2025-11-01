@@ -529,7 +529,7 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
                 
                 <div className="w-full rounded-full h-2 bg-gray-200">
                   <div 
-                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${project.progress}%` }}
                   />
                 </div>
@@ -771,11 +771,11 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="bg-primary-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-green-900">{importFile.name}</p>
-                    <p className="text-sm text-green-700">
+                    <p className="font-medium text-primary-900">{importFile.name}</p>
+                    <p className="text-sm text-primary-700">
                       {(importFile.size / 1024).toFixed(2)} KB
                     </p>
                   </div>

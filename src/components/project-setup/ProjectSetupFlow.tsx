@@ -736,7 +736,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     isCompleted 
-                      ? 'bg-green-600 text-white' 
+                      ? 'bg-primary-600 text-white' 
                       : isActive 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-200 text-gray-600'
@@ -744,14 +744,14 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                     {isCompleted ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                   </div>
                   <span className={`text-sm font-medium hidden sm:block ${
-                    isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                    isActive ? 'text-blue-600' : isCompleted ? 'text-primary-600' : 'text-gray-500'
                   }`}>
                     {step.title}
                   </span>
                 </button>
                 {index < steps.length - 1 && (
                   <div className={`w-8 sm:w-16 h-1 mx-2 sm:mx-4 ${
-                    isCompleted ? 'bg-green-600' : 'bg-gray-200'
+                    isCompleted ? 'bg-primary-600' : 'bg-gray-200'
                   }`} />
                 )}
               </div>
@@ -851,8 +851,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
           {currentStep === 2 && (
             <div>
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FileText className="h-8 w-8 text-green-600" />
+                <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <FileText className="h-8 w-8 text-primary-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Project Overview</h2>
                 <p className="text-gray-600">Review transcript and extracted information</p>
@@ -1114,13 +1114,13 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                     }}
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                       projectData.selectedDocumentTypes.includes(docType.id)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-green-300 hover:bg-green-50'
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-green-300 hover:bg-primary-50'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       {projectData.selectedDocumentTypes.includes(docType.id) ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <CheckCircle className="h-5 w-5 text-primary-600" />
                       ) : (
                         <div className="w-5 h-5 border-2 border-gray-300 rounded"></div>
                       )}
@@ -1136,7 +1136,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                 {/* Add Custom Document Card */}
                 <div
                   onClick={() => setShowCustomDocModal(true)}
-                  className="p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer transition-all hover:border-green-400 hover:bg-green-50 flex flex-col items-center justify-center min-h-[120px]"
+                  className="p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer transition-all hover:border-primary-400 hover:bg-primary-50 flex flex-col items-center justify-center min-h-[120px]"
                 >
                   <Plus className="h-8 w-8 text-gray-400 mb-2" />
                   <h4 className="font-medium text-gray-700 mb-1">Add Custom Document</h4>
@@ -1158,10 +1158,10 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
               )}
 
               {projectData.selectedDocumentTypes.length > 0 && (
-                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="mt-4 p-4 bg-primary-50 border border-green-200 rounded-lg">
                   <div className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                    <p className="text-sm text-green-800">
+                    <CheckCircle className="h-5 w-5 text-primary-600 mr-2" />
+                    <p className="text-sm text-primary-800">
                       {projectData.selectedDocumentTypes.length} document type{projectData.selectedDocumentTypes.length > 1 ? 's' : ''} selected. 
                       Questions will be tailored to gather information for these documents.
                     </p>
@@ -1481,8 +1481,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
           {currentStep === 5 && (
             <div>
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Check className="h-8 w-8 text-green-600" />
+                <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Check className="h-8 w-8 text-primary-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Review & Complete Setup</h2>
                 <p className="text-gray-600">Review all project information before completing setup</p>
@@ -1501,7 +1501,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                   <p className="text-sm text-gray-600">Extracted & Verified</p>
                 </div>
                 <div className="bg-white border border-gray-300 rounded-lg p-6 text-center">
-                  <FileText className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                  <FileText className="h-8 w-8 text-primary-600 mx-auto mb-2" />
                   <h3 className="font-semibold text-gray-900">{projectData.selectedDocumentTypes.length} Document Types</h3>
                   <p className="text-sm text-gray-600">Selected for Generation</p>
                 </div>
@@ -1605,10 +1605,10 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
             </div>
 
             {customDocFile && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="bg-primary-50 border border-green-200 rounded-lg p-3">
                 <div className="flex items-center">
-                  <FileText className="h-5 w-5 text-green-600 mr-2" />
-                  <span className="text-sm text-green-800">
+                  <FileText className="h-5 w-5 text-primary-600 mr-2" />
+                  <span className="text-sm text-primary-800">
                     {customDocFile.name} uploaded successfully
                   </span>
                 </div>

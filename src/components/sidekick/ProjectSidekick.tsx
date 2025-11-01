@@ -512,8 +512,8 @@ ${context.map((c: any, i: number) => `[${i + 1}] ${c.type}: ${c.text}`).join('\n
               </div>
 
               {message.role === 'user' && (
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <UserIcon className="h-5 w-5 text-green-600" />
+                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <UserIcon className="h-5 w-5 text-primary-600" />
                 </div>
               )}
             </div>

@@ -208,7 +208,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ user }
             <div 
               className={`h-2 rounded-full transition-all duration-300 ${
                 isAtLimit(currentUsage.projects, currentPlan?.max_projects || 3)
-                  ? 'bg-red-500' : 'bg-green-500'
+                  ? 'bg-red-500' : 'bg-primary-500'
               }`}
               style={{ 
                 width: `${Math.min(100, (currentUsage.projects / (currentPlan?.max_projects || 3)) * 100)}%` 
@@ -230,7 +230,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ user }
                 Max {currentPlan?.max_stakeholders_per_project || user.subscription.maxStakeholders} per project
               </p>
             </div>
-            <CheckCircle className="h-6 w-6 text-green-500" />
+            <CheckCircle className="h-6 w-6 text-primary-500" />
           </div>
         </Card>
 
@@ -247,7 +247,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ user }
                 Max {currentPlan?.max_questions_per_project || user.subscription.maxQuestions} per project
               </p>
             </div>
-            <CheckCircle className="h-6 w-6 text-green-500" />
+            <CheckCircle className="h-6 w-6 text-primary-500" />
           </div>
         </Card>
       </div>

@@ -70,7 +70,7 @@ export const StakeholderInterviewView: React.FC<StakeholderInterviewViewProps> =
     switch (responseType) {
       case 'video': return 'text-purple-600';
       case 'audio': return 'text-blue-600';
-      case 'file': return 'text-green-600';
+      case 'file': return 'text-primary-600';
       default: return 'text-gray-600';
     }
   };
@@ -173,7 +173,7 @@ export const StakeholderInterviewView: React.FC<StakeholderInterviewViewProps> =
               
               return (
                 <Card key={assignment.id} className={`${
-                  hasResponse ? 'border-green-200 bg-green-50' : 'border-gray-200'
+                  hasResponse ? 'border-green-200 bg-primary-50' : 'border-gray-200'
                 }`}>
                   <div className="space-y-4">
                     {/* Question Header */}

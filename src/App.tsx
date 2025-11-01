@@ -244,8 +244,8 @@ function App() {
                 <div className="space-y-6">
                   {resetSent ? (
                     <div className="text-center">
-                      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Mail className="h-8 w-8 text-green-600" />
+                      <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Mail className="h-8 w-8 text-primary-600" />
                       </div>
                       <h3 className="text-lg font-medium text-gray-900 mb-2">Check your email</h3>
                       <p className="text-gray-600 mb-6">
@@ -299,7 +299,7 @@ function App() {
                             setShowForgotPassword(false);
                             setResetEmail('');
                           }}
-                          className="text-green-400 hover:text-green-300 font-medium"
+                          className="text-primary-400 hover:text-primary-300 font-medium"
                         >
                           Back to Sign In
                         </button>
@@ -358,7 +358,7 @@ function App() {
                         setNewPassword('');
                         setConfirmPassword('');
                       }}
-                      className="text-green-400 hover:text-green-300 font-medium"
+                      className="text-primary-400 hover:text-primary-300 font-medium"
                     >
                       Back to Sign In
                     </button>
@@ -432,7 +432,7 @@ function App() {
                       <button
                         type="button"
                         onClick={() => setShowForgotPassword(true)}
-                        className="text-sm text-green-400 hover:text-green-300"
+                        className="text-sm text-primary-400 hover:text-primary-300"
                       >
                         Forgot your password?
                       </button>
@@ -449,7 +449,7 @@ function App() {
                 <div className="mt-6 text-center">
                   <button
                     onClick={() => setIsSignUp(!isSignUp)}
-                    className="text-green-400 hover:text-green-300 font-medium"
+                    className="text-primary-400 hover:text-primary-300 font-medium"
                   >
                     {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
                   </button>

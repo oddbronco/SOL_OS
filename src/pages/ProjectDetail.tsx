@@ -725,7 +725,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === tab.id
-                        ? 'border-green-500 text-green-600'
+                        ? 'border-primary-500 text-primary-600'
                         : isDark
                           ? 'border-transparent text-white hover:text-gray-300 hover:border-gray-600'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -757,7 +757,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   </div>
                   <div className={`w-full rounded-full h-2 ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
                     <div 
-                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${project.progress}%` }}
                     />
                   </div>
@@ -766,7 +766,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
               <Card>
                 <div className="flex items-center space-x-3 mb-4">
-                  <Calendar className="h-5 w-5 text-green-600" />
+                  <Calendar className="h-5 w-5 text-primary-600" />
                   <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Timeline</h3>
                 </div>
                 <div className="space-y-2">
@@ -1064,7 +1064,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               Project Description
             </label>
             <textarea
-              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                 isDark 
                   ? 'border-gray-600 text-white placeholder-gray-400 bg-gray-800' 
                   : 'border-gray-300 text-gray-900 placeholder-gray-500 bg-white'
@@ -1375,20 +1375,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         {selectedStakeholderForUpload && (
           <div className="space-y-6">
             <div className={`rounded-lg p-4 ${
-              isDark ? 'bg-green-900/20 border border-green-500/30' : 'bg-green-50 border border-green-200'
+              isDark ? 'bg-green-900/20 border border-primary-500/30' : 'bg-primary-50 border border-green-200'
             }`}>
               <h4 className={`font-medium mb-2 ${
-                isDark ? 'text-green-300' : 'text-green-800'
+                isDark ? 'text-primary-300' : 'text-primary-800'
               }`}>
                 Response for {selectedStakeholderForUpload.name}
               </h4>
               <p className={`text-sm ${
-                isDark ? 'text-green-200' : 'text-green-700'
+                isDark ? 'text-green-200' : 'text-primary-700'
               }`}>
                 {selectedStakeholderForUpload.role} • {selectedStakeholderForUpload.department}
               </p>
               <p className={`text-xs mt-1 ${
-                isDark ? 'text-green-200' : 'text-green-700'
+                isDark ? 'text-green-200' : 'text-primary-700'
               }`}>
                 <strong>Note:</strong> This response will be added to their existing answers (additive, not replacing)
               </p>
@@ -1437,20 +1437,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
               {responseData.file && (
                 <Card className={`${
-                  isDark ? 'bg-green-900/20 border-green-500/30' : 'bg-green-50 border-green-200'
+                  isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
                 }`}>
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-green-600" />
+                    <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-primary-600" />
                     </div>
                     <div className="flex-1">
                       <p className={`font-medium ${
-                        isDark ? 'text-green-300' : 'text-green-900'
+                        isDark ? 'text-primary-300' : 'text-primary-900'
                       }`}>
                         {responseData.file.name}
                       </p>
                       <p className={`text-sm ${
-                        isDark ? 'text-green-200' : 'text-green-700'
+                        isDark ? 'text-green-200' : 'text-primary-700'
                       }`}>
                         File uploaded successfully
                       </p>
@@ -1474,7 +1474,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   Main Response (copy/paste or auto-filled from file)
                 </label>
                 <textarea
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                     isDark 
                       ? 'border-gray-600 text-white placeholder-gray-400 bg-gray-800' 
                       : 'border-gray-300 text-gray-900 placeholder-gray-500 bg-white'
@@ -1493,7 +1493,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                   Additional Notes (for info that doesn't fit specific questions)
                 </label>
                 <textarea
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                     isDark 
                       ? 'border-gray-600 text-white placeholder-gray-400 bg-gray-800' 
                       : 'border-gray-300 text-gray-900 placeholder-gray-500 bg-white'

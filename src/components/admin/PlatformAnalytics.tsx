@@ -243,11 +243,11 @@ export const PlatformAnalytics: React.FC = () => {
           <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
           <div className="text-2xl font-bold text-gray-900">{stats.totalUsers}</div>
           <div className="text-sm text-gray-600">Total Users</div>
-          <div className="text-xs text-green-600 mt-1">+{stats.newUsersThisMonth} this month</div>
+          <div className="text-xs text-primary-600 mt-1">+{stats.newUsersThisMonth} this month</div>
         </Card>
 
         <Card padding="sm" className="text-center">
-          <Building2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
+          <Building2 className="h-8 w-8 mx-auto mb-2 text-primary-500" />
           <div className="text-2xl font-bold text-gray-900">{stats.totalCompanies}</div>
           <div className="text-sm text-gray-600">Companies</div>
           <div className="text-xs text-blue-600 mt-1">{stats.activeUsers} active users</div>
@@ -257,7 +257,7 @@ export const PlatformAnalytics: React.FC = () => {
           <FolderOpen className="h-8 w-8 mx-auto mb-2 text-purple-500" />
           <div className="text-2xl font-bold text-gray-900">{stats.totalProjects}</div>
           <div className="text-sm text-gray-600">Projects</div>
-          <div className="text-xs text-green-600 mt-1">+{stats.newProjectsThisMonth} this month</div>
+          <div className="text-xs text-primary-600 mt-1">+{stats.newProjectsThisMonth} this month</div>
         </Card>
 
         <Card padding="sm" className="text-center">
@@ -336,7 +336,7 @@ export const PlatformAnalytics: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">New This Month</span>
-              <span className="font-medium text-green-600">+{stats.newUsersThisMonth}</span>
+              <span className="font-medium text-primary-600">+{stats.newUsersThisMonth}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
@@ -363,11 +363,11 @@ export const PlatformAnalytics: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Completed Projects</span>
-              <span className="font-medium text-green-600">{stats.completedProjects}</span>
+              <span className="font-medium text-primary-600">{stats.completedProjects}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${stats.avgProjectCompletion}%` }}
               />
             </div>
@@ -405,8 +405,8 @@ export const PlatformAnalytics: React.FC = () => {
           </div>
 
           <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <FileText className="h-8 w-8 text-green-600" />
+            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <FileText className="h-8 w-8 text-primary-600" />
             </div>
             <div className="text-2xl font-bold text-gray-900">{stats.totalDocuments}</div>
             <div className="text-sm text-gray-600">Generated Documents</div>
@@ -433,11 +433,11 @@ export const PlatformAnalytics: React.FC = () => {
         <Card>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Summary</h3>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-900">
+            <div className="text-center p-4 bg-primary-50 rounded-lg">
+              <div className="text-2xl font-bold text-primary-900">
                 ${usageByPlan.reduce((sum, plan) => sum + plan.revenue, 0)}
               </div>
-              <div className="text-sm text-green-700">Monthly Recurring Revenue</div>
+              <div className="text-sm text-primary-700">Monthly Recurring Revenue</div>
             </div>
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <div className="text-2xl font-bold text-blue-900">

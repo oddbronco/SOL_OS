@@ -214,7 +214,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectId, onB
               </div>
               <div className={`w-full rounded-full h-2 ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
                 <div 
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${project.progress}%` }}
                 />
               </div>
@@ -223,7 +223,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectId, onB
 
           <Card>
             <div className="flex items-center space-x-3 mb-4">
-              <Calendar className="h-5 w-5 text-green-600" />
+              <Calendar className="h-5 w-5 text-primary-600" />
               <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Timeline</h3>
             </div>
             <div className="space-y-2">
@@ -413,7 +413,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectId, onB
           <Card>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <FileText className="h-5 w-5 text-green-600" />
+                <FileText className="h-5 w-5 text-primary-600" />
                 <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   Documents ({documents.length})
                 </h3>
@@ -474,7 +474,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectId, onB
               Project Description
             </label>
             <textarea
-              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                 isDark 
                   ? 'border-gray-600 text-white placeholder-gray-400' 
                   : 'border-gray-300 text-gray-900 placeholder-gray-500'

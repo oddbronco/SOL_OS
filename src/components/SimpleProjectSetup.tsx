@@ -195,8 +195,8 @@ export const SimpleProjectSetup: React.FC<SimpleProjectSetupProps> = ({ onComple
       {/* Step 2: Upload Transcript */}
       {step === 2 && (
         <Card className="text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Upload className="h-8 w-8 text-green-600" />
+          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Upload className="h-8 w-8 text-primary-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Kickoff Call</h2>
           <p className="text-gray-600 mb-6">Upload your discovery call recording or transcript</p>
@@ -327,10 +327,10 @@ export const SimpleProjectSetup: React.FC<SimpleProjectSetupProps> = ({ onComple
                 ))}
               </div>
 
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <div className="bg-primary-50 border border-green-200 rounded-lg p-4 mb-6">
                 <div className="flex items-center">
-                  <Sparkles className="h-5 w-5 text-green-600 mr-2" />
-                  <p className="text-sm text-green-800">
+                  <Sparkles className="h-5 w-5 text-primary-600 mr-2" />
+                  <p className="text-sm text-primary-800">
                     Ready to send {projectData.stakeholders.length} personalized interview invites
                   </p>
                 </div>

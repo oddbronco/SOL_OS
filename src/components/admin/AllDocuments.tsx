@@ -203,7 +203,7 @@ export const AllDocuments: React.FC = () => {
           <div className="text-sm text-gray-600">Total Documents</div>
         </Card>
         <Card padding="sm" className="text-center">
-          <div className="text-2xl font-bold text-green-600">{documentsThisMonth}</div>
+          <div className="text-2xl font-bold text-primary-600">{documentsThisMonth}</div>
           <div className="text-sm text-gray-600">This Month</div>
         </Card>
         <Card padding="sm" className="text-center">

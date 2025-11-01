@@ -458,7 +458,7 @@ export const UserManagement: React.FC = () => {
           <div className="text-sm text-gray-600">Total Users</div>
         </Card>
         <Card padding="sm" className="text-center">
-          <div className="text-2xl font-bold text-green-600">{activeUsers}</div>
+          <div className="text-2xl font-bold text-primary-600">{activeUsers}</div>
           <div className="text-sm text-gray-600">Active Users</div>
         </Card>
         <Card padding="sm" className="text-center">

@@ -27,14 +27,14 @@ export const Button: React.FC<ButtonProps> = ({
   
   const getVariantClasses = () => {
     const variants = {
-      primary: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-sm',
-      secondary: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-sm',
-      outline: isDark 
-        ? 'border-2 border-gray-600 text-gray-300 hover:bg-green-900/20 hover:border-green-500 hover:text-green-400 focus:ring-green-500'
-        : 'border-2 border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700 focus:ring-green-500',
+      primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-sm',
+      secondary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-sm',
+      outline: isDark
+        ? 'border-2 border-gray-600 text-gray-300 hover:bg-primary-900/20 hover:border-primary-500 hover:text-primary-400 focus:ring-primary-500'
+        : 'border-2 border-gray-300 text-gray-700 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 focus:ring-primary-500',
       ghost: isDark
-        ? 'text-gray-400 hover:text-green-400 hover:bg-green-900/20 focus:ring-green-500'
-        : 'text-gray-600 hover:text-green-700 hover:bg-green-50 focus:ring-green-500',
+        ? 'text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 focus:ring-primary-500'
+        : 'text-gray-600 hover:text-primary-700 hover:bg-primary-50 focus:ring-primary-500',
       danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm'
     };
     return variants[variant];

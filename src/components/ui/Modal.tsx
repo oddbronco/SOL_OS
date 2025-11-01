@@ -39,7 +39,7 @@ export const Modal: React.FC<ModalProps> = ({
           <div className="absolute top-0 right-0 pt-4 pr-4">
             <button
               type="button"
-              className={`rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
+              className={`rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
                 isDark 
                   ? 'bg-gray-800 text-gray-400 hover:text-white' 
                   : 'bg-white text-gray-500 hover:text-gray-700'

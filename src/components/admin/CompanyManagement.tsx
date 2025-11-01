@@ -251,7 +251,7 @@ export const CompanyManagement: React.FC = () => {
           <div className="text-sm text-gray-600">Total Companies</div>
         </Card>
         <Card padding="sm" className="text-center">
-          <div className="text-2xl font-bold text-green-600">{activeCompanies}</div>
+          <div className="text-2xl font-bold text-primary-600">{activeCompanies}</div>
           <div className="text-sm text-gray-600">Active Companies</div>
         </Card>
         <Card padding="sm" className="text-center">

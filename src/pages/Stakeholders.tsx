@@ -119,7 +119,7 @@ export const Stakeholders: React.FC = () => {
   const getStatusIcon = (status: Stakeholder['status']) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-primary-600" />;
       case 'in_progress':
         return <Clock className="h-4 w-4 text-blue-600" />;
       case 'invited':
@@ -288,7 +288,7 @@ export const Stakeholders: React.FC = () => {
                         <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                           <div 
                             className={`h-2 rounded-full ${
-                              stakeholder.status === 'completed' ? 'bg-green-600' : 
+                              stakeholder.status === 'completed' ? 'bg-primary-600' : 
                               stakeholder.status === 'in_progress' ? 'bg-blue-600' : 
                               stakeholder.status === 'invited' ? 'bg-yellow-600' : 'bg-gray-400'
                             }`}
@@ -391,14 +391,14 @@ export const Stakeholders: React.FC = () => {
           </div>
           
           {responseFile && (
-            <Card className="bg-green-50 border-green-200">
+            <Card className="bg-primary-50 border-green-200">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <FileText className="h-5 w-5 text-green-600" />
+                <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-primary-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-green-900">{responseFile.name}</p>
-                  <p className="text-sm text-green-700">File uploaded successfully</p>
+                  <p className="font-medium text-primary-900">{responseFile.name}</p>
+                  <p className="text-sm text-primary-700">File uploaded successfully</p>
                 </div>
               </div>
             </Card>

@@ -92,20 +92,20 @@ export const ApiKeySetup: React.FC<ApiKeySetupProps> = ({
         {/* Current Status */}
         {hasApiKey && (
           <Card className={`${
-            isDark ? 'bg-green-900/20 border-green-500/30' : 'bg-green-50 border-green-200'
+            isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
           }`}>
             <div className="flex items-center space-x-3">
               <CheckCircle className={`h-5 w-5 ${
-                isDark ? 'text-green-400' : 'text-green-600'
+                isDark ? 'text-primary-400' : 'text-primary-600'
               }`} />
               <div>
                 <p className={`font-medium ${
-                  isDark ? 'text-green-300' : 'text-green-800'
+                  isDark ? 'text-primary-300' : 'text-primary-800'
                 }`}>
                   API Key Configured
                 </p>
                 <p className={`text-sm ${
-                  isDark ? 'text-green-200' : 'text-green-700'
+                  isDark ? 'text-green-200' : 'text-primary-700'
                 }`}>
                   All AI features are available and ready to use.
                 </p>

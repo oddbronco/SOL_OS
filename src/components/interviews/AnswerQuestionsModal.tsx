@@ -948,7 +948,7 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
               
               return (
                 <Card key={question.id} className={`${
-                  hasResponses ? 'border-green-200 bg-green-50' : 'border-gray-200'
+                  hasResponses ? 'border-green-200 bg-primary-50' : 'border-gray-200'
                 }`}>
                   <div className="space-y-4">
                     {/* Question Header */}
@@ -1091,13 +1091,13 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
 
           {/* Complete Interview */}
           {completedQuestions === questions.length && (
-            <Card className="bg-green-50 border-green-200 text-center">
+            <Card className="bg-primary-50 border-green-200 text-center">
               <div className="py-6">
-                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-600" />
-                <h3 className="text-lg font-medium text-green-900 mb-2">
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-primary-600" />
+                <h3 className="text-lg font-medium text-primary-900 mb-2">
                   All Questions Completed!
                 </h3>
-                <p className="text-green-700 mb-4">
+                <p className="text-primary-700 mb-4">
                   You've provided responses to all {questions.length} questions with {totalResponses} total responses.
                 </p>
                 <Button
@@ -1178,9 +1178,9 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
 
         {/* Existing Responses */}
         {currentQuestionResponses.length > 0 && (
-          <Card className="bg-green-50 border-green-200">
+          <Card className="bg-primary-50 border-green-200">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-medium text-green-900">
+              <h4 className="font-medium text-primary-900">
                 Existing Responses ({currentQuestionResponses.length})
               </h4>
             </div>
@@ -1285,7 +1285,7 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
                     )}
                   </div>
                   <textarea
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     rows={4}
                     value={text}
                     onChange={(e) => updateTextResponse(index, e.target.value)}
@@ -1351,9 +1351,9 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
               )}
 
               {recordingBlob && recordingUrl && (
-                <div className="space-y-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                <div className="space-y-4 p-4 bg-primary-50 border-2 border-green-200 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-green-900">Audio Recording Complete</h4>
+                    <h4 className="font-medium text-primary-900">Audio Recording Complete</h4>
                     <Button variant="outline" size="sm" onClick={discardRecording} icon={RotateCcw}>
                       Record Again
                     </Button>
@@ -1366,14 +1366,14 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
                     preload="metadata"
                   />
 
-                  <div className="text-sm text-green-700 text-center">
+                  <div className="text-sm text-primary-700 text-center">
                     Duration: {formatDuration(recordingDuration)} • Size: {formatFileSize(recordingBlob.size)} MB
                   </div>
 
                   {transcribing && (
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto mb-2"></div>
-                      <p className="text-sm text-green-700">Transcribing audio...</p>
+                      <p className="text-sm text-primary-700">Transcribing audio...</p>
                     </div>
                   )}
                 </div>
@@ -1442,9 +1442,9 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
               )}
 
               {recordingBlob && recordingUrl && (
-                <div className="space-y-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                <div className="space-y-4 p-4 bg-primary-50 border-2 border-green-200 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-green-900">Video Recording Complete</h4>
+                    <h4 className="font-medium text-primary-900">Video Recording Complete</h4>
                     <Button variant="outline" size="sm" onClick={discardRecording} icon={RotateCcw}>
                       Record Again
                     </Button>
@@ -1457,14 +1457,14 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
                     preload="metadata"
                   />
 
-                  <div className="text-sm text-green-700 text-center">
+                  <div className="text-sm text-primary-700 text-center">
                     Duration: {formatDuration(recordingDuration)} • Size: {formatFileSize(recordingBlob.size)} MB
                   </div>
 
                   {transcribing && (
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto mb-2"></div>
-                      <p className="text-sm text-green-700">Transcribing video...</p>
+                      <p className="text-sm text-primary-700">Transcribing video...</p>
                     </div>
                   )}
                 </div>
@@ -1504,12 +1504,12 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
               {uploadedFiles.length > 0 && (
                 <div className="space-y-3">
                   {uploadedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
+                    <div key={index} className="flex items-center justify-between p-3 bg-primary-50 border border-green-200 rounded">
                       <div className="flex items-center space-x-3">
-                        <Upload className="h-6 w-6 text-green-600" />
+                        <Upload className="h-6 w-6 text-primary-600" />
                         <div>
-                          <p className="font-medium text-green-900">{file.name}</p>
-                          <p className="text-sm text-green-700">
+                          <p className="font-medium text-primary-900">{file.name}</p>
+                          <p className="text-sm text-primary-700">
                             {formatFileSize(file.size)} MB
                           </p>
                         </div>
@@ -1583,7 +1583,7 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
                 onClick={completeInterview}
                 loading={saving}
                 icon={CheckCircle}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-primary-600 hover:bg-primary-700"
                 size="lg"
               >
                 Complete Interview

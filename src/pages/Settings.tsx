@@ -239,7 +239,7 @@ export const Settings: React.FC = () => {
                 isDark ? 'text-gray-300' : 'text-gray-700'
               }`}>Company Description</label>
               <textarea
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                   isDark 
                     ? 'border-gray-600 text-white placeholder-gray-400' 
                     : 'border-gray-300 text-gray-900 placeholder-gray-500'
@@ -267,18 +267,18 @@ export const Settings: React.FC = () => {
         return (
           <div className="space-y-6">
             <Card className={hasApiKey 
-              ? isDark ? 'bg-green-900/20 border-green-500/30' : 'bg-green-50 border-green-200'
+              ? isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
               : isDark ? 'bg-yellow-900/20 border-yellow-500/30' : 'bg-yellow-50 border-yellow-200'
             }>
               <div className="flex items-center">
                 <Key className={`h-5 w-5 mr-2 ${
                   hasApiKey 
-                    ? isDark ? 'text-green-400' : 'text-green-600'
+                    ? isDark ? 'text-primary-400' : 'text-primary-600'
                     : isDark ? 'text-yellow-400' : 'text-yellow-600'
                 }`} />
                 <p className={`text-sm ${
                   hasApiKey 
-                    ? isDark ? 'text-green-300' : 'text-green-800'
+                    ? isDark ? 'text-primary-300' : 'text-primary-800'
                     : isDark ? 'text-yellow-300' : 'text-yellow-800'
                 }`}>
                   {hasApiKey 
@@ -416,7 +416,7 @@ export const Settings: React.FC = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                     activeTab === tab.id
-                      ? 'bg-green-600 text-white'
+                      ? 'bg-primary-600 text-white'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >

@@ -230,7 +230,7 @@ export const SubscriptionRequestManager: React.FC = () => {
             <div className="text-sm text-gray-600">Pending</div>
           </Card>
           <Card padding="sm" className="text-center">
-            <div className="text-2xl font-bold text-green-600">{completedCount}</div>
+            <div className="text-2xl font-bold text-primary-600">{completedCount}</div>
             <div className="text-sm text-gray-600">Completed</div>
           </Card>
           <Card padding="sm" className="text-center">
@@ -267,11 +267,11 @@ export const SubscriptionRequestManager: React.FC = () => {
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
               <div className="flex items-start space-x-4 flex-1 min-w-0">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  request.request_type === 'upgrade' ? 'bg-green-100' :
+                  request.request_type === 'upgrade' ? 'bg-primary-100' :
                   request.request_type === 'cancel' ? 'bg-red-100' : 'bg-yellow-100'
                 }`}>
                   <User className={`h-6 w-6 ${
-                    request.request_type === 'upgrade' ? 'text-green-600' :
+                    request.request_type === 'upgrade' ? 'text-primary-600' :
                     request.request_type === 'cancel' ? 'text-red-600' : 'text-yellow-600'
                   }`} />
                 </div>

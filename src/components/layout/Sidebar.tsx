@@ -86,8 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user,
                   onClick={() => onNavigate(item.path)}
                   className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-gray-900 text-white'
-                      : 'text-gray-600 hover:bg-green-50 hover:text-green-700'
+                      ? 'bg-primary-600 text-white'
+                      : 'text-gray-600 hover:bg-primary-50 hover:text-primary-700'
                   }`}
                 >
                   <Icon className="h-5 w-5 mr-3" />
@@ -109,7 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user,
       >
         <div className="mb-3">
           <div className="flex items-center space-x-2 mb-2">
-            <Crown className="h-4 w-4 text-green-500" />
+            <Crown className="h-4 w-4 text-primary-500" />
             <Badge variant={user.subscription.status === 'active' ? 'success' : 'warning'}>
               {user.subscription.plan}
             </Badge>
@@ -139,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user,
         
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 hover:bg-green-50 hover:text-green-700"
+          className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 hover:bg-primary-50 hover:text-primary-700"
         >
           <LogOut className="h-4 w-4 mr-3" />
           Sign Out

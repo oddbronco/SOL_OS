@@ -239,7 +239,7 @@ export const AllStakeholders: React.FC = () => {
           <div className="text-sm text-gray-600">Total Stakeholders</div>
         </Card>
         <Card padding="sm" className="text-center">
-          <div className="text-2xl font-bold text-green-600">{completedStakeholders}</div>
+          <div className="text-2xl font-bold text-primary-600">{completedStakeholders}</div>
           <div className="text-sm text-gray-600">Completed</div>
         </Card>
         <Card padding="sm" className="text-center">

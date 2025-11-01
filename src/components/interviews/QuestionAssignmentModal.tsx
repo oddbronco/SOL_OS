@@ -198,8 +198,8 @@ export const QuestionAssignmentModal: React.FC<QuestionAssignmentModalProps> = (
 
         {/* Add Custom Question Form */}
         {showAddCustom && (
-          <Card className="bg-green-50 border-green-200">
-            <h4 className="font-medium text-green-900 mb-4">Add Custom Question</h4>
+          <Card className="bg-primary-50 border-green-200">
+            <h4 className="font-medium text-primary-900 mb-4">Add Custom Question</h4>
             <div className="space-y-4">
               <Input
                 label="Question Text"
@@ -272,7 +272,7 @@ export const QuestionAssignmentModal: React.FC<QuestionAssignmentModalProps> = (
                       key={question.id}
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                         isSelected 
-                          ? 'border-green-500 bg-green-50' 
+                          ? 'border-primary-500 bg-primary-50' 
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                       onClick={() => handleQuestionToggle(question.id)}

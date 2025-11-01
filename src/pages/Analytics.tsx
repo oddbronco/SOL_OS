@@ -130,7 +130,7 @@ export const Analytics: React.FC = () => {
             change="+8 this week"
             changeType="positive"
             icon={Users}
-            iconColor="text-green-600"
+            iconColor="text-primary-600"
           />
           <StatsCard
             title="Avg Response Time"
@@ -146,7 +146,7 @@ export const Analytics: React.FC = () => {
             change="+12% from last month"
             changeType="positive"
             icon={CheckCircle}
-            iconColor="text-green-600"
+            iconColor="text-primary-600"
           />
         </div>
 
@@ -204,7 +204,7 @@ export const Analytics: React.FC = () => {
                         <div className="w-16 bg-gray-200 rounded-full h-1">
                           <div 
                             className={`h-1 rounded-full transition-all duration-300 ${
-                              stakeholder.completion === 100 ? 'bg-green-500' : 
+                              stakeholder.completion === 100 ? 'bg-primary-500' : 
                               stakeholder.completion >= 60 ? 'bg-blue-500' : 'bg-yellow-500'
                             }`}
                             style={{ width: `${stakeholder.completion}%` }}
@@ -278,7 +278,7 @@ export const Analytics: React.FC = () => {
                 <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                   <div 
                     className={`h-2 rounded-full transition-all duration-500 ease-out ${
-                      project.completion === 100 ? 'bg-green-600' : 
+                      project.completion === 100 ? 'bg-primary-600' : 
                       project.completion >= 50 ? 'bg-blue-600' : 'bg-yellow-600'
                     }`}
                     style={{ width: `${project.completion}%` }}

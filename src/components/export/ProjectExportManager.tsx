@@ -335,8 +335,8 @@ This is a **COMPLETE PROJECT BACKUP**. To restore this project:
 
         <Card className="p-6">
           <div className="flex items-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Download className="h-5 w-5 text-green-600" />
+            <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+              <Download className="h-5 w-5 text-primary-600" />
             </div>
             <h3 className="font-semibold text-gray-900">Full Backup</h3>
           </div>

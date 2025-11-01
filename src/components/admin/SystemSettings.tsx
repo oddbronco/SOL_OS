@@ -242,7 +242,7 @@ export const SystemSettings: React.FC = () => {
 
   const getStatusIcon = (status: 'healthy' | 'warning' | 'error') => {
     switch (status) {
-      case 'healthy': return <CheckCircle className="h-6 w-6 text-green-500" />;
+      case 'healthy': return <CheckCircle className="h-6 w-6 text-primary-500" />;
       case 'warning': return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
       case 'error': return <AlertTriangle className="h-6 w-6 text-red-500" />;
     }
@@ -250,7 +250,7 @@ export const SystemSettings: React.FC = () => {
 
   const getStatusColor = (status: 'healthy' | 'warning' | 'error') => {
     switch (status) {
-      case 'healthy': return 'bg-green-50 border-green-200';
+      case 'healthy': return 'bg-primary-50 border-green-200';
       case 'warning': return 'bg-yellow-50 border-yellow-200';
       case 'error': return 'bg-red-50 border-red-200';
     }
@@ -261,7 +261,7 @@ export const SystemSettings: React.FC = () => {
       {/* Status Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <div className={`w-3 h-3 rounded-full ${config.maintenance_mode ? 'bg-red-500' : 'bg-green-500'}`} />
+          <div className={`w-3 h-3 rounded-full ${config.maintenance_mode ? 'bg-red-500' : 'bg-primary-500'}`} />
           <span className={`font-medium ${
             isDark ? 'text-white' : 'text-gray-900'
           }`}>
@@ -427,7 +427,7 @@ export const SystemSettings: React.FC = () => {
       {/* System Limits */}
       <Card>
         <div className="flex items-center space-x-3 mb-6">
-          <Shield className="h-5 w-5 text-green-600" />
+          <Shield className="h-5 w-5 text-primary-600" />
           <h3 className={`text-lg font-semibold ${
             isDark ? 'text-white' : 'text-gray-900'
           }`}>System Limits & Security</h3>
@@ -562,7 +562,7 @@ export const SystemSettings: React.FC = () => {
       {/* Subscription Settings */}
       <Card>
         <div className="flex items-center space-x-3 mb-6">
-          <Settings className="h-5 w-5 text-green-600" />
+          <Settings className="h-5 w-5 text-primary-600" />
           <h3 className={`text-lg font-semibold ${
             isDark ? 'text-white' : 'text-gray-900'
           }`}>Subscription Settings</h3>

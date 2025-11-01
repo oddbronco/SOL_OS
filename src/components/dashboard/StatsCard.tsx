@@ -18,12 +18,12 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   change,
   changeType = 'neutral',
   icon: Icon,
-  iconColor = 'text-green-500'
+  iconColor = 'text-primary-500'
 }) => {
   const { isDark } = useTheme();
 
   const changeColors = {
-    positive: isDark ? 'text-green-400' : 'text-green-600',
+    positive: isDark ? 'text-primary-400' : 'text-primary-600',
     negative: isDark ? 'text-red-400' : 'text-red-600',
     neutral: isDark ? 'text-gray-400' : 'text-gray-600'
   };
@@ -45,7 +45,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
           )}
         </div>
         <div className={`p-3 rounded-lg ${iconColor} ${
-          isDark ? 'bg-green-100' : 'bg-gray-100'
+          isDark ? 'bg-primary-100' : 'bg-gray-100'
         }`}>
           <Icon className="h-6 w-6" />
         </div>

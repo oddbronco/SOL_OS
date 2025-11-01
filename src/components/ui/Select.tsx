@@ -31,14 +31,14 @@ export const Select: React.FC<SelectProps> = ({
       <div className="relative">
         <select
           className={`
-            block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 
-            focus:border-green-500 transition-colors appearance-none
+            block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 
+            focus:border-primary-500 transition-colors appearance-none
             ${error 
               ? 'border-red-500 focus:ring-red-500 focus:border-red-500' + (isDark ? ' bg-red-900/20' : ' bg-red-50')
               : ''
             }
             ${isDark 
-              ? 'border-gray-600 focus:border-green-400 text-white' 
+              ? 'border-gray-600 focus:border-primary-400 text-white' 
               : 'border-gray-300 text-gray-900'
             }
             ${className}

@@ -473,15 +473,15 @@ export const InterviewPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="max-w-md w-full mx-4">
           <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="h-8 w-8 text-primary-600" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Interview Completed</h3>
             <p className="text-gray-600 mb-4">
               Thank you for completing this interview. This link is no longer active.
             </p>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-green-800">
+            <div className="bg-primary-50 border border-green-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-primary-800">
                 Your responses have been recorded and the project team has been notified.
               </p>
             </div>
@@ -714,7 +714,7 @@ export const InterviewPage: React.FC = () => {
               </div>
               <div className="w-32 bg-gray-200 rounded-full h-2 mt-1">
                 <div
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${session.completion_percentage || 0}%` }}
                 />
               </div>
@@ -725,8 +725,8 @@ export const InterviewPage: React.FC = () => {
         {/* Start Interview */}
         {!showQuestions ? (
           <Card className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="h-8 w-8 text-green-600" />
+            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MessageSquare className="h-8 w-8 text-primary-600" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to Begin?</h3>
             <p className="text-gray-600 mb-6">

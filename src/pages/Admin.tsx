@@ -175,7 +175,7 @@ export const Admin: React.FC = () => {
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3 mb-2">
-            <Shield className="h-6 w-6 text-green-600" />
+            <Shield className="h-6 w-6 text-primary-600" />
             <h1 className={`text-xl font-bold ${
               isDark ? 'text-white' : 'text-gray-900'
             }`}>Platform Admin</h1>
@@ -210,7 +210,7 @@ export const Admin: React.FC = () => {
                       onClick={() => setActiveTab(tab.id)}
                       className={`w-full flex items-start p-3 text-left rounded-lg transition-colors ${
                         activeTab === tab.id
-                          ? 'bg-green-600 text-white shadow-sm'
+                          ? 'bg-primary-600 text-white shadow-sm'
                           : isDark 
                             ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
                             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'

@@ -528,13 +528,13 @@ export const CSVUploadManager: React.FC<CSVUploadManagerProps> = ({
           ) : (
             <div className="space-y-4">
               {/* File Info */}
-              <Card className="bg-green-50 border-green-200">
+              <Card className="bg-primary-50 border-green-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <FileText className="h-5 w-5 text-green-600" />
+                    <FileText className="h-5 w-5 text-primary-600" />
                     <div>
-                      <p className="font-medium text-green-900">{selectedFile.name}</p>
-                      <p className="text-sm text-green-700">
+                      <p className="font-medium text-primary-900">{selectedFile.name}</p>
+                      <p className="text-sm text-primary-700">
                         {previewData.length} records found
                       </p>
                     </div>
@@ -597,15 +597,15 @@ export const CSVUploadManager: React.FC<CSVUploadManagerProps> = ({
               {previewData.length > 0 && (() => {
                 const validation = validateData(previewData);
                 return (
-                  <Card className={validation.valid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}>
+                  <Card className={validation.valid ? 'bg-primary-50 border-green-200' : 'bg-red-50 border-red-200'}>
                     <div className="flex items-start space-x-3">
                       {validation.valid ? (
-                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                        <CheckCircle className="h-5 w-5 text-primary-600 mt-0.5" />
                       ) : (
                         <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
                       )}
                       <div>
-                        <h4 className={`font-medium ${validation.valid ? 'text-green-800' : 'text-red-800'}`}>
+                        <h4 className={`font-medium ${validation.valid ? 'text-primary-800' : 'text-red-800'}`}>
                           {validation.valid ? 'Validation Passed' : 'Validation Errors'}
                         </h4>
                         {!validation.valid && (

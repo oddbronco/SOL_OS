@@ -218,7 +218,7 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
                               <div className="flex items-center space-x-2">
                                 <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 max-w-xs">
                                   <div
-                                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                    className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                                     style={{ width: `${session.completion_percentage || 0}%` }}
                                   />
                                 </div>
