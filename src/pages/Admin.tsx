@@ -32,7 +32,7 @@ export const Admin: React.FC = () => {
   if (!accessChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{
-        backgroundColor: isDark ? '#3a3a3a' : '#e8e6e1'
+        backgroundColor: isDark ? '#3a3a3a' : '#f0f4f8'
       }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -46,7 +46,7 @@ export const Admin: React.FC = () => {
   if (!user?.isMasterAdmin && user?.role !== 'master_admin') {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{
-        backgroundColor: isDark ? '#3a3a3a' : '#e8e6e1'
+        backgroundColor: isDark ? '#3a3a3a' : '#f0f4f8'
       }}>
         <Card className="text-center">
           <Shield className="h-12 w-12 mx-auto mb-4 text-red-500" />
@@ -166,7 +166,7 @@ export const Admin: React.FC = () => {
 
   return (
     <div className="min-h-screen flex" style={{
-      backgroundColor: isDark ? '#3a3a3a' : '#e8e6e1'
+      backgroundColor: isDark ? '#3a3a3a' : '#f0f4f8'
     }}>
       {/* Fixed Sidebar - Responsive Width */}
       <div className="w-80 xl:w-96 flex-shrink-0 border-r border-gray-200 overflow-y-auto" style={{
@@ -240,7 +240,7 @@ export const Admin: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Content Header */}
         <div className="border-b px-6 py-4 border-gray-200 flex-shrink-0" style={{
-          backgroundColor: isDark ? '#3a3a3a' : '#e8e6e1'
+          backgroundColor: isDark ? '#3a3a3a' : '#f0f4f8'
         }}>
           <div className="flex items-center justify-between">
             <div>

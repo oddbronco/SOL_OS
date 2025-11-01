@@ -603,7 +603,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
   return (
     <div className="min-h-screen" style={{
-      backgroundColor: isDark ? '#3a3a3a' : '#e8e6e1'
+      backgroundColor: isDark ? '#3a3a3a' : '#f0f4f8'
     }}>
       {/* Header */}
       <div className={`border-b px-6 py-4 ${
@@ -612,7 +612,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           : 'border-gray-200'
       }`}
       style={{
-        backgroundColor: isDark ? '#3a3a3a' : '#e8e6e1'
+        backgroundColor: isDark ? '#3a3a3a' : '#f0f4f8'
       }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">

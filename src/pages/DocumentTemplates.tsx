@@ -192,7 +192,7 @@ export const DocumentTemplates: React.FC = () => {
   // Conditional rendering AFTER all hooks
   if (!user && loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#e8e6e1' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f0f4f8' }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading templates...</p>
@@ -203,15 +203,15 @@ export const DocumentTemplates: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#e8e6e1' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f0f4f8' }}>
         <p className="text-gray-600">Please sign in to view templates.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#e8e6e1' }}>
-      <div className="border-b px-6 py-4 border-gray-200" style={{ backgroundColor: '#e8e6e1' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#f0f4f8' }}>
+      <div className="border-b px-6 py-4 border-gray-200" style={{ backgroundColor: '#f0f4f8' }}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Document Templates</h1>

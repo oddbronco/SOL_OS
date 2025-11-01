@@ -342,12 +342,12 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
 
   return (
     <div className="min-h-screen" style={{
-      backgroundColor: '#e8e6e1'
+      backgroundColor: '#f0f4f8'
     }}>
       {/* Header */}
       <div className="border-b px-6 py-4 border-gray-200"
       style={{
-        backgroundColor: '#e8e6e1'
+        backgroundColor: '#f0f4f8'
       }}>
         <div className="flex items-center justify-between">
           <div>
