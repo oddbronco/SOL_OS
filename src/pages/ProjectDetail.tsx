@@ -23,6 +23,7 @@ import { DocumentRunsManager } from '../components/documents/DocumentRunsManager
 import { ProjectSidekick } from '../components/sidekick/ProjectSidekick';
 import { ProjectExportManager } from '../components/export/ProjectExportManager';
 import { openAIService } from '../services/openai';
+import { useAuth } from '../hooks/useAuth';
 
 interface ProjectDetailProps {
   projectId: string;
@@ -31,6 +32,7 @@ interface ProjectDetailProps {
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack }) => {
   const { isDark } = useTheme();
+  const { user } = useAuth();
   const { 
     getProject, 
     getProjectStakeholders, 
@@ -970,7 +972,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 projectId={project.id}
                 onSuccess={loadProjectData}
                 currentUsage={questions.length}
-                maxQuestions={50}
+                maxQuestions={user?.subscription.maxQuestions || 50}
               />
             </Card>
 
@@ -981,7 +983,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               projectQuestions={questions}
               onSuccess={loadProjectData}
               currentUsage={{ questions: questions.length }}
-              limits={{ maxQuestions: 50 }}
+              limits={{ maxQuestions: user?.subscription.maxQuestions || 50 }}
             />
 
             <div className="flex items-center justify-between">
