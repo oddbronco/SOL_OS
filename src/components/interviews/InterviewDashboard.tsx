@@ -11,7 +11,8 @@ import {
   Upload,
   Video,
   Mic,
-  Eye
+  Eye,
+  Sparkles
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -22,16 +23,19 @@ import { Project } from '../../hooks/useSupabaseData';
 import { InterviewSession } from '../../hooks/useInterviews';
 import { useTheme } from '../../contexts/ThemeContext';
 import { StakeholderInterviewList } from './StakeholderInterviewList';
+import { AIInterviewRoundCreator } from './AIInterviewRoundCreator';
 // Note: We no longer use the old URL format
 
 interface InterviewDashboardProps {
   project: Project | null;
   stakeholders: any[];
   questions: any[];
+  questionCollections?: any[];
   interviewSessions: InterviewSession[];
   onAssignQuestions: (stakeholder: any, session?: InterviewSession) => void;
   onAnswerQuestions: (stakeholder: any) => void;
   onCreateSession: (stakeholder: any, interviewName?: string, interviewType?: string) => void;
+  onCreateAIRound: (assignments: any[]) => Promise<void>;
   onRefresh: () => void;
 }
 
@@ -39,15 +43,18 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
   project,
   stakeholders,
   questions,
+  questionCollections = [],
   interviewSessions,
   onAssignQuestions,
   onAnswerQuestions,
   onCreateSession,
+  onCreateAIRound,
   onRefresh
 }) => {
   const { isDark } = useTheme();
   const [showInterviewLinkModal, setShowInterviewLinkModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState<InterviewSession | null>(null);
+  const [showAIRoundCreator, setShowAIRoundCreator] = useState(false);
 
   // Get all sessions for a stakeholder
   const getStakeholderSessions = (stakeholderId: string): InterviewSession[] => {
@@ -143,13 +150,23 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
       <Card>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Interview Progress</h3>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-          >
-            Refresh
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              icon={Sparkles}
+              size="sm"
+              onClick={() => setShowAIRoundCreator(true)}
+              className="bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
+            >
+              AI Interview Round
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+            >
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -347,6 +364,23 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* AI Interview Round Creator Modal */}
+      <Modal
+        isOpen={showAIRoundCreator}
+        onClose={() => setShowAIRoundCreator(false)}
+        title="Create AI Interview Round"
+        size="xl"
+      >
+        <AIInterviewRoundCreator
+          projectId={project?.id || ''}
+          stakeholders={stakeholders}
+          questions={questions}
+          questionCollections={questionCollections}
+          onCreateRound={onCreateAIRound}
+          onClose={() => setShowAIRoundCreator(false)}
+        />
       </Modal>
     </div>
   );
