@@ -77,45 +77,13 @@ export const SystemSettings: React.FC = () => {
       setLoading(true);
       console.log('⚙️ Loading system configuration...');
 
-      // Load interview rate limiting setting from system_settings
-      const { data: rateLimitSetting } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'interview_rate_limiting_enabled')
-        .maybeSingle();
-
-      // Try to load from a system_config table (if it exists)
-      const { data: configData, error } = await supabase
-        .from('system_config')
-        .select('*')
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        console.warn('⚠️ System config table not found, using defaults');
-      }
-
-      if (configData) {
-        setConfig({
-          ...configData,
-          interview_rate_limiting_enabled: rateLimitSetting?.value ?? true
-        });
+      const savedConfig = localStorage.getItem('system_config');
+      if (savedConfig) {
+        setConfig(JSON.parse(savedConfig));
+        console.log('✅ System config loaded from localStorage');
       } else {
-        // Load from localStorage as fallback
-        const savedConfig = localStorage.getItem('system_config');
-        if (savedConfig) {
-          setConfig({
-            ...JSON.parse(savedConfig),
-            interview_rate_limiting_enabled: rateLimitSetting?.value ?? true
-          });
-        } else if (rateLimitSetting) {
-          setConfig(prev => ({
-            ...prev,
-            interview_rate_limiting_enabled: rateLimitSetting.value
-          }));
-        }
+        console.log('ℹ️ Using default system config');
       }
-
-      console.log('✅ System config loaded');
     } catch (error) {
       console.error('💥 Failed to load system config:', error);
     } finally {
@@ -165,36 +133,8 @@ export const SystemSettings: React.FC = () => {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Save interview rate limiting setting to system_settings
-      const { error: rateLimitError } = await supabase
-        .from('system_settings')
-        .update({
-          value: JSON.stringify(config.interview_rate_limiting_enabled),
-          updated_at: new Date().toISOString(),
-          updated_by: user?.id
-        })
-        .eq('key', 'interview_rate_limiting_enabled');
+      localStorage.setItem('system_config', JSON.stringify(config));
 
-      if (rateLimitError) {
-        console.error('Failed to save rate limit setting:', rateLimitError);
-      }
-
-      // Try to save to system_config table first
-      const { error: dbError } = await supabase
-        .from('system_config')
-        .upsert({
-          id: 1, // Single config row
-          ...config,
-          updated_at: new Date().toISOString()
-        });
-
-      if (dbError) {
-        console.warn('⚠️ Could not save to database, using localStorage:', dbError);
-        // Fallback to localStorage
-        localStorage.setItem('system_config', JSON.stringify(config));
-      }
-
-      // Log the change for audit purposes
       await supabase
         .from('admin_activity_log')
         .insert({
@@ -207,7 +147,7 @@ export const SystemSettings: React.FC = () => {
         });
 
       setLastSaved(new Date().toISOString());
-      console.log('✅ System config saved');
+      console.log('✅ System config saved to localStorage');
       alert('System configuration saved successfully!');
     } catch (error) {
       console.error('💥 Failed to save system config:', error);
