@@ -180,7 +180,7 @@ function App() {
         <div className="flex h-screen w-64 flex-col border-r border-gray-200" style={{ backgroundColor: '#f6f4ef' }}>
           <div className="flex items-center justify-center h-20 border-b border-gray-200 px-4">
             <img
-              src="https://cdn.prod.website-files.com/6793f087a090d6d2f4fc2822/68811a8d090b45917647017b_speak-lightmode.png"
+              src="https://cdn.prod.website-files.com/5f90af0ff6ef7c0d8b8e7e58/690637c1b998350930983727_projectos%20dark.png"
               alt="Speak"
               className="h-16 w-auto max-w-full object-contain"
             />
@@ -230,8 +230,8 @@ function App() {
           <div className="max-w-md w-full mx-4">
             <Card className="shadow-xl">
               <div className="text-center mb-8">
-                <img 
-                  src="https://cdn.prod.website-files.com/6793f087a090d6d2f4fc2822/68811a8d090b45917647017b_speak-lightmode.png"
+                <img
+                  src="https://cdn.prod.website-files.com/5f90af0ff6ef7c0d8b8e7e58/690637c1b998350930983727_projectos%20dark.png"
                   alt="Speak"
                   className="h-16 w-auto mx-auto mb-4"
                 />
