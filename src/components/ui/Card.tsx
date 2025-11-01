@@ -32,7 +32,7 @@ export const Card: React.FC<CardProps> = ({
           : 'bg-white border-gray-200'
       }`}
       style={{
-        backgroundColor: isDark ? '#f6f4ef' : '#f6f4ef',
+        backgroundColor: isDark ? '#ffffff' : '#ffffff',
         color: isDark ? '#2b2b2b' : '#2b2b2b'
       }}
       onClick={onClick}

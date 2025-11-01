@@ -176,8 +176,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex" style={{ backgroundColor: '#f6f4ef' }}>
-        <div className="flex h-screen w-64 flex-col border-r border-gray-200" style={{ backgroundColor: '#f6f4ef' }}>
+      <div className="min-h-screen flex" style={{ backgroundColor: '#ffffff' }}>
+        <div className="flex h-screen w-64 flex-col border-r border-gray-200" style={{ backgroundColor: '#ffffff' }}>
           <div className="flex items-center justify-center h-24 border-b border-gray-200 px-6">
             <img
               src="https://cdn.prod.website-files.com/5f90af0ff6ef7c0d8b8e7e58/690639382791a6aa3f64d980_Untitled%20design%20(1).png"
@@ -493,7 +493,7 @@ function App() {
 
   return (
     <div className="min-h-screen flex" style={{
-      backgroundColor: '#f6f4ef'
+      backgroundColor: '#ffffff'
     }}>
       <Sidebar
         currentPath={currentPath}

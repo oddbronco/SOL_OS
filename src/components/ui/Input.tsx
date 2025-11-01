@@ -50,8 +50,8 @@ export const Input: React.FC<InputProps> = ({
             ${className}
           `}
           style={{
-            backgroundColor: isDark ? '#2b2b2b' : '#f6f4ef',
-            color: isDark ? '#f6f4ef' : '#2b2b2b'
+            backgroundColor: isDark ? '#2b2b2b' : '#ffffff',
+            color: isDark ? '#ffffff' : '#2b2b2b'
           }}
           {...props}
         />

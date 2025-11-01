@@ -61,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user,
   return (
     <div className="flex h-screen w-64 flex-col border-r min-h-full border-gray-200"
     style={{
-      backgroundColor: '#f6f4ef',
+      backgroundColor: '#ffffff',
       minHeight: '100vh'
     }}>
       {/* Logo */}
@@ -103,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user,
       <div 
         className="px-4 py-4 border-t flex-shrink-0 border-gray-200"
         style={{
-          backgroundColor: '#f6f4ef',
+          backgroundColor: '#ffffff',
           minHeight: 'auto'
         }}
       >

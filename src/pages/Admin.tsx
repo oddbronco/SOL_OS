@@ -170,7 +170,7 @@ export const Admin: React.FC = () => {
     }}>
       {/* Fixed Sidebar - Responsive Width */}
       <div className="w-80 xl:w-96 flex-shrink-0 border-r border-gray-200 overflow-y-auto" style={{
-        backgroundColor: isDark ? '#2a2a2a' : '#f6f4ef'
+        backgroundColor: isDark ? '#2a2a2a' : '#ffffff'
       }}>
         {/* Header */}
         <div className="p-6 border-b border-gray-200">

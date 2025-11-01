@@ -245,7 +245,7 @@ export const Settings: React.FC = () => {
                     : 'border-gray-300 text-gray-900 placeholder-gray-500'
                 }`}
                 style={{
-                  backgroundColor: isDark ? '#2b2b2b' : '#f6f4ef'
+                  backgroundColor: isDark ? '#2b2b2b' : '#ffffff'
                 }}
                 rows={4}
                 value={companyData.description}

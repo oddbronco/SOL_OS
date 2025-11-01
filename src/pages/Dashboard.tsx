@@ -169,7 +169,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigat
                           : 'border-gray-200 hover:bg-white'
                       }`}
                       style={{
-                        backgroundColor: isDark ? '#f6f4ef' : '#f9fafb',
+                        backgroundColor: isDark ? '#ffffff' : '#f9fafb',
                         color: isDark ? '#2b2b2b' : '#111827'
                       }}
                       onClick={() => onSelectProject(project.id)}
