@@ -104,6 +104,80 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
 
+  const loadAllResponses = async (questionsData: Question[]) => {
+    try {
+      console.log('📥 Loading all responses...');
+
+      // Get all responses for this stakeholder
+      const { data: responsesData, error } = await supabase
+        .from('interview_responses')
+        .select('*')
+        .eq('stakeholder_id', stakeholder.id)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('❌ Error loading responses:', error);
+        return;
+      }
+
+      // Group responses by question
+      const groupedResponses: Record<string, Response[]> = {};
+      responsesData?.forEach(response => {
+        if (!groupedResponses[response.question_id]) {
+          groupedResponses[response.question_id] = [];
+        }
+        groupedResponses[response.question_id].push(response);
+      });
+
+      setResponses(groupedResponses);
+      console.log('✅ Loaded responses for', Object.keys(groupedResponses).length, 'questions');
+
+    } catch (error) {
+      console.error('💥 Error loading all responses:', error);
+    }
+  };
+
+  const loadQuestions = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Loading questions for stakeholder:', stakeholder?.id);
+      console.log('🎫 Session ID:', session?.id);
+      console.log('🎫 Full session object:', session);
+
+      if (!stakeholder?.id) {
+        console.error('❌ No stakeholder ID available');
+        setLoading(false);
+        return;
+      }
+
+      const assignments = await getStakeholderQuestionAssignments(stakeholder.id, session?.id);
+      console.log('📋 Loaded assignments:', assignments.length);
+      console.log('📋 Assignment details:', assignments);
+
+      if (assignments.length === 0) {
+        console.warn('⚠️ No question assignments found for stakeholder:', stakeholder.id, 'session:', session?.id);
+      }
+
+      const questionsData = assignments.map(a => ({
+        id: a.question_id,
+        text: a.question?.text || '',
+        category: a.question?.category || '',
+        target_roles: a.question?.target_roles || []
+      }));
+
+      console.log('📝 Questions data mapped:', questionsData.length);
+      setQuestions(questionsData);
+
+      // Load all responses for all questions
+      await loadAllResponses(questionsData);
+
+    } catch (error) {
+      console.error('❌ Failed to load questions:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [stakeholder?.id, session?.id, getStakeholderQuestionAssignments]);
+
   // Load questions and responses
   useEffect(() => {
     if (isOpen && stakeholder && session) {
@@ -146,80 +220,6 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
       cleanupRecording();
     };
   }, []);
-
-  const loadQuestions = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      console.log('🔄 Loading questions for stakeholder:', stakeholder?.id);
-      console.log('🎫 Session ID:', session?.id);
-      console.log('🎫 Full session object:', session);
-
-      if (!stakeholder?.id) {
-        console.error('❌ No stakeholder ID available');
-        setLoading(false);
-        return;
-      }
-
-      const assignments = await getStakeholderQuestionAssignments(stakeholder.id, session?.id);
-      console.log('📋 Loaded assignments:', assignments.length);
-      console.log('📋 Assignment details:', assignments);
-
-      if (assignments.length === 0) {
-        console.warn('⚠️ No question assignments found for stakeholder:', stakeholder.id, 'session:', session?.id);
-      }
-
-      const questionsData = assignments.map(a => ({
-        id: a.question_id,
-        text: a.question?.text || '',
-        category: a.question?.category || '',
-        target_roles: a.question?.target_roles || []
-      }));
-
-      console.log('📝 Questions data mapped:', questionsData.length);
-      setQuestions(questionsData);
-
-      // Load all responses for all questions
-      await loadAllResponses(questionsData);
-
-    } catch (error) {
-      console.error('❌ Failed to load questions:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [stakeholder?.id, session?.id]);
-
-  const loadAllResponses = async (questionsData: Question[]) => {
-    try {
-      console.log('📥 Loading all responses...');
-      
-      // Get all responses for this stakeholder
-      const { data: responsesData, error } = await supabase
-        .from('interview_responses')
-        .select('*')
-        .eq('stakeholder_id', stakeholder.id)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('❌ Error loading responses:', error);
-        return;
-      }
-
-      // Group responses by question
-      const groupedResponses: Record<string, Response[]> = {};
-      responsesData?.forEach(response => {
-        if (!groupedResponses[response.question_id]) {
-          groupedResponses[response.question_id] = [];
-        }
-        groupedResponses[response.question_id].push(response);
-      });
-
-      setResponses(groupedResponses);
-      console.log('✅ Loaded responses for', Object.keys(groupedResponses).length, 'questions');
-      
-    } catch (error) {
-      console.error('💥 Error loading all responses:', error);
-    }
-  };
 
   const loadCurrentQuestionResponses = () => {
     const currentQuestion = questions[currentQuestionIndex];
