@@ -17,6 +17,10 @@ interface SubscriptionPlan {
   max_questions_per_project: number;
   max_file_size_mb: number;
   max_recording_minutes: number;
+  max_total_recording_minutes_per_month: number;
+  max_total_storage_gb: number;
+  max_api_calls_per_month: number;
+  max_users_per_customer: number;
   price_monthly: number;
   price_yearly: number;
   features: any;
@@ -40,6 +44,10 @@ export const SubscriptionPlanManager: React.FC = () => {
     max_questions_per_project: 50,
     max_file_size_mb: 100,
     max_recording_minutes: 5,
+    max_total_recording_minutes_per_month: 60,
+    max_total_storage_gb: 5,
+    max_api_calls_per_month: 5000,
+    max_users_per_customer: 3,
     price_monthly: 0,
     price_yearly: 0,
     features: {
@@ -179,6 +187,10 @@ export const SubscriptionPlanManager: React.FC = () => {
       max_questions_per_project: plan.max_questions_per_project,
       max_file_size_mb: plan.max_file_size_mb,
       max_recording_minutes: plan.max_recording_minutes,
+      max_total_recording_minutes_per_month: plan.max_total_recording_minutes_per_month || 60,
+      max_total_storage_gb: plan.max_total_storage_gb || 5,
+      max_api_calls_per_month: plan.max_api_calls_per_month || 5000,
+      max_users_per_customer: plan.max_users_per_customer || 3,
       price_monthly: plan.price_monthly,
       price_yearly: plan.price_yearly,
       features: plan.features || {
@@ -202,6 +214,10 @@ export const SubscriptionPlanManager: React.FC = () => {
       max_questions_per_project: 50,
       max_file_size_mb: 100,
       max_recording_minutes: 5,
+      max_total_recording_minutes_per_month: 60,
+      max_total_storage_gb: 5,
+      max_api_calls_per_month: 5000,
+      max_users_per_customer: 3,
       price_monthly: 0,
       price_yearly: 0,
       features: {
@@ -261,23 +277,76 @@ export const SubscriptionPlanManager: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Input
-          label="Max File Size (MB)"
-          type="number"
-          value={formData.max_file_size_mb}
-          onChange={(e) => setFormData({ ...formData, max_file_size_mb: parseInt(e.target.value) || 0 })}
-          min="1"
-          required
-        />
-        <Input
-          label="Max Recording (Minutes)"
-          type="number"
-          value={formData.max_recording_minutes}
-          onChange={(e) => setFormData({ ...formData, max_recording_minutes: parseInt(e.target.value) || 0 })}
-          min="1"
-          required
-        />
+      <div className="space-y-4">
+        <h3 className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Per-Item Limits
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Max File Size (MB)"
+            type="number"
+            value={formData.max_file_size_mb}
+            onChange={(e) => setFormData({ ...formData, max_file_size_mb: parseInt(e.target.value) || 0 })}
+            min="1"
+            required
+            helperText="Maximum size per uploaded file"
+          />
+          <Input
+            label="Max Recording (Minutes)"
+            type="number"
+            value={formData.max_recording_minutes}
+            onChange={(e) => setFormData({ ...formData, max_recording_minutes: parseInt(e.target.value) || 0 })}
+            min="1"
+            required
+            helperText="Maximum length per individual recording/interview session"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Total/Monthly Limits
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Total Recording Minutes/Month"
+            type="number"
+            value={formData.max_total_recording_minutes_per_month}
+            onChange={(e) => setFormData({ ...formData, max_total_recording_minutes_per_month: parseInt(e.target.value) || 0 })}
+            min="1"
+            required
+            helperText="Cumulative monthly recording time across all projects"
+          />
+          <Input
+            label="Total Storage (GB)"
+            type="number"
+            value={formData.max_total_storage_gb}
+            onChange={(e) => setFormData({ ...formData, max_total_storage_gb: parseInt(e.target.value) || 0 })}
+            min="1"
+            required
+            helperText="Total storage quota for all files"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="API Calls/Month"
+            type="number"
+            value={formData.max_api_calls_per_month}
+            onChange={(e) => setFormData({ ...formData, max_api_calls_per_month: parseInt(e.target.value) || 0 })}
+            min="1"
+            required
+            helperText="Monthly API request limit"
+          />
+          <Input
+            label="Max Users Per Customer"
+            type="number"
+            value={formData.max_users_per_customer}
+            onChange={(e) => setFormData({ ...formData, max_users_per_customer: parseInt(e.target.value) || 0 })}
+            min="1"
+            required
+            helperText="Maximum number of user accounts"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
