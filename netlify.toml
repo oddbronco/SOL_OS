@@ -1,0 +1,74 @@
+# Netlify configuration for Speak Platform
+[build]
+  command = "npm run build"
+  publish = "dist"
+  
+# Site configuration
+[build.environment]
+  NODE_VERSION = "18"
+
+# Branch-specific settings
+[context.production]
+  command = "npm run build"
+  [context.production.environment]
+    VITE_ENVIRONMENT = "production"
+
+[context.deploy-preview]
+  command = "npm run build"
+  [context.deploy-preview.environment]
+    VITE_ENVIRONMENT = "preview"
+
+# Redirect rules for subdomain routing
+# Interview subdomain - for stakeholder interview sessions
+[[redirects]]
+  from = "https://interviews.speakprojects.com/*"
+  to = "https://interviews.speakprojects.com/index.html"
+  status = 200
+
+[[redirects]]
+  from = "https://respond.withspeak.com/*"
+  to = "https://respond.withspeak.com/index.html"
+  status = 200
+
+[[redirects]]
+  from = "https://admin.withspeak.com/*"
+  to = "https://admin.withspeak.com/index.html"
+  status = 200
+
+[[redirects]]
+  from = "https://app.withspeak.com/*"
+  to = "https://app.withspeak.com/index.html"
+  status = 200
+
+# Catch-all redirect for SPA routing (must be last)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://api.openai.com;"
+
+# No-index headers for interview and respond subdomains (SEO protection)
+[[headers]]
+  for = "https://interviews.speakprojects.com/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet, noimageindex"
+
+[[headers]]
+  for = "https://respond.withspeak.com/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet, noimageindex"
+
+# Cache static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
