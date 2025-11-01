@@ -6,13 +6,15 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
 import { useSupabaseData } from '../hooks/useSupabaseData';
+import { ClientCSVUploadManager } from '../components/csv/ClientCSVUploadManager';
 
 export const Clients: React.FC = () => {
-  const { clients, addClient, updateClient, deleteClient } = useSupabaseData();
+  const { clients, addClient, updateClient, deleteClient, loadData } = useSupabaseData();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCSVImport, setShowCSVImport] = useState(false);
   const [newClient, setNewClient] = useState({
     name: '',
     industry: '',
@@ -102,15 +104,39 @@ export const Clients: React.FC = () => {
       </div>
 
       <div className="p-6">
-        {/* Search */}
-        <div className="mb-6">
+        {/* CSV Import */}
+        {showCSVImport && (
+          <div className="mb-6">
+            <Card>
+              <ClientCSVUploadManager
+                onSuccess={() => {
+                  loadData();
+                  setShowCSVImport(false);
+                }}
+              />
+            </Card>
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" onClick={() => setShowCSVImport(false)}>
+                Hide CSV Import
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Search and CSV Button */}
+        <div className="mb-6 flex items-center gap-4">
           <Input
             placeholder="Search clients..."
             icon={Search}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-md"
+            className="flex-1 max-w-md"
           />
+          {!showCSVImport && (
+            <Button variant="outline" onClick={() => setShowCSVImport(true)}>
+              CSV Import
+            </Button>
+          )}
         </div>
 
         {/* Clients Grid */}
