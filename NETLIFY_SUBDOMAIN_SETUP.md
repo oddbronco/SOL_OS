@@ -21,10 +21,8 @@ TTL: 3600 (or automatic)
 Ensure these are set in Netlify's Environment Variables section:
 
 ```
-VITE_BoltDB_URL=https://fwpbmmgupidaxfzmbxvd.supabase.co
-VITE_BoltDB_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-VITE_SUPABASE_URL=https://fwpbmmgupidaxfzmbxvd.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+VITE_SUPABASE_URL=https://bfjyaloyehlwmtqtqnpt.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmanlhbG95ZWhsd210cXRxbnB0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwMDU2MzMsImV4cCI6MjA3NzU4MTYzM30.mHAK3dOTVrka1_mUobNoxycqhLdlILJvkvxTdU9N7TQ
 ```
 
 ### 4. Verify SSL Certificate

@@ -1,8 +1,8 @@
 // Environment configuration
 export const config = {
   supabase: {
-    url: import.meta.env.VITE_BoltDB_URL,
-    anonKey: import.meta.env.VITE_BoltDB_KEY,
+    url: import.meta.env.VITE_SUPABASE_URL,
+    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
   },
   domains: {
     landing: import.meta.env.VITE_LANDING_DOMAIN || 'withspeak.com',
