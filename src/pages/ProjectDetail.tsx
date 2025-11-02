@@ -51,6 +51,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     getProjectInterviewSessions,
     createInterviewSession,
     assignQuestionsToStakeholder,
+    getProjectQuestionAssignments,
     generateInterviewLink
   } = useInterviews();
   
@@ -60,6 +61,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [questionCollections, setQuestionCollections] = useState<any[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [interviewSessions, setInterviewSessions] = useState<InterviewSession[]>([]);
+  const [questionAssignments, setQuestionAssignments] = useState<any[]>([]);
+  const [stakeholderResponses, setStakeholderResponses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -155,11 +158,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       // Load additional data in parallel
       console.log('📊 Loading additional project data...');
 
-      const [stakeholdersData, questionsData, documentsData, interviewSessionsData] = await Promise.all([
+      const [stakeholdersData, questionsData, documentsData, interviewSessionsData, assignmentsData] = await Promise.all([
         getProjectStakeholders(projectId),
         getProjectQuestions(projectId),
         getProjectDocuments(projectId),
-        getProjectInterviewSessions(projectId)
+        getProjectInterviewSessions(projectId),
+        getProjectQuestionAssignments(projectId)
       ]);
 
       // Load question collections for the user's organization
@@ -178,6 +182,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       setQuestions(questionsData);
       setDocuments(documentsData);
       setInterviewSessions(interviewSessionsData);
+      setQuestionAssignments(assignmentsData);
+
+      // Load responses from interview sessions
+      const responses: any[] = [];
+      for (const session of interviewSessionsData) {
+        const { data: sessionResponses } = await supabase
+          .from('stakeholder_responses')
+          .select('*')
+          .eq('interview_session_id', session.id);
+
+        if (sessionResponses) {
+          responses.push(...sessionResponses);
+        }
+      }
+      setStakeholderResponses(responses);
       
       // Set edit data
       setEditProjectData({
@@ -1047,26 +1066,71 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             </div>
 
             <div className="space-y-4">
-              {questions.map((question) => (
-                <Card key={question.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <Badge variant="info">{question.category}</Badge>
-                    <div className="flex space-x-2">
-                      <Button size="sm" variant="ghost" icon={Edit}>Edit</Button>
+              {questions.map((question) => {
+                // Calculate question statistics
+                const assignments = questionAssignments.filter(qa => qa.question_id === question.id);
+                const totalAssigned = assignments.length;
+                const answeredCount = assignments.filter(qa => {
+                  const responses = stakeholderResponses.filter(sr =>
+                    sr.question_id === question.id &&
+                    sr.stakeholder_id === qa.stakeholder_id
+                  );
+                  return responses.length > 0;
+                }).length;
+
+                // Determine status
+                let statusBadge = null;
+                let statusVariant: 'default' | 'warning' | 'info' | 'success' = 'default';
+                let statusText = '';
+
+                if (totalAssigned === 0) {
+                  statusVariant = 'default';
+                  statusText = 'Not Assigned';
+                } else if (answeredCount === 0) {
+                  statusVariant = 'warning';
+                  statusText = `Pending (0/${totalAssigned})`;
+                } else if (answeredCount < totalAssigned) {
+                  statusVariant = 'info';
+                  statusText = `In Progress (${answeredCount}/${totalAssigned})`;
+                } else {
+                  statusVariant = 'success';
+                  statusText = `Complete (${totalAssigned}/${totalAssigned})`;
+                }
+
+                return (
+                  <Card key={question.id}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="info">{question.category}</Badge>
+                        <Badge variant={statusVariant}>{statusText}</Badge>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="ghost" icon={Edit}>Edit</Button>
+                      </div>
                     </div>
-                  </div>
-                  <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {question.text}
-                  </p>
-                  {question.target_roles && question.target_roles.length > 0 && (
-                    <div className="mt-3">
-                      <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Target roles: {question.target_roles.join(', ')}
-                      </p>
-                    </div>
-                  )}
-                </Card>
-              ))}
+                    <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      {question.text}
+                    </p>
+                    {question.target_roles && question.target_roles.length > 0 && (
+                      <div className="mt-3">
+                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Target roles: {question.target_roles.join(', ')}
+                        </p>
+                      </div>
+                    )}
+                    {totalAssigned > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                          Assigned to: {assignments.map(qa => {
+                            const stakeholder = stakeholders.find(s => s.id === qa.stakeholder_id);
+                            return stakeholder?.name;
+                          }).filter(Boolean).join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           </div>
         )}

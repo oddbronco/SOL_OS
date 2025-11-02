@@ -789,12 +789,30 @@ export const useInterviews = () => {
     }
   };
 
+  // Get all question assignments for a project
+  const getProjectQuestionAssignments = async (projectId: string): Promise<QuestionAssignment[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('question_assignments')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('order_index');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching project question assignments:', error);
+      return [];
+    }
+  };
+
   return {
     loading,
     error,
     getProjectInterviewSessions,
     createInterviewSession,
     getStakeholderQuestionAssignments,
+    getProjectQuestionAssignments,
     assignQuestionsToStakeholder,
     createCustomQuestion,
     submitResponse,

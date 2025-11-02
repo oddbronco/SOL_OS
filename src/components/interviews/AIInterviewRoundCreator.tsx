@@ -643,6 +643,51 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
             ))}
           </div>
 
+          {/* Show unassigned questions if any */}
+          {(() => {
+            const allAssignedQuestionIds = new Set<string>();
+            assignments.forEach(a => a.assignedQuestions.forEach(qId => allAssignedQuestionIds.add(qId)));
+
+            const questionsToCheck = sourceType === 'all'
+              ? questions
+              : sourceType === 'collection' && selectedCollectionId
+                ? questionCollections.find(c => c.id === selectedCollectionId)?.questions || []
+                : selectedQuestions.map(id => questions.find(q => q.id === id)).filter(Boolean);
+
+            const unassignedQuestions = questionsToCheck.filter(q => !allAssignedQuestionIds.has(q.id));
+
+            if (unassignedQuestions.length > 0) {
+              return (
+                <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <MessageSquare className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h5 className="font-medium text-orange-900 dark:text-orange-300 mb-2">
+                        {unassignedQuestions.length} Question{unassignedQuestions.length !== 1 ? 's' : ''} Not Assigned by AI
+                      </h5>
+                      <p className="text-sm text-orange-800 dark:text-orange-400 mb-3">
+                        The AI did not assign the following questions. You can manually add them to stakeholders after creating this round.
+                      </p>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {unassignedQuestions.map((q, idx) => (
+                          <div key={q.id} className="text-sm text-orange-900 dark:text-orange-300 bg-white/50 dark:bg-gray-800/50 p-2 rounded">
+                            <span className="font-medium">{idx + 1}.</span> {q.text}
+                            {q.category && (
+                              <span className="ml-2 text-xs text-orange-600 dark:text-orange-500">
+                                ({q.category})
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           <div className="mt-6 flex space-x-3">
             <Button
               onClick={handleCreateRound}
