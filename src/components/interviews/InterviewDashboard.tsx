@@ -33,7 +33,7 @@ interface InterviewDashboardProps {
   questionCollections?: any[];
   interviewSessions: InterviewSession[];
   onAssignQuestions: (stakeholder: any, session?: InterviewSession) => void;
-  onAnswerQuestions: (stakeholder: any) => void;
+  onAnswerQuestions: (stakeholder: any, session: InterviewSession) => void;
   onCreateSession: (stakeholder: any, interviewName?: string, interviewType?: string) => void;
   onCreateAIRound: (assignments: any[]) => Promise<void>;
   onRefresh: () => void;
@@ -357,7 +357,7 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
                 Close
               </Button>
               <Button
-                onClick={() => onAnswerQuestions(selectedSession.stakeholder)}
+                onClick={() => onAnswerQuestions(selectedSession.stakeholder, selectedSession)}
               >
                 Answer Questions
               </Button>

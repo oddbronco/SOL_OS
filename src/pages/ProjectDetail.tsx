@@ -381,8 +381,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     setShowQuestionAssignmentModal(true);
   };
 
-  const handleAnswerQuestions = (stakeholder: Stakeholder) => {
+  const handleAnswerQuestions = (stakeholder: Stakeholder, session: InterviewSession) => {
     setSelectedStakeholder(stakeholder);
+    setSelectedSession(session);
     setShowAnswerQuestionsModal(true);
   };
 
@@ -1773,9 +1774,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         onClose={() => {
           setShowAnswerQuestionsModal(false);
           setSelectedStakeholder(null);
+          setSelectedSession(null);
         }}
         stakeholder={selectedStakeholder}
         project={project}
+        session={selectedSession}
         onSuccess={handleInterviewSuccess}
       />
     </div>
