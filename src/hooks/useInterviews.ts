@@ -248,12 +248,23 @@ export const useInterviews = () => {
         sessionId
       });
 
-      // First, delete all existing assignments for this stakeholder
+      // Delete existing assignments - either for specific session or all for stakeholder
       console.log('🗑️ Deleting existing assignments...');
-      const { error: deleteError, count: deletedCount } = await supabase
+      let deleteQuery = supabase
         .from('question_assignments')
         .delete({ count: 'exact' })
         .eq('stakeholder_id', stakeholderId);
+
+      if (sessionId) {
+        // Only delete assignments for this specific interview session
+        console.log(`  Deleting only for session: ${sessionId}`);
+        deleteQuery = deleteQuery.eq('interview_session_id', sessionId);
+      } else {
+        // Delete all assignments for this stakeholder (backward compatibility)
+        console.log(`  Deleting all assignments for stakeholder`);
+      }
+
+      const { error: deleteError, count: deletedCount } = await deleteQuery;
 
       if (deleteError) {
         console.error('❌ Delete error:', deleteError);
@@ -287,27 +298,46 @@ export const useInterviews = () => {
         console.log('ℹ️ No questions to assign (all were removed)');
       }
 
-      // Update interview session total_questions count if session exists
-      const { data: sessionData } = await supabase
-        .from('interview_sessions')
-        .select('id')
-        .eq('stakeholder_id', stakeholderId)
-        .maybeSingle();
-
-      if (sessionData) {
-        console.log('🔄 Updating interview session total_questions...');
+      // Update interview session total_questions count
+      if (sessionId) {
+        // Update the specific session
+        console.log(`🔄 Updating session ${sessionId} total_questions...`);
         const { error: updateError } = await supabase
           .from('interview_sessions')
           .update({
             total_questions: questionIds.length,
             updated_at: new Date().toISOString()
           })
-          .eq('id', sessionData.id);
+          .eq('id', sessionId);
 
         if (updateError) {
           console.warn('⚠️ Failed to update session total_questions:', updateError);
         } else {
           console.log('✅ Updated session total_questions');
+        }
+      } else {
+        // Update all sessions for this stakeholder (backward compatibility)
+        const { data: sessionData } = await supabase
+          .from('interview_sessions')
+          .select('id')
+          .eq('stakeholder_id', stakeholderId)
+          .maybeSingle();
+
+        if (sessionData) {
+          console.log('🔄 Updating interview session total_questions...');
+          const { error: updateError } = await supabase
+            .from('interview_sessions')
+            .update({
+              total_questions: questionIds.length,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', sessionData.id);
+
+          if (updateError) {
+            console.warn('⚠️ Failed to update session total_questions:', updateError);
+          } else {
+            console.log('✅ Updated session total_questions');
+          }
         }
       }
 

@@ -13,6 +13,7 @@ interface QuestionAssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   stakeholder: any;
+  session?: any;  // Optional: specific interview session
   project: any;
   questions: any[];
   onSuccess: () => void;
@@ -22,6 +23,7 @@ export const QuestionAssignmentModal: React.FC<QuestionAssignmentModalProps> = (
   isOpen,
   onClose,
   stakeholder,
+  session,
   project,
   questions,
   onSuccess
@@ -42,12 +44,13 @@ export const QuestionAssignmentModal: React.FC<QuestionAssignmentModalProps> = (
     if (stakeholder && isOpen) {
       loadExistingAssignments();
     }
-  }, [stakeholder, isOpen]);
+  }, [stakeholder, session, isOpen]);  // Re-load when session changes
 
   const loadExistingAssignments = async () => {
     if (!stakeholder) return;
-    
-    const assignments = await getStakeholderQuestionAssignments(stakeholder.id);
+
+    // Load assignments for specific session or all for stakeholder
+    const assignments = await getStakeholderQuestionAssignments(stakeholder.id, session?.id);
     setExistingAssignments(assignments);
     setSelectedQuestions(assignments.map(a => a.question_id));
   };
@@ -69,6 +72,7 @@ export const QuestionAssignmentModal: React.FC<QuestionAssignmentModalProps> = (
     console.log('🔄 Saving question assignments:', {
       projectId: project.id,
       stakeholderId: stakeholder.id,
+      sessionId: session?.id,
       questionCount: selectedQuestions.length,
       questionIds: selectedQuestions
     });
@@ -78,7 +82,8 @@ export const QuestionAssignmentModal: React.FC<QuestionAssignmentModalProps> = (
       const success = await assignQuestionsToStakeholder(
         project.id,
         stakeholder.id,
-        selectedQuestions
+        selectedQuestions,
+        session?.id  // Pass the session ID if available
       );
 
       console.log('✅ Assignment result:', success);
@@ -145,7 +150,7 @@ export const QuestionAssignmentModal: React.FC<QuestionAssignmentModalProps> = (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Assign Questions - ${stakeholder?.name}`}
+      title={`Assign Questions - ${stakeholder?.name}${session ? ` (${session.interview_name || 'Interview'})` : ''}`}
       size="xl"
     >
       <div className="space-y-6">

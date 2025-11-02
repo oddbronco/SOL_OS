@@ -73,6 +73,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [showAnswerQuestionsModal, setShowAnswerQuestionsModal] = useState(false);
   const [showAnswerModal, setShowAnswerModal] = useState(false);
   const [selectedStakeholder, setSelectedStakeholder] = useState<Stakeholder | null>(null);
+  const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const [showStakeholderInterview, setShowStakeholderInterview] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [generatingDocument, setGeneratingDocument] = useState(false);
@@ -355,8 +356,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     }
   };
 
-  const handleAssignQuestions = (stakeholder: Stakeholder) => {
+  const handleAssignQuestions = (stakeholder: Stakeholder, session?: any) => {
     setSelectedStakeholder(stakeholder);
+    setSelectedSession(session || null);  // Store the session if provided
     setShowQuestionAssignmentModal(true);
   };
 
@@ -1687,14 +1689,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         onClose={() => {
           setShowQuestionAssignmentModal(false);
           setSelectedStakeholder(null);
+          setSelectedSession(null);
         }}
         stakeholder={selectedStakeholder}
+        session={selectedSession}
         project={project}
         questions={questions}
         onSuccess={() => {
           loadProjectData();
           setShowQuestionAssignmentModal(false);
           setSelectedStakeholder(null);
+          setSelectedSession(null);
         }}
       />
 
