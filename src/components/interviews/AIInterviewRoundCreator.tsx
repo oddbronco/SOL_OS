@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useTheme } from '../../contexts/ThemeContext';
 import { openAIService } from '../../services/openai';
+import { supabase } from '../../lib/supabase';
 
 interface AIInterviewRoundCreatorProps {
   project: any;
@@ -46,59 +47,122 @@ async function processQuestionChunk(
     ? `MANDATORY: Assign EVERY question in this chunk to at least one stakeholder. All ${questions.length} questions must appear in the output.`
     : 'Assign questions strategically based on relevance.';
 
-  const prompt = `Expert business analyst: Assign questions to stakeholders for "${project?.name || 'Project'}" (${project?.project_type || 'N/A'}).
+  const prompt = `Assign questions to stakeholders for ${project?.name || 'Project'}.
 
-ROUND: ${roundName} (${interviewType}) - Chunk ${chunkNum}/${totalChunks}
+STAKEHOLDERS (use EXACT IDs):
+${stakeholders.map(s => `ID:"${s.id}"|${s.name}|${s.role}`).join('\n')}
 
-STAKEHOLDERS (use exact IDs):
-${stakeholders.map(s => `ID:"${s.id}"|${s.name}|${s.role}|${s.department || 'N/A'}`).join('\n')}
+QUESTIONS (use EXACT IDs):
+${questions.map((q, idx) => `${idx + 1}. ID:"${q.id}"|${q.text.substring(0, 60)}`).join('\n')}
 
-QUESTIONS (${questions.length} total - use exact IDs):
-${questions.map((q, idx) => `${idx + 1}. ID:"${q.id}"|${q.category || 'General'}|${q.text.substring(0, 80)}${q.text.length > 80 ? '...' : ''}`).join('\n')}
+${assignmentMode}
 
-TASK: ${assignmentMode}
+Return valid JSON object with "assignments" array. NO explanations. CRITICAL: "reasoning" must be single line.
 
-RULES:
-- Use EXACT IDs from above
-- Assign 5-30 questions per stakeholder
-- Important questions: assign to multiple stakeholders
-- Technical questions: all technical roles
-- If unsure, include it
+Format:
+{"assignments":[{"stakeholderId":"id","stakeholderName":"name","stakeholderRole":"role","assignedQuestions":["q1","q2"],"reasoning":"why"}]}`;
 
-OUTPUT (JSON only, no markdown):
-[{"stakeholderId":"id","stakeholderName":"name","stakeholderRole":"role","assignedQuestions":["q1","q2"],"reasoning":"why"}]`;
+  // Get API key for direct OpenAI call with JSON mode
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
 
-  const response = await openAIService.chat([
-    {
-      role: 'system',
-      content: 'You are an expert business analyst. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text. Start with [ and end with ].'
+  const { data: settingsData } = await supabase
+    .from('user_settings')
+    .select('openai_api_key')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!settingsData?.openai_api_key) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  const apiKey = settingsData.openai_api_key;
+
+  const apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
     },
-    { role: 'user', content: prompt }
-  ]);
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'Expert business analyst. Return ONLY valid JSON object with "assignments" array. No markdown. Keep "reasoning" single line with no newlines.'
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.1,  // Very low for consistent, deterministic output
+      max_tokens: 3000,
+      response_format: { type: "json_object" }  // Force strict JSON mode
+    })
+  });
+
+  if (!apiResponse.ok) {
+    throw new Error(`OpenAI API error: ${apiResponse.statusText}`);
+  }
+
+  const apiData = await apiResponse.json();
+  const response = apiData.choices[0].message.content;
 
   console.log(`  Response length: ${response.length}`);
 
-  // Clean response
-  let cleaned = response.trim()
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
+  // With JSON mode, response should already be valid JSON
+  let jsonString = response.trim();
 
-  const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) {
-    console.error('No JSON array found in response:', response.substring(0, 500));
-    throw new Error('AI did not return valid JSON');
-  }
+  // Aggressive JSON repair - fix common AI formatting issues
+  // 1. Remove trailing commas before } or ]
+  jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+
+  // 2. Fix newlines in string values (replace with space)
+  jsonString = jsonString.replace(/"reasoning":\s*"([^"]*?)[\r\n]+([^"]*?)"/g, (match, p1, p2) => {
+    return `"reasoning": "${p1.trim()} ${p2.trim()}"`;
+  });
+
+  // 3. Remove any control characters that might break JSON
+  jsonString = jsonString.replace(/[\x00-\x1F\x7F]/g, ' ');
+
+  console.log(`  Cleaned JSON length: ${jsonString.length}`);
 
   try {
-    const parsed: AIAssignmentResult[] = JSON.parse(jsonMatch[0]);
-    console.log(`  Parsed ${parsed.length} stakeholder assignments`);
+    const parsedObj = JSON.parse(jsonString);
+    const parsed: AIAssignmentResult[] = parsedObj.assignments || parsedObj;  // Handle both formats
+
+    if (!Array.isArray(parsed)) {
+      throw new Error('Response did not contain assignments array');
+    }
+
+    console.log(`  ✅ Parsed ${parsed.length} stakeholder assignments`);
     return parsed;
   } catch (parseError) {
-    console.error('JSON parse error:', parseError);
-    console.error('Failed JSON:', jsonMatch[0].substring(0, 1000));
-    throw new Error(`JSON parse failed: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}`);
+    console.error('❌ JSON parse error:', parseError);
+    console.error('Failed JSON (first 1500 chars):', jsonString.substring(0, 1500));
+    console.error('Failed JSON (around error position):',
+      parseError instanceof Error && parseError.message.match(/position (\d+)/)
+        ? jsonString.substring(Math.max(0, parseInt(parseError.message.match(/position (\d+)/)?.[1] || '0') - 200),
+                              parseInt(parseError.message.match(/position (\d+)/)?.[1] || '0') + 200)
+        : 'N/A'
+    );
+    console.error('Failed JSON (last 500 chars):', jsonString.substring(Math.max(0, jsonString.length - 500)));
+
+    // Try to repair and retry
+    console.log('  🔧 Attempting JSON repair...');
+
+    // More aggressive repair: try to fix quotes and commas
+    let repaired = jsonString
+      .replace(/([{,]\s*\w+):/g, '$1":')  // Fix missing quotes on keys
+      .replace(/:(\s*[^"\[\{0-9\s][^,}\]]*)/g, ':"$1"')  // Quote unquoted string values
+      .replace(/,(\s*[}\]])/g, '$1');  // Remove trailing commas
+
+    try {
+      const parsed: AIAssignmentResult[] = JSON.parse(repaired);
+      console.log(`  ✅ Successfully repaired and parsed ${parsed.length} assignments!`);
+      return parsed;
+    } catch (repairError) {
+      console.error('❌ Repair attempt failed:', repairError);
+      throw new Error(`JSON parse failed: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}. Repair also failed.`);
+    }
   }
 }
 
