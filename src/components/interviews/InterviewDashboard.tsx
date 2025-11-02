@@ -374,7 +374,7 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
         size="xl"
       >
         <AIInterviewRoundCreator
-          projectId={project?.id || ''}
+          project={project}
           stakeholders={stakeholders}
           questions={questions}
           questionCollections={questionCollections}

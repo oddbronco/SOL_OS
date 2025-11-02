@@ -7,7 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { openAIService } from '../../services/openai';
 
 interface AIInterviewRoundCreatorProps {
-  projectId: string;
+  project: any;
   stakeholders: any[];
   questions: any[];
   questionCollections?: any[];
@@ -32,7 +32,7 @@ interface AIAssignmentResult {
 }
 
 export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = ({
-  projectId,
+  project,
   stakeholders,
   questions,
   questionCollections = [],
@@ -88,43 +88,79 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
 
     try {
       console.log('🤖 Calling OpenAI service...');
-      const prompt = `You are an expert business analyst helping to assign interview questions to stakeholders.
+      const prompt = `You are an expert business analyst conducting stakeholder interviews for requirements gathering.
 
-Project Context:
+=== PROJECT CONTEXT ===
+Project Name: ${project?.name || 'Unknown'}
+Project Type: ${project?.project_type || 'Not specified'}
+Project Overview: ${project?.overview || 'No overview provided'}
+Project Goals: ${project?.goals || 'No goals specified'}
+Project Scope: ${project?.scope || 'Not defined'}
+Project Timeline: ${project?.start_date ? `Starts ${project.start_date}` : 'Not scheduled'}${project?.end_date ? ` - Ends ${project.end_date}` : ''}
+Project Status: ${project?.status || 'Unknown'}
+
+=== INTERVIEW ROUND CONTEXT ===
 Round Name: ${roundName}
 Interview Type: ${interviewType}
+Total Questions Available: ${questionsToAnalyze.length}
 
-Stakeholders (USE THESE EXACT IDs):
-${stakeholders.map(s => `ID: "${s.id}" | Name: ${s.name} | Role: ${s.role} | Department: ${s.department} | Experience: ${s.experience_years || 0} years`).join('\n')}
+=== STAKEHOLDERS (USE THESE EXACT IDs) ===
+${stakeholders.map(s => `ID: "${s.id}"
+Name: ${s.name}
+Role: ${s.role}
+Department: ${s.department || 'Not specified'}
+Experience: ${s.experience_years || 0} years
+Contact: ${s.email || 'N/A'}
+---`).join('\n')}
 
-Available Questions (USE THESE EXACT IDs):
-${questionsToAnalyze.map(q => `ID: "${q.id}" | Category: [${q.category || 'General'}] | Question: ${q.text}${q.target_roles?.length ? ` | Target Roles: ${q.target_roles.join(', ')}` : ''}`).join('\n')}
+=== AVAILABLE QUESTIONS (USE THESE EXACT IDs) ===
+${questionsToAnalyze.map(q => `ID: "${q.id}"
+Category: ${q.category || 'General'}
+Question: ${q.text}
+${q.target_roles?.length ? `Suggested Target Roles: ${q.target_roles.join(', ')}` : ''}
+${q.priority ? `Priority: ${q.priority}` : ''}
+---`).join('\n')}
 
-Task: Assign questions to stakeholders based on their roles, departments, and the question content.
+=== YOUR TASK ===
+Analyze the project context, stakeholder profiles, and available questions to create intelligent interview assignments.
 
-Rules:
-1. Some questions should be asked to MULTIPLE stakeholders (especially general/strategic questions)
-2. Technical questions should go to technical roles
-3. Business questions should go to business stakeholders
-4. Department-specific questions should go to relevant departments
-5. Consider experience level when assigning complex questions
-6. Every stakeholder should receive at least 3-5 questions
-7. Strategic questions should be asked to senior roles and leadership
+For EACH stakeholder, determine which questions they should answer based on:
+1. Their role and department relative to the project type
+2. Their experience level and the question complexity
+3. The project goals and how this stakeholder can contribute
+4. Whether the question targets their domain expertise
+5. The interview type (${interviewType}) and what information is needed at this stage
 
-CRITICAL: You MUST use the exact IDs provided above (the strings after "ID:"). Do NOT make up IDs or use numbers.
+=== ASSIGNMENT RULES ===
+• THOROUGHLY analyze each question - assign 5-90 questions per stakeholder as appropriate
+• Strategic/overview questions → Ask multiple stakeholders (especially leadership)
+• Technical questions → Ask ALL relevant technical roles
+• Business process questions → Ask process owners and users
+• Department-specific questions → Ask that department AND related departments
+• Risk/compliance questions → Ask leadership, legal, and affected departments
+• User experience questions → Ask end users and stakeholders who interact with users
+• Budget/resource questions → Ask project sponsors, department heads, finance
+• Integration questions → Ask technical leads and business process owners
+• Change management questions → Ask leadership and affected user groups
+• High-priority questions → Assign to multiple stakeholders for diverse perspectives
+• Don't be conservative - if a question MIGHT be relevant to a stakeholder, INCLUDE IT
+• It's better to assign too many questions than too few - stakeholders can provide unique insights
 
-Return a JSON array with this exact structure:
+=== OUTPUT FORMAT ===
+CRITICAL: Use the EXACT IDs from above (after "ID:"). Do NOT make up IDs or use numbers like "1", "2", "3".
+
+Return a JSON array:
 [
   {
-    "stakeholderId": "exact_id_from_above",
-    "stakeholderName": "name",
-    "stakeholderRole": "role",
+    "stakeholderId": "exact_stakeholder_id_from_above",
+    "stakeholderName": "stakeholder_name",
+    "stakeholderRole": "stakeholder_role",
     "assignedQuestions": ["exact_question_id_1", "exact_question_id_2", ...],
-    "reasoning": "Brief explanation of why these questions were assigned"
+    "reasoning": "Brief explanation of why these questions match this stakeholder's expertise and the project needs"
   }
 ]
 
-Return ONLY the JSON array, no additional text.`;
+Return ONLY the JSON array with NO additional text, markdown, or formatting.`;
 
       const response = await openAIService.chat([
         { role: 'system', content: 'You are an expert business analyst. Return only valid JSON.' },
