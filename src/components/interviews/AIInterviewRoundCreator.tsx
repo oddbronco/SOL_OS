@@ -154,7 +154,19 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
 
     } catch (err) {
       console.error('Error analyzing with AI:', err);
-      setError(err instanceof Error ? err.message : 'Failed to analyze questions');
+      let errorMessage = 'Failed to analyze questions';
+
+      if (err instanceof Error) {
+        if (err.message.includes('API key')) {
+          errorMessage = 'OpenAI API key is not configured. Please add your API key in Settings.';
+        } else if (err.message.includes('quota') || err.message.includes('insufficient_quota')) {
+          errorMessage = 'OpenAI API quota exceeded. Please check your OpenAI account.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setAnalyzing(false);
     }

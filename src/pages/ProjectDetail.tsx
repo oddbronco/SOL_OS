@@ -153,10 +153,6 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
       // Load additional data in parallel
       console.log('📊 Loading additional project data...');
-      const { data: collectionsData } = await supabase
-        .from('question_collections')
-        .select('*')
-        .eq('project_id', projectId);
 
       const [stakeholdersData, questionsData, documentsData, interviewSessionsData] = await Promise.all([
         getProjectStakeholders(projectId),
@@ -165,7 +161,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         getProjectInterviewSessions(projectId)
       ]);
 
-      setQuestionCollections(collectionsData || []);
+      // Load question collections for the user's organization
+      let collectionsData: any[] = [];
+      if (user?.customer_id) {
+        const { data } = await supabase
+          .from('question_collections')
+          .select('*')
+          .eq('customer_id', user.customer_id);
+        collectionsData = data || [];
+      }
+
+      setQuestionCollections(collectionsData);
 
       setStakeholders(stakeholdersData);
       setQuestions(questionsData);
