@@ -186,7 +186,8 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
       console.log('🔥 Modal opened - loading questions with session:', session.id);
       loadQuestions();
     }
-  }, [isOpen, stakeholder, session, loadQuestions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, stakeholder?.id, session?.id]);
 
   // Load current question's responses when question changes
   useEffect(() => {
@@ -194,7 +195,8 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
     if (currentQuestion) {
       loadCurrentQuestionResponses();
     }
-  }, [currentQuestionIndex, questions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestionIndex, questions.length]);
 
   // Calculate max recording time based on system settings
   useEffect(() => {
@@ -214,13 +216,12 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
 
   // Track changes to determine button state
   useEffect(() => {
-    const currentResponse = getCurrentResponse();
     const hasNewText = textResponses.some(text => text.trim() !== '');
     const hasNewRecording = recordingBlob !== null;
     const hasNewFile = uploadedFiles.length > 0;
 
     setHasUnsavedChanges(hasNewText || hasNewRecording || hasNewFile);
-  }, [textResponses, recordingBlob, uploadedFiles, currentQuestionIndex]);
+  }, [textResponses, recordingBlob, uploadedFiles]);
 
   // Cleanup on unmount
   useEffect(() => {
