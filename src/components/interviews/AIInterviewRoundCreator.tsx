@@ -31,6 +31,77 @@ interface AIAssignmentResult {
   reasoning: string;
 }
 
+// Helper function to process a chunk of questions
+async function processQuestionChunk(
+  questions: any[],
+  stakeholders: any[],
+  project: any,
+  roundName: string,
+  interviewType: string,
+  assignAllQuestions: boolean,
+  chunkNum: number,
+  totalChunks: number
+): Promise<AIAssignmentResult[]> {
+  const assignmentMode = assignAllQuestions
+    ? `MANDATORY: Assign EVERY question in this chunk to at least one stakeholder. All ${questions.length} questions must appear in the output.`
+    : 'Assign questions strategically based on relevance.';
+
+  const prompt = `Expert business analyst: Assign questions to stakeholders for "${project?.name || 'Project'}" (${project?.project_type || 'N/A'}).
+
+ROUND: ${roundName} (${interviewType}) - Chunk ${chunkNum}/${totalChunks}
+
+STAKEHOLDERS (use exact IDs):
+${stakeholders.map(s => `ID:"${s.id}"|${s.name}|${s.role}|${s.department || 'N/A'}`).join('\n')}
+
+QUESTIONS (${questions.length} total - use exact IDs):
+${questions.map((q, idx) => `${idx + 1}. ID:"${q.id}"|${q.category || 'General'}|${q.text.substring(0, 80)}${q.text.length > 80 ? '...' : ''}`).join('\n')}
+
+TASK: ${assignmentMode}
+
+RULES:
+- Use EXACT IDs from above
+- Assign 5-30 questions per stakeholder
+- Important questions: assign to multiple stakeholders
+- Technical questions: all technical roles
+- If unsure, include it
+
+OUTPUT (JSON only, no markdown):
+[{"stakeholderId":"id","stakeholderName":"name","stakeholderRole":"role","assignedQuestions":["q1","q2"],"reasoning":"why"}]`;
+
+  const response = await openAIService.chat([
+    {
+      role: 'system',
+      content: 'You are an expert business analyst. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text. Start with [ and end with ].'
+    },
+    { role: 'user', content: prompt }
+  ]);
+
+  console.log(`  Response length: ${response.length}`);
+
+  // Clean response
+  let cleaned = response.trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+  const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    console.error('No JSON array found in response:', response.substring(0, 500));
+    throw new Error('AI did not return valid JSON');
+  }
+
+  try {
+    const parsed: AIAssignmentResult[] = JSON.parse(jsonMatch[0]);
+    console.log(`  Parsed ${parsed.length} stakeholder assignments`);
+    return parsed;
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError);
+    console.error('Failed JSON:', jsonMatch[0].substring(0, 1000));
+    throw new Error(`JSON parse failed: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}`);
+  }
+}
+
 export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = ({
   project,
   stakeholders,
@@ -88,147 +159,81 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
     setError(null);
 
     try {
-      console.log('🤖 Calling OpenAI service...');
+      console.log('🤖 Starting AI question assignment...');
+      console.log('📊 Total questions:', questionsToAnalyze.length);
       console.log('📊 Assign all questions mode:', assignAllQuestions);
 
-      const assignmentMode = assignAllQuestions
-        ? 'MANDATORY: You MUST assign EVERY SINGLE question to at least one stakeholder. Every question ID must appear in at least one assignedQuestions array. Many questions should be assigned to MULTIPLE stakeholders to get diverse perspectives.'
-        : 'Assign questions strategically based on relevance. Not all questions need to be assigned.';
+      // Process in chunks of 30 questions to avoid token limits and malformed JSON
+      const CHUNK_SIZE = 30;
+      const shouldChunk = questionsToAnalyze.length > CHUNK_SIZE;
 
-      const prompt = `You are an expert business analyst conducting stakeholder interviews for requirements gathering.
+      let allAIAssignments: AIAssignmentResult[] = [];
 
-=== PROJECT CONTEXT ===
-Project Name: ${project?.name || 'Unknown'}
-Project Type: ${project?.project_type || 'Not specified'}
-Project Overview: ${project?.overview || 'No overview provided'}
-Project Goals: ${project?.goals || 'No goals specified'}
-Project Scope: ${project?.scope || 'Not defined'}
-Project Timeline: ${project?.start_date ? `Starts ${project.start_date}` : 'Not scheduled'}${project?.end_date ? ` - Ends ${project.end_date}` : ''}
-Project Status: ${project?.status || 'Unknown'}
+      if (shouldChunk) {
+        console.log(`⚡ Processing ${questionsToAnalyze.length} questions in chunks of ${CHUNK_SIZE}`);
 
-=== INTERVIEW ROUND CONTEXT ===
-Round Name: ${roundName}
-Interview Type: ${interviewType}
-Total Questions Available: ${questionsToAnalyze.length}
+        // Split questions into chunks
+        const questionChunks: any[][] = [];
+        for (let i = 0; i < questionsToAnalyze.length; i += CHUNK_SIZE) {
+          questionChunks.push(questionsToAnalyze.slice(i, i + CHUNK_SIZE));
+        }
 
-=== STAKEHOLDERS (USE THESE EXACT IDs) ===
-${stakeholders.map(s => `ID: "${s.id}"
-Name: ${s.name}
-Role: ${s.role}
-Department: ${s.department || 'Not specified'}
-Experience: ${s.experience_years || 0} years
-Contact: ${s.email || 'N/A'}
----`).join('\n')}
+        console.log(`📦 Created ${questionChunks.length} chunks`);
 
-=== AVAILABLE QUESTIONS (${questionsToAnalyze.length} TOTAL - USE THESE EXACT IDs) ===
-${questionsToAnalyze.map((q, idx) => `[${idx + 1}/${questionsToAnalyze.length}] ID: "${q.id}"
-Category: ${q.category || 'General'}
-Question: ${q.text}
-${q.target_roles?.length ? `Suggested Target Roles: ${q.target_roles.join(', ')}` : ''}
-${q.priority ? `Priority: ${q.priority}` : ''}
----`).join('\n')}
+        // Process each chunk
+        for (let chunkIndex = 0; chunkIndex < questionChunks.length; chunkIndex++) {
+          const chunk = questionChunks[chunkIndex];
+          console.log(`\n🔄 Processing chunk ${chunkIndex + 1}/${questionChunks.length} (${chunk.length} questions)`);
 
-=== YOUR TASK ===
-${assignmentMode}
+          const chunkAssignments = await processQuestionChunk(
+            chunk,
+            stakeholders,
+            project,
+            roundName,
+            interviewType,
+            assignAllQuestions,
+            chunkIndex + 1,
+            questionChunks.length
+          );
 
-Analyze the project context, stakeholder profiles, and ALL ${questionsToAnalyze.length} questions to create comprehensive interview assignments.
+          // Merge assignments by stakeholder
+          chunkAssignments.forEach(newAssignment => {
+            const existingAssignment = allAIAssignments.find(
+              a => a.stakeholderId === newAssignment.stakeholderId
+            );
 
-For EACH stakeholder, determine which questions they should answer based on:
-1. Their role and department relative to the project type
-2. Their experience level and the question complexity
-3. The project goals and how this stakeholder can contribute
-4. Whether the question targets their domain expertise
-5. The interview type (${interviewType}) and what information is needed at this stage
-6. Whether getting multiple perspectives on the same question would be valuable
+            if (existingAssignment) {
+              // Merge question IDs (avoid duplicates)
+              const combinedQuestions = [...existingAssignment.assignedQuestions, ...newAssignment.assignedQuestions];
+              existingAssignment.assignedQuestions = Array.from(new Set(combinedQuestions));
+              existingAssignment.reasoning += ` | ${newAssignment.reasoning}`;
+            } else {
+              allAIAssignments.push(newAssignment);
+            }
+          });
 
-=== ASSIGNMENT RULES ===
-${assignAllQuestions ? `• ⚠️ CRITICAL: EVERY question must be assigned to at least one stakeholder
-• ⚠️ VERIFY: Count that all ${questionsToAnalyze.length} question IDs appear in your output
-` : ''}• Aim for 15-60+ questions per stakeholder (not just 5!)
-• Strategic/overview questions → Ask 3-4 stakeholders for diverse perspectives
-• Technical questions → Ask ALL relevant technical roles (engineers, architects, DevOps)
-• Business process questions → Ask process owners, users, AND managers
-• Department-specific questions → Ask that department AND cross-functional partners
-• Risk/compliance questions → Ask leadership, legal, security, and affected teams
-• User experience questions → Ask UX, product, customer success, AND end user representatives
-• Budget/resource questions → Ask sponsors, department heads, finance, AND delivery teams
-• Integration questions → Ask technical leads, business analysts, AND system owners
-• Change management questions → Ask leadership, HR, training, AND affected user groups
-• Requirements/scope questions → Ask product, business analysts, AND key stakeholders
-• Testing/quality questions → Ask QA, engineers, AND business validators
-• Timeline/milestone questions → Ask project managers, leads, AND dependent teams
-• High-priority questions → Assign to 2-4 stakeholders for comprehensive coverage
-• If unsure whether a stakeholder should answer → INCLUDE IT (better comprehensive than sparse)
-• Consider secondary/indirect relevance - stakeholders often have valuable adjacent insights
-• Don't cluster questions narrowly - distribute broadly across stakeholders
+          console.log(`✅ Chunk ${chunkIndex + 1} complete. Total assignments so far: ${allAIAssignments.length}`);
+        }
 
-=== COVERAGE VERIFICATION ===
-${assignAllQuestions ? `Before finalizing, verify:
-1. Total unique questions assigned across all stakeholders = ${questionsToAnalyze.length}
-2. Each question appears in at least one stakeholder's assignedQuestions array
-3. Important questions appear in multiple stakeholders' assignments
-4. Each stakeholder has a substantial number of questions (15+)` : 'Ensure good coverage across stakeholders and question categories'}
-
-=== OUTPUT FORMAT ===
-CRITICAL: Use the EXACT IDs from above (after "ID:"). Do NOT make up IDs or use numbers like "1", "2", "3".
-
-Return a JSON array:
-[
-  {
-    "stakeholderId": "exact_stakeholder_id_from_above",
-    "stakeholderName": "stakeholder_name",
-    "stakeholderRole": "stakeholder_role",
-    "assignedQuestions": ["exact_question_id_1", "exact_question_id_2", ...],
-    "reasoning": "Brief explanation of why these questions match this stakeholder's expertise and the project needs"
-  }
-]
-
-Return ONLY the JSON array with NO additional text, markdown, or formatting.`;
-
-      const response = await openAIService.chat([
-        {
-          role: 'system',
-          content: 'You are an expert business analyst. You MUST return ONLY a valid JSON array. Do NOT include any markdown formatting, code blocks, explanations, or additional text. Start your response with [ and end with ]. The JSON must be valid and parseable.'
-        },
-        { role: 'user', content: prompt }
-      ]);
-
-      console.log('✅ Got response from OpenAI');
-      console.log('Response length:', response.length);
-      console.log('Response preview:', response.substring(0, 300));
-      console.log('Response end:', response.substring(Math.max(0, response.length - 300)));
-
-      // Clean up response - remove markdown code blocks if present
-      let cleanedResponse = response.trim();
-      cleanedResponse = cleanedResponse.replace(/^```json\s*/i, '');
-      cleanedResponse = cleanedResponse.replace(/^```\s*/i, '');
-      cleanedResponse = cleanedResponse.replace(/\s*```$/i, '');
-      cleanedResponse = cleanedResponse.trim();
-
-      console.log('After cleaning, length:', cleanedResponse.length);
-
-      const jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        console.error('❌ Could not find JSON array in response');
-        console.error('Original response:', response);
-        console.error('Cleaned response:', cleanedResponse);
-        throw new Error('AI did not return valid JSON. Please try again.');
+        console.log(`\n✅ All chunks processed! Total assignments: ${allAIAssignments.length}`);
+      } else {
+        // Process all questions at once if under the chunk size
+        console.log('📝 Processing all questions in a single request');
+        allAIAssignments = await processQuestionChunk(
+          questionsToAnalyze,
+          stakeholders,
+          project,
+          roundName,
+          interviewType,
+          assignAllQuestions,
+          1,
+          1
+        );
       }
 
-      console.log('📦 Parsing JSON assignments...');
-      console.log('JSON string length:', jsonMatch[0].length);
+      const aiAssignments = allAIAssignments;
 
-      let aiAssignments: AIAssignmentResult[];
-      try {
-        aiAssignments = JSON.parse(jsonMatch[0]);
-        console.log('✅ Parsed assignments:', aiAssignments.length);
-      } catch (parseError) {
-        console.error('❌ JSON parse error:', parseError);
-        console.error('JSON that failed (first 1000 chars):', jsonMatch[0].substring(0, 1000));
-        console.error('JSON that failed (last 1000 chars):', jsonMatch[0].substring(Math.max(0, jsonMatch[0].length - 1000)));
-        throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}. Try with fewer questions.`);
-      }
-
+      // Validate assignments
       const validatedAssignments = aiAssignments.map(assignment => {
         const stakeholder = stakeholders.find(s => s.id === assignment.stakeholderId);
         if (!stakeholder) {
