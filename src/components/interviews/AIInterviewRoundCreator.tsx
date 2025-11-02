@@ -108,20 +108,28 @@ Format:
 
   console.log(`  Response length: ${response.length}`);
 
-  // With JSON mode, response should already be valid JSON
+  // With JSON mode, response should already be valid JSON, but still clean it
   let jsonString = response.trim();
 
-  // Aggressive JSON repair - fix common AI formatting issues
+  // Ultra-aggressive JSON repair
   // 1. Remove trailing commas before } or ]
   jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
 
-  // 2. Fix newlines in string values (replace with space)
-  jsonString = jsonString.replace(/"reasoning":\s*"([^"]*?)[\r\n]+([^"]*?)"/g, (match, p1, p2) => {
-    return `"reasoning": "${p1.trim()} ${p2.trim()}"`;
+  // 2. Fix any newlines inside string values (they break JSON)
+  // Match any string value and replace internal newlines with spaces
+  jsonString = jsonString.replace(/"([^"]*?)"/g, (match, content) => {
+    const cleaned = content.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ');
+    return `"${cleaned}"`;
   });
 
   // 3. Remove any control characters that might break JSON
   jsonString = jsonString.replace(/[\x00-\x1F\x7F]/g, ' ');
+
+  // 4. Fix missing quotes on keys (shouldn't happen with JSON mode but just in case)
+  jsonString = jsonString.replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3');
+
+  // 5. Remove any markdown artifacts
+  jsonString = jsonString.replace(/```json|```/g, '');
 
   console.log(`  Cleaned JSON length: ${jsonString.length}`);
 
@@ -137,31 +145,55 @@ Format:
     return parsed;
   } catch (parseError) {
     console.error('❌ JSON parse error:', parseError);
-    console.error('Failed JSON (first 1500 chars):', jsonString.substring(0, 1500));
-    console.error('Failed JSON (around error position):',
-      parseError instanceof Error && parseError.message.match(/position (\d+)/)
-        ? jsonString.substring(Math.max(0, parseInt(parseError.message.match(/position (\d+)/)?.[1] || '0') - 200),
-                              parseInt(parseError.message.match(/position (\d+)/)?.[1] || '0') + 200)
-        : 'N/A'
-    );
-    console.error('Failed JSON (last 500 chars):', jsonString.substring(Math.max(0, jsonString.length - 500)));
+    console.error('Failed JSON (full):', jsonString);
 
-    // Try to repair and retry
-    console.log('  🔧 Attempting JSON repair...');
+    // Extract position from error if available
+    const posMatch = parseError instanceof Error ? parseError.message.match(/position (\d+)/) : null;
+    if (posMatch) {
+      const pos = parseInt(posMatch[1]);
+      const start = Math.max(0, pos - 300);
+      const end = Math.min(jsonString.length, pos + 300);
+      console.error('Failed JSON (around error position):', jsonString.substring(start, end));
+      console.error('Character at error position:', jsonString.charAt(pos), 'Code:', jsonString.charCodeAt(pos));
+    }
 
-    // More aggressive repair: try to fix quotes and commas
-    let repaired = jsonString
-      .replace(/([{,]\s*\w+):/g, '$1":')  // Fix missing quotes on keys
-      .replace(/:(\s*[^"\[\{0-9\s][^,}\]]*)/g, ':"$1"')  // Quote unquoted string values
-      .replace(/,(\s*[}\]])/g, '$1');  // Remove trailing commas
+    // Try to repair and retry - try truncating at last valid closing brace
+    console.log('  🔧 Attempting JSON repair by truncation...');
 
     try {
-      const parsed: AIAssignmentResult[] = JSON.parse(repaired);
+      // Try to find the last complete object/array
+      let repaired = jsonString;
+
+      // If we have the error position, try truncating and completing the JSON
+      if (posMatch) {
+        const pos = parseInt(posMatch[1]);
+        // Truncate before the error and try to close the JSON properly
+        const beforeError = jsonString.substring(0, pos);
+
+        // Count open braces/brackets to determine what to close
+        const openBraces = (beforeError.match(/{/g) || []).length - (beforeError.match(/}/g) || []).length;
+        const openBrackets = (beforeError.match(/\[/g) || []).length - (beforeError.match(/]/g) || []).length;
+
+        // Try to complete the JSON
+        repaired = beforeError.replace(/,\s*$/, ''); // Remove trailing comma
+        repaired += '}]'.repeat(Math.max(openBrackets, 0)) + '}'.repeat(Math.max(openBraces, 0));
+
+        console.log('  Attempting truncated parse...');
+      }
+
+      const parsedObj = JSON.parse(repaired);
+      const parsed: AIAssignmentResult[] = parsedObj.assignments || parsedObj;
+
+      if (!Array.isArray(parsed)) {
+        throw new Error('Response did not contain assignments array');
+      }
+
       console.log(`  ✅ Successfully repaired and parsed ${parsed.length} assignments!`);
       return parsed;
     } catch (repairError) {
       console.error('❌ Repair attempt failed:', repairError);
-      throw new Error(`JSON parse failed: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}. Repair also failed.`);
+      const errorMsg = parseError instanceof Error ? parseError.message : 'Invalid JSON';
+      throw new Error(`JSON parse failed at position ${posMatch ? posMatch[1] : 'unknown'}: ${errorMsg}. The AI response was malformed. Try reducing chunk size or running again.`);
     }
   }
 }
@@ -373,7 +405,7 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
 
       console.error('Setting error message:', errorMessage);
       setError(errorMessage);
-      alert(`Error: ${errorMessage}`); // Also show an alert to make sure you see it
+      // Don't alert - just display the error in the UI
     } finally {
       console.log('⏹️ Analysis complete, setting analyzing to false');
       setAnalyzing(false);
