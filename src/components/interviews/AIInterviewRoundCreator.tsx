@@ -346,7 +346,12 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
           )}
 
           <Button
-            onClick={handleAnalyzeWithAI}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('🔥 BUTTON CLICKED!');
+              handleAnalyzeWithAI();
+            }}
             icon={analyzing ? Loader : Sparkles}
             disabled={analyzing || !roundName.trim()}
             className="w-full bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
