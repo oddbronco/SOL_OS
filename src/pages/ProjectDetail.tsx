@@ -188,7 +188,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
       const responses: any[] = [];
       for (const session of interviewSessionsData) {
         const { data: sessionResponses } = await supabase
-          .from('stakeholder_responses')
+          .from('interview_responses')
           .select('*')
           .eq('interview_session_id', session.id);
 
