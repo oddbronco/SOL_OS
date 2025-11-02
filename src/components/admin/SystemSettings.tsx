@@ -50,10 +50,10 @@ export const SystemSettings: React.FC = () => {
     api_rate_limit_per_hour: 1000,
     interview_rate_limiting_enabled: true,
     default_subscription_plan: 'starter',
-    platform_name: 'Speak Platform',
-    support_email: 'support@speak.com',
-    terms_url: 'https://speak.com/terms',
-    privacy_url: 'https://speak.com/privacy',
+    platform_name: 'SOL Project OS',
+    support_email: 'support@solprojectos.com',
+    terms_url: 'https://solprojectos.com/terms',
+    privacy_url: 'https://solprojectos.com/privacy',
     openai_enabled: true,
     auto_transcription_enabled: true,
     ai_question_generation_enabled: true,
@@ -174,10 +174,10 @@ export const SystemSettings: React.FC = () => {
         api_rate_limit_per_hour: 1000,
         interview_rate_limiting_enabled: true,
         default_subscription_plan: 'starter',
-        platform_name: 'Speak Platform',
-        support_email: 'support@speak.com',
-        terms_url: 'https://speak.com/terms',
-        privacy_url: 'https://speak.com/privacy',
+        platform_name: 'SOL Project OS',
+        support_email: 'support@solprojectos.com',
+        terms_url: 'https://solprojectos.com/terms',
+        privacy_url: 'https://solprojectos.com/privacy',
         openai_enabled: true,
         auto_transcription_enabled: true,
         ai_question_generation_enabled: true,
@@ -299,7 +299,7 @@ export const SystemSettings: React.FC = () => {
               label="Platform Name"
               value={config.platform_name}
               onChange={(e) => setConfig({ ...config, platform_name: e.target.value })}
-              placeholder="Speak Platform"
+              placeholder="SOL Project OS"
             />
             <Input
               label="Support Email"

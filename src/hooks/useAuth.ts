@@ -331,15 +331,15 @@ export const useAuth = () => {
           .rpc('validate_access_code', { code_input: accessCode });
 
         if (validationError || !validationData?.valid) {
-          return { 
-            user: null, 
-            error: validationData?.error || 'Invalid access code. Please contact the Speak team for a valid access code.' 
+          return {
+            user: null,
+            error: validationData?.error || 'Invalid access code. Please contact support for a valid access code.'
           };
         }
       } else {
-        return { 
-          user: null, 
-          error: 'Access code required. Please contact the Speak team to get an access code for account creation.' 
+        return {
+          user: null,
+          error: 'Access code required. Please contact support to get an access code for account creation.'
         };
       }
 

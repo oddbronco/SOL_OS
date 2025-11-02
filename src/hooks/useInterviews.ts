@@ -695,7 +695,7 @@ export const useInterviews = () => {
     // Use interviews subdomain for cleaner, more professional URLs
     const baseUrl = window.location.hostname === 'localhost'
       ? 'http://localhost:5173'
-      : 'https://interviews.speakprojects.com';
+      : 'https://interviews.solprojectos.com';
     return `${baseUrl}/i/${sessionToken}${password ? `?pwd=${password}` : ''}`;
   };
 
@@ -703,7 +703,7 @@ export const useInterviews = () => {
   const generateInterviewLinkLegacy = (projectId: string, stakeholderId: string, password?: string): string => {
     const baseUrl = window.location.hostname === 'localhost'
       ? 'http://localhost:5173'
-      : 'https://interviews.speakprojects.com';
+      : 'https://interviews.solprojectos.com';
     return `${baseUrl}/interview?project=${projectId}&stakeholder=${stakeholderId}${password ? `&pwd=${password}` : ''}`;
   };
 

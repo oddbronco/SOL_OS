@@ -526,9 +526,9 @@ export const InterviewPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="max-w-md w-full mx-4">
           <div className="text-center mb-6">
-            <img 
+            <img
               src="https://cdn.prod.website-files.com/6793f087a090d6d2f4fc2822/68811a8d090b45917647017b_speak-lightmode.png"
-              alt="Speak"
+              alt="SOL Project OS"
               className="h-12 w-auto mx-auto mb-4"
             />
             <h3 className="text-lg font-medium text-gray-900 mb-2">

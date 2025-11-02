@@ -75,7 +75,7 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
   const generateInterviewLink = (sessionToken: string, password?: string) => {
     const baseUrl = window.location.hostname === 'localhost'
       ? 'http://localhost:5173'
-      : 'https://interviews.speakprojects.com';
+      : 'https://interviews.solprojectos.com';
     return `${baseUrl}/i/${sessionToken}${password ? `?pwd=${password}` : ''}`;
   };
 

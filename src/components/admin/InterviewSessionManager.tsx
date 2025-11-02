@@ -207,7 +207,7 @@ export const InterviewSessionManager: React.FC = () => {
   const getInterviewUrl = (session: InterviewSession): string => {
     const baseUrl = window.location.hostname === 'localhost'
       ? 'http://localhost:5173'
-      : 'https://interviews.speakprojects.com';
+      : 'https://interviews.solprojectos.com';
     return `${baseUrl}/i/${session.session_token}`;
   };
 

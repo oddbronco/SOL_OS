@@ -2,13 +2,13 @@ export const getInterviewBaseUrl = (): string => {
   const hostname = window.location.hostname;
 
   // Production domain - always use interviews subdomain
-  if (hostname === 'speakprojects.com' || hostname === 'www.speakprojects.com') {
-    return 'https://interviews.speakprojects.com';
+  if (hostname === 'solprojectos.com' || hostname === 'www.solprojectos.com') {
+    return 'https://interviews.solprojectos.com';
   }
 
   // Netlify deploy previews - also use production interviews subdomain
   if (hostname.includes('netlify.app')) {
-    return 'https://interviews.speakprojects.com';
+    return 'https://interviews.solprojectos.com';
   }
 
   // Development - use local origin
@@ -17,7 +17,7 @@ export const getInterviewBaseUrl = (): string => {
   }
 
   // Fallback - use production interviews subdomain
-  return 'https://interviews.speakprojects.com';
+  return 'https://interviews.solprojectos.com';
 };
 
 export const generateInterviewUrl = (sessionToken: string): string => {

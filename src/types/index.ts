@@ -1,4 +1,4 @@
-// Enhanced TypeScript Data Models for Speak Platform
+// Enhanced TypeScript Data Models for SOL Project OS
 
 export type UserRole = 'master_admin' | 'customer_admin' | 'project_manager' | 'analyst' | 'stakeholder';
 export type CompanyType = 'agency' | 'client';
