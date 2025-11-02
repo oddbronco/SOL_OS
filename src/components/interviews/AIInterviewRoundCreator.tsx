@@ -94,11 +94,11 @@ Project Context:
 Round Name: ${roundName}
 Interview Type: ${interviewType}
 
-Stakeholders:
-${stakeholders.map((s, i) => `${i + 1}. ${s.name} - ${s.role} (${s.department}, ${s.experience_years || 0} years experience)`).join('\n')}
+Stakeholders (USE THESE EXACT IDs):
+${stakeholders.map(s => `ID: "${s.id}" | Name: ${s.name} | Role: ${s.role} | Department: ${s.department} | Experience: ${s.experience_years || 0} years`).join('\n')}
 
-Available Questions (${questionsToAnalyze.length}):
-${questionsToAnalyze.map((q, i) => `${i + 1}. [${q.category || 'General'}] ${q.text}${q.target_roles?.length ? ` (Target: ${q.target_roles.join(', ')})` : ''}`).join('\n')}
+Available Questions (USE THESE EXACT IDs):
+${questionsToAnalyze.map(q => `ID: "${q.id}" | Category: [${q.category || 'General'}] | Question: ${q.text}${q.target_roles?.length ? ` | Target Roles: ${q.target_roles.join(', ')}` : ''}`).join('\n')}
 
 Task: Assign questions to stakeholders based on their roles, departments, and the question content.
 
@@ -111,18 +111,20 @@ Rules:
 6. Every stakeholder should receive at least 3-5 questions
 7. Strategic questions should be asked to senior roles and leadership
 
+CRITICAL: You MUST use the exact IDs provided above (the strings after "ID:"). Do NOT make up IDs or use numbers.
+
 Return a JSON array with this exact structure:
 [
   {
-    "stakeholderId": "stakeholder_id_here",
+    "stakeholderId": "exact_id_from_above",
     "stakeholderName": "name",
     "stakeholderRole": "role",
-    "assignedQuestions": ["question_id_1", "question_id_2", ...],
+    "assignedQuestions": ["exact_question_id_1", "exact_question_id_2", ...],
     "reasoning": "Brief explanation of why these questions were assigned"
   }
 ]
 
-Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON array, no additional text.`;
+Return ONLY the JSON array, no additional text.`;
 
       const response = await openAIService.chat([
         { role: 'system', content: 'You are an expert business analyst. Return only valid JSON.' },
