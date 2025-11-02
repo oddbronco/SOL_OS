@@ -49,6 +49,7 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
   const [creating, setCreating] = useState(false);
   const [assignments, setAssignments] = useState<AIAssignmentResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [assignAllQuestions, setAssignAllQuestions] = useState(true);
 
   const getQuestionsForAnalysis = () => {
     if (sourceType === 'all') {
@@ -88,6 +89,12 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
 
     try {
       console.log('🤖 Calling OpenAI service...');
+      console.log('📊 Assign all questions mode:', assignAllQuestions);
+
+      const assignmentMode = assignAllQuestions
+        ? 'MANDATORY: You MUST assign EVERY SINGLE question to at least one stakeholder. Every question ID must appear in at least one assignedQuestions array. Many questions should be assigned to MULTIPLE stakeholders to get diverse perspectives.'
+        : 'Assign questions strategically based on relevance. Not all questions need to be assigned.';
+
       const prompt = `You are an expert business analyst conducting stakeholder interviews for requirements gathering.
 
 === PROJECT CONTEXT ===
@@ -113,8 +120,8 @@ Experience: ${s.experience_years || 0} years
 Contact: ${s.email || 'N/A'}
 ---`).join('\n')}
 
-=== AVAILABLE QUESTIONS (USE THESE EXACT IDs) ===
-${questionsToAnalyze.map(q => `ID: "${q.id}"
+=== AVAILABLE QUESTIONS (${questionsToAnalyze.length} TOTAL - USE THESE EXACT IDs) ===
+${questionsToAnalyze.map((q, idx) => `[${idx + 1}/${questionsToAnalyze.length}] ID: "${q.id}"
 Category: ${q.category || 'General'}
 Question: ${q.text}
 ${q.target_roles?.length ? `Suggested Target Roles: ${q.target_roles.join(', ')}` : ''}
@@ -122,7 +129,9 @@ ${q.priority ? `Priority: ${q.priority}` : ''}
 ---`).join('\n')}
 
 === YOUR TASK ===
-Analyze the project context, stakeholder profiles, and available questions to create intelligent interview assignments.
+${assignmentMode}
+
+Analyze the project context, stakeholder profiles, and ALL ${questionsToAnalyze.length} questions to create comprehensive interview assignments.
 
 For EACH stakeholder, determine which questions they should answer based on:
 1. Their role and department relative to the project type
@@ -130,21 +139,35 @@ For EACH stakeholder, determine which questions they should answer based on:
 3. The project goals and how this stakeholder can contribute
 4. Whether the question targets their domain expertise
 5. The interview type (${interviewType}) and what information is needed at this stage
+6. Whether getting multiple perspectives on the same question would be valuable
 
 === ASSIGNMENT RULES ===
-• THOROUGHLY analyze each question - assign 5-90 questions per stakeholder as appropriate
-• Strategic/overview questions → Ask multiple stakeholders (especially leadership)
-• Technical questions → Ask ALL relevant technical roles
-• Business process questions → Ask process owners and users
-• Department-specific questions → Ask that department AND related departments
-• Risk/compliance questions → Ask leadership, legal, and affected departments
-• User experience questions → Ask end users and stakeholders who interact with users
-• Budget/resource questions → Ask project sponsors, department heads, finance
-• Integration questions → Ask technical leads and business process owners
-• Change management questions → Ask leadership and affected user groups
-• High-priority questions → Assign to multiple stakeholders for diverse perspectives
-• Don't be conservative - if a question MIGHT be relevant to a stakeholder, INCLUDE IT
-• It's better to assign too many questions than too few - stakeholders can provide unique insights
+${assignAllQuestions ? `• ⚠️ CRITICAL: EVERY question must be assigned to at least one stakeholder
+• ⚠️ VERIFY: Count that all ${questionsToAnalyze.length} question IDs appear in your output
+` : ''}• Aim for 15-60+ questions per stakeholder (not just 5!)
+• Strategic/overview questions → Ask 3-4 stakeholders for diverse perspectives
+• Technical questions → Ask ALL relevant technical roles (engineers, architects, DevOps)
+• Business process questions → Ask process owners, users, AND managers
+• Department-specific questions → Ask that department AND cross-functional partners
+• Risk/compliance questions → Ask leadership, legal, security, and affected teams
+• User experience questions → Ask UX, product, customer success, AND end user representatives
+• Budget/resource questions → Ask sponsors, department heads, finance, AND delivery teams
+• Integration questions → Ask technical leads, business analysts, AND system owners
+• Change management questions → Ask leadership, HR, training, AND affected user groups
+• Requirements/scope questions → Ask product, business analysts, AND key stakeholders
+• Testing/quality questions → Ask QA, engineers, AND business validators
+• Timeline/milestone questions → Ask project managers, leads, AND dependent teams
+• High-priority questions → Assign to 2-4 stakeholders for comprehensive coverage
+• If unsure whether a stakeholder should answer → INCLUDE IT (better comprehensive than sparse)
+• Consider secondary/indirect relevance - stakeholders often have valuable adjacent insights
+• Don't cluster questions narrowly - distribute broadly across stakeholders
+
+=== COVERAGE VERIFICATION ===
+${assignAllQuestions ? `Before finalizing, verify:
+1. Total unique questions assigned across all stakeholders = ${questionsToAnalyze.length}
+2. Each question appears in at least one stakeholder's assignedQuestions array
+3. Important questions appear in multiple stakeholders' assignments
+4. Each stakeholder has a substantial number of questions (15+)` : 'Ensure good coverage across stakeholders and question categories'}
 
 === OUTPUT FORMAT ===
 CRITICAL: Use the EXACT IDs from above (after "ID:"). Do NOT make up IDs or use numbers like "1", "2", "3".
@@ -199,6 +222,37 @@ Return ONLY the JSON array with NO additional text, markdown, or formatting.`;
           assignedQuestions: validQuestionIds
         };
       }).filter(Boolean) as AIAssignmentResult[];
+
+      // Verify all questions are assigned if required
+      if (assignAllQuestions) {
+        const allAssignedQuestionIds = new Set<string>();
+        validatedAssignments.forEach(assignment => {
+          assignment.assignedQuestions.forEach(qId => allAssignedQuestionIds.add(qId));
+        });
+
+        const unassignedQuestions = questionsToAnalyze.filter(q => !allAssignedQuestionIds.has(q.id));
+
+        console.log('📊 Assignment coverage:');
+        console.log(`Total questions: ${questionsToAnalyze.length}`);
+        console.log(`Questions assigned: ${allAssignedQuestionIds.size}`);
+        console.log(`Unassigned questions: ${unassignedQuestions.length}`);
+
+        if (unassignedQuestions.length > 0) {
+          console.warn('⚠️ The following questions were not assigned:', unassignedQuestions.map(q => q.text.substring(0, 50)));
+          const proceed = confirm(
+            `Warning: ${unassignedQuestions.length} out of ${questionsToAnalyze.length} questions were not assigned by the AI.\n\n` +
+            `Assigned: ${allAssignedQuestionIds.size}\n` +
+            `Unassigned: ${unassignedQuestions.length}\n\n` +
+            `Do you want to proceed anyway, or cancel and try again?`
+          );
+          if (!proceed) {
+            setAnalyzing(false);
+            return;
+          }
+        } else {
+          console.log('✅ All questions successfully assigned!');
+        }
+      }
 
       setAssignments(validatedAssignments);
 
@@ -319,6 +373,25 @@ Return ONLY the JSON array with NO additional text, markdown, or formatting.`;
               <option value="collection">From Collection</option>
               <option value="custom">Custom Selection</option>
             </select>
+          </div>
+
+          <div className={`border rounded-lg p-4 ${isDark ? 'bg-gray-800/50 border-gray-700' : 'bg-blue-50 border-blue-200'}`}>
+            <label className="flex items-start space-x-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={assignAllQuestions}
+                onChange={(e) => setAssignAllQuestions(e.target.checked)}
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <div className="flex-1">
+                <div className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>
+                  Assign All Questions
+                </div>
+                <div className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  When enabled, the AI will ensure EVERY question is assigned to at least one stakeholder. Many questions will be assigned to multiple stakeholders for diverse perspectives. Recommended for comprehensive discovery.
+                </div>
+              </div>
+            </label>
           </div>
 
           {sourceType === 'collection' && (
