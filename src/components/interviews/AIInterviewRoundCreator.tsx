@@ -186,22 +186,48 @@ Return a JSON array:
 Return ONLY the JSON array with NO additional text, markdown, or formatting.`;
 
       const response = await openAIService.chat([
-        { role: 'system', content: 'You are an expert business analyst. Return only valid JSON.' },
+        {
+          role: 'system',
+          content: 'You are an expert business analyst. You MUST return ONLY a valid JSON array. Do NOT include any markdown formatting, code blocks, explanations, or additional text. Start your response with [ and end with ]. The JSON must be valid and parseable.'
+        },
         { role: 'user', content: prompt }
       ]);
 
       console.log('✅ Got response from OpenAI');
-      console.log('Response preview:', response.substring(0, 200));
+      console.log('Response length:', response.length);
+      console.log('Response preview:', response.substring(0, 300));
+      console.log('Response end:', response.substring(Math.max(0, response.length - 300)));
 
-      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      // Clean up response - remove markdown code blocks if present
+      let cleanedResponse = response.trim();
+      cleanedResponse = cleanedResponse.replace(/^```json\s*/i, '');
+      cleanedResponse = cleanedResponse.replace(/^```\s*/i, '');
+      cleanedResponse = cleanedResponse.replace(/\s*```$/i, '');
+      cleanedResponse = cleanedResponse.trim();
+
+      console.log('After cleaning, length:', cleanedResponse.length);
+
+      const jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        console.error('❌ Could not find JSON array in response:', response);
-        throw new Error('Could not parse AI response');
+        console.error('❌ Could not find JSON array in response');
+        console.error('Original response:', response);
+        console.error('Cleaned response:', cleanedResponse);
+        throw new Error('AI did not return valid JSON. Please try again.');
       }
 
       console.log('📦 Parsing JSON assignments...');
-      const aiAssignments: AIAssignmentResult[] = JSON.parse(jsonMatch[0]);
-      console.log('✅ Parsed assignments:', aiAssignments.length);
+      console.log('JSON string length:', jsonMatch[0].length);
+
+      let aiAssignments: AIAssignmentResult[];
+      try {
+        aiAssignments = JSON.parse(jsonMatch[0]);
+        console.log('✅ Parsed assignments:', aiAssignments.length);
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        console.error('JSON that failed (first 1000 chars):', jsonMatch[0].substring(0, 1000));
+        console.error('JSON that failed (last 1000 chars):', jsonMatch[0].substring(Math.max(0, jsonMatch[0].length - 1000)));
+        throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}. Try with fewer questions.`);
+      }
 
       const validatedAssignments = aiAssignments.map(assignment => {
         const stakeholder = stakeholders.find(s => s.id === assignment.stakeholderId);
