@@ -357,7 +357,12 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
                 Close
               </Button>
               <Button
-                onClick={() => onAnswerQuestions(selectedSession.stakeholder, selectedSession)}
+                onClick={() => {
+                  const stakeholder = stakeholders.find(s => s.id === selectedSession.stakeholder_id);
+                  if (stakeholder) {
+                    onAnswerQuestions(stakeholder, selectedSession);
+                  }
+                }}
               >
                 Answer Questions
               </Button>
