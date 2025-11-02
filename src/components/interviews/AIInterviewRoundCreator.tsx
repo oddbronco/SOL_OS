@@ -62,12 +62,16 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
   };
 
   const handleAnalyzeWithAI = async () => {
+    console.log('🚀 Starting AI analysis...');
+
     if (!roundName.trim()) {
       setError('Please enter a round name');
       return;
     }
 
     const questionsToAnalyze = getQuestionsForAnalysis();
+    console.log('📋 Questions to analyze:', questionsToAnalyze.length);
+
     if (questionsToAnalyze.length === 0) {
       setError('Please select questions for this round');
       return;
@@ -78,10 +82,12 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
       return;
     }
 
+    console.log('👥 Stakeholders:', stakeholders.length);
     setAnalyzing(true);
     setError(null);
 
     try {
+      console.log('🤖 Calling OpenAI service...');
       const prompt = `You are an expert business analyst helping to assign interview questions to stakeholders.
 
 Project Context:
@@ -123,12 +129,18 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
         { role: 'user', content: prompt }
       ]);
 
+      console.log('✅ Got response from OpenAI');
+      console.log('Response preview:', response.substring(0, 200));
+
       const jsonMatch = response.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
+        console.error('❌ Could not find JSON array in response:', response);
         throw new Error('Could not parse AI response');
       }
 
+      console.log('📦 Parsing JSON assignments...');
       const aiAssignments: AIAssignmentResult[] = JSON.parse(jsonMatch[0]);
+      console.log('✅ Parsed assignments:', aiAssignments.length);
 
       const validatedAssignments = aiAssignments.map(assignment => {
         const stakeholder = stakeholders.find(s => s.id === assignment.stakeholderId);
