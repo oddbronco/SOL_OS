@@ -165,10 +165,16 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
       setAssignments(validatedAssignments);
 
     } catch (err) {
-      console.error('Error analyzing with AI:', err);
+      console.error('❌ Error analyzing with AI:', err);
+      console.error('Error type:', typeof err);
+      console.error('Error details:', JSON.stringify(err, null, 2));
+
       let errorMessage = 'Failed to analyze questions';
 
       if (err instanceof Error) {
+        console.error('Error message:', err.message);
+        console.error('Error stack:', err.stack);
+
         if (err.message.includes('API key')) {
           errorMessage = 'OpenAI API key is not configured. Please add your API key in Settings.';
         } else if (err.message.includes('quota') || err.message.includes('insufficient_quota')) {
@@ -178,8 +184,11 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
         }
       }
 
+      console.error('Setting error message:', errorMessage);
       setError(errorMessage);
+      alert(`Error: ${errorMessage}`); // Also show an alert to make sure you see it
     } finally {
+      console.log('⏹️ Analysis complete, setting analyzing to false');
       setAnalyzing(false);
     }
   };
