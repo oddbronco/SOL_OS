@@ -3,7 +3,6 @@ import { Sparkles, Users, MessageSquare, CheckCircle, Loader } from 'lucide-reac
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
 import { useTheme } from '../../contexts/ThemeContext';
 import { openAIService } from '../../services/openai';
 
@@ -222,9 +221,10 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
             <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Interview Type
             </label>
-            <Select
+            <select
               value={interviewType}
               onChange={(e) => setInterviewType(e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
             >
               <option value="kickoff">Kickoff</option>
               <option value="technical">Technical</option>
@@ -232,21 +232,22 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
               <option value="change_request">Change Request</option>
               <option value="post_project">Post-Project</option>
               <option value="other">Other</option>
-            </Select>
+            </select>
           </div>
 
           <div>
             <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Question Source
             </label>
-            <Select
+            <select
               value={sourceType}
               onChange={(e) => setSourceType(e.target.value as any)}
+              className={`w-full px-3 py-2 border rounded-md ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
             >
               <option value="all">All Project Questions ({questions.length})</option>
               <option value="collection">From Collection</option>
               <option value="custom">Custom Selection</option>
-            </Select>
+            </select>
           </div>
 
           {sourceType === 'collection' && (
@@ -254,9 +255,10 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
               <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 Select Collection
               </label>
-              <Select
+              <select
                 value={selectedCollectionId}
                 onChange={(e) => setSelectedCollectionId(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
               >
                 <option value="">Choose a collection...</option>
                 {questionCollections.map(collection => (
@@ -264,7 +266,7 @@ Use the exact stakeholder IDs and question IDs provided. Return ONLY the JSON ar
                     {collection.name} ({collection.questions?.length || 0} questions)
                   </option>
                 ))}
-              </Select>
+              </select>
             </div>
           )}
 

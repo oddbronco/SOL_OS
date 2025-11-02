@@ -57,6 +57,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [project, setProject] = useState<Project | null>(null);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionCollections, setQuestionCollections] = useState<any[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [interviewSessions, setInterviewSessions] = useState<InterviewSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,12 +153,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
       // Load additional data in parallel
       console.log('📊 Loading additional project data...');
+      const { data: collectionsData } = await supabase
+        .from('question_collections')
+        .select('*')
+        .eq('project_id', projectId);
+
       const [stakeholdersData, questionsData, documentsData, interviewSessionsData] = await Promise.all([
         getProjectStakeholders(projectId),
         getProjectQuestions(projectId),
         getProjectDocuments(projectId),
         getProjectInterviewSessions(projectId)
       ]);
+
+      setQuestionCollections(collectionsData || []);
 
       setStakeholders(stakeholdersData);
       setQuestions(questionsData);
@@ -362,6 +370,37 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     const session = await createInterviewSession(project.id, stakeholder.id, interviewName, interviewType);
     if (session) {
       setInterviewSessions(prev => [session, ...prev]);
+    }
+  };
+
+  const handleCreateAIRound = async (assignments: any[]) => {
+    try {
+      console.log('Creating AI interview round with assignments:', assignments);
+
+      for (const assignment of assignments) {
+        const session = await createInterviewSession(
+          projectId,
+          assignment.stakeholderId,
+          assignment.interviewName,
+          assignment.interviewType
+        );
+
+        if (session && assignment.questionIds.length > 0) {
+          await assignQuestionsToStakeholder(
+            projectId,
+            assignment.stakeholderId,
+            assignment.questionIds,
+            session.id
+          );
+        }
+      }
+
+      await loadProjectData();
+      alert(`Successfully created ${assignments.length} interview sessions!`);
+    } catch (error) {
+      console.error('Error creating AI round:', error);
+      alert('Failed to create interview round');
+      throw error;
     }
   };
 
@@ -1029,10 +1068,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             project={project}
             stakeholders={stakeholders}
             questions={questions}
+            questionCollections={questionCollections}
             interviewSessions={interviewSessions}
             onAssignQuestions={handleAssignQuestions}
             onAnswerQuestions={handleAnswerQuestions}
             onCreateSession={handleCreateInterviewSession}
+            onCreateAIRound={handleCreateAIRound}
             onRefresh={loadProjectData}
           />
         )}
