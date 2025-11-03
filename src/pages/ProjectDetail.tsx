@@ -1175,10 +1175,10 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             <IntroVideoManager projectId={projectId} />
             <BrandingSettings
               projectId={projectId}
-              currentLogoUrl={currentProject?.brand_logo_url}
-              currentPrimaryColor={currentProject?.brand_primary_color}
-              currentSecondaryColor={currentProject?.brand_secondary_color}
-              currentTextColor={currentProject?.brand_text_color}
+              currentLogoUrl={project?.brand_logo_url}
+              currentPrimaryColor={project?.brand_primary_color}
+              currentSecondaryColor={project?.brand_secondary_color}
+              currentTextColor={project?.brand_text_color}
               onUpdate={() => loadProjectData(projectId)}
             />
           </div>
