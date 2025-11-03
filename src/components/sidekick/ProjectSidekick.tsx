@@ -574,113 +574,169 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
     setLoading(true);
 
     try {
-      // Detect question type to adjust search strategy
+      // Intelligent query categorization
       const lowerInput = input.toLowerCase();
-      const isStakeholderQuery = lowerInput.includes('stakeholder') || lowerInput.includes('who are') || lowerInput.includes('people involved');
-      const isOverviewQuery = lowerInput.includes('overview') || lowerInput.includes('about this project') || lowerInput.includes('summary');
-      const isInterviewQuery = lowerInput.includes('interview') || lowerInput.includes('session') || lowerInput.includes('answered') || lowerInput.includes('responded');
+      const queryCategories = {
+        stakeholders: /stakeholder|who (are|is)|people|team member|participant/i.test(input),
+        overview: /overview|summary|about|describe|what is|project detail|status/i.test(input),
+        interviews: /interview|session|answered|responded|completion|progress/i.test(input),
+        questions: /question|ask|inquiry/i.test(input),
+        responses: /response|answer|said|mentioned|feedback|opinion/i.test(input),
+        documents: /document|file|upload|template|generated/i.test(input),
+        exports: /export|download|output/i.test(input),
+        timeline: /when|date|timeline|schedule|deadline/i.test(input)
+      };
 
-      // Generate embedding for user query
-      const queryEmbedding = await openAIService.generateEmbedding(input);
+      // Build comprehensive context using hybrid approach
+      let context: any[] = [];
+      let directDataFetched = false;
 
-      // Adjust search parameters based on query type
-      let matchCount = 8;
-      let matchThreshold = 0.7;
-
-      if (isStakeholderQuery || isOverviewQuery) {
-        matchCount = 15; // Get more results for broad queries
-        matchThreshold = 0.6; // Lower threshold for better recall
-      }
-
-      // Search vectors
-      const { data: searchResults } = await supabase.rpc('search_project_vectors', {
-        search_project_id: projectId,
-        query_embedding: queryEmbedding,
-        match_threshold: matchThreshold,
-        match_count: matchCount
-      });
-
-      // Build context from search results
-      let context = searchResults?.map((result: any) => ({
-        text: result.chunk_text,
-        metadata: result.metadata,
-        type: result.source_type
-      })) || [];
-
-      // For stakeholder queries, ensure we have all stakeholder info
-      if (isStakeholderQuery) {
-        const { data: allStakeholders } = await supabase
+      // Strategy 1: Direct data fetching for specific entity queries
+      if (queryCategories.stakeholders) {
+        directDataFetched = true;
+        const { data: stakeholders } = await supabase
           .from('stakeholders')
           .select('*')
-          .eq('project_id', projectId);
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: true });
 
-        if (allStakeholders && allStakeholders.length > 0) {
-          // Add any missing stakeholders to context
-          const stakeholderIds = new Set(context.filter(c => c.metadata?.stakeholder_id).map(c => c.metadata.stakeholder_id));
-
-          for (const stakeholder of allStakeholders) {
-            if (!stakeholderIds.has(stakeholder.id)) {
-              context.push({
-                text: `
-Stakeholder: ${stakeholder.name}
-Role: ${stakeholder.role}
-Department: ${stakeholder.department}
-Email: ${stakeholder.email || 'Not provided'}
-Phone: ${stakeholder.phone || 'Not provided'}
-Status: ${stakeholder.status}
-Seniority: ${stakeholder.seniority || 'Not specified'}
-Experience: ${stakeholder.experience_years ? `${stakeholder.experience_years} years` : 'Not specified'}
-Added: ${new Date(stakeholder.created_at).toLocaleDateString()}
-                `.trim(),
-                metadata: {
-                  stakeholder_id: stakeholder.id,
-                  stakeholder_name: stakeholder.name,
-                  role: stakeholder.role,
-                  department: stakeholder.department,
-                  status: stakeholder.status
-                },
-                type: 'stakeholder_info'
-              });
-            }
-          }
-        }
+        stakeholders?.forEach(s => {
+          context.push({
+            text: `Stakeholder: ${s.name}\nRole: ${s.role}\nDepartment: ${s.department}\nEmail: ${s.email || 'Not provided'}\nPhone: ${s.phone || 'Not provided'}\nStatus: ${s.status}\nSeniority: ${s.seniority || 'Not specified'}\nExperience: ${s.experience_years ? `${s.experience_years} years` : 'Not specified'}`,
+            metadata: { stakeholder_id: s.id, stakeholder_name: s.name, role: s.role, department: s.department },
+            type: 'stakeholder_info'
+          });
+        });
       }
 
-      // For interview status queries, add session data
-      if (isInterviewQuery) {
-        const { data: sessions } = await supabase
-          .from('interview_sessions')
-          .select(`
-            *,
-            stakeholders!inner(id, name, role, department)
-          `)
-          .eq('project_id', projectId);
+      if (queryCategories.overview) {
+        directDataFetched = true;
+        const { data: project } = await supabase
+          .from('projects')
+          .select('name, description, status, start_date, target_completion_date, created_at, updated_at, transcript')
+          .eq('id', projectId)
+          .single();
 
-        if (sessions && sessions.length > 0) {
-          for (const session of sessions) {
-            const sessionText = `
-Interview Session: ${session.interview_name}
-Stakeholder: ${session.stakeholders.name} (${session.stakeholders.role}, ${session.stakeholders.department})
-Total Questions: ${session.total_questions}
-Answered: ${session.answered_questions}
-Status: ${session.status}
-Completion: ${session.total_questions > 0 ? Math.round((session.answered_questions / session.total_questions) * 100) : 0}%
-            `.trim();
+        if (project) {
+          context.push({
+            text: `Project: ${project.name}\nStatus: ${project.status}\nDescription: ${project.description || 'No description'}\nStart Date: ${project.start_date || 'Not set'}\nTarget Completion: ${project.target_completion_date || 'Not set'}\nCreated: ${new Date(project.created_at).toLocaleDateString()}\nLast Updated: ${new Date(project.updated_at).toLocaleDateString()}`,
+            metadata: { project_name: project.name, status: project.status },
+            type: 'project_overview'
+          });
 
+          if (project.transcript) {
             context.push({
-              text: sessionText,
-              metadata: {
-                session_id: session.id,
-                stakeholder_name: session.stakeholders.name,
-                stakeholder_role: session.stakeholders.role,
-                total_questions: session.total_questions,
-                answered_questions: session.answered_questions,
-                status: session.status
-              },
-              type: 'interview_session'
+              text: `Kickoff Transcript:\n${project.transcript}`,
+              metadata: { source: 'Kickoff meeting' },
+              type: 'kickoff_transcript'
             });
           }
         }
+      }
+
+      if (queryCategories.interviews) {
+        directDataFetched = true;
+        const { data: sessions } = await supabase
+          .from('interview_sessions')
+          .select(`*, stakeholders!inner(id, name, role, department)`)
+          .eq('project_id', projectId);
+
+        sessions?.forEach(s => {
+          context.push({
+            text: `Interview: ${s.interview_name}\nStakeholder: ${s.stakeholders.name} (${s.stakeholders.role})\nQuestions: ${s.total_questions}\nAnswered: ${s.answered_questions}\nStatus: ${s.status}\nCompletion: ${s.total_questions > 0 ? Math.round((s.answered_questions / s.total_questions) * 100) : 0}%`,
+            metadata: { session_id: s.id, stakeholder_name: s.stakeholders.name, total_questions: s.total_questions, answered_questions: s.answered_questions },
+            type: 'interview_session'
+          });
+        });
+      }
+
+      if (queryCategories.documents) {
+        directDataFetched = true;
+        const { data: docs } = await supabase
+          .from('documents')
+          .select('id, title, type, status, version, created_at, updated_at')
+          .eq('project_id', projectId)
+          .order('updated_at', { ascending: false })
+          .limit(10);
+
+        docs?.forEach(d => {
+          context.push({
+            text: `Document: ${d.title}\nType: ${d.type}\nStatus: ${d.status}\nVersion: ${d.version || 1}\nCreated: ${new Date(d.created_at).toLocaleDateString()}\nLast Updated: ${new Date(d.updated_at).toLocaleDateString()}`,
+            metadata: { document_id: d.id, title: d.title, type: d.type },
+            type: 'document'
+          });
+        });
+
+        const { data: uploads } = await supabase
+          .from('project_uploads')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('include_in_generation', true)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        uploads?.forEach(u => {
+          context.push({
+            text: `File: ${u.file_name}\nType: ${u.upload_type}\nSize: ${(u.file_size / 1024).toFixed(2)} KB\nDescription: ${u.description || 'No description'}\nUploaded: ${new Date(u.created_at).toLocaleDateString()}`,
+            metadata: { upload_id: u.id, file_name: u.file_name, upload_type: u.upload_type },
+            type: 'upload'
+          });
+        });
+      }
+
+      if (queryCategories.exports) {
+        directDataFetched = true;
+        const { data: exports } = await supabase
+          .from('project_exports')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        exports?.forEach(e => {
+          context.push({
+            text: `Export: ${e.file_name || 'Unnamed'}\nFormat: ${e.export_format}\nType: ${e.export_type}\nStatus: ${e.status}\nSize: ${e.file_size ? (e.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'N/A'}\nCreated: ${new Date(e.created_at).toLocaleDateString()}`,
+            metadata: { export_id: e.id, export_format: e.export_format, status: e.status },
+            type: 'project_export'
+          });
+        });
+      }
+
+      // Strategy 2: Semantic search for responses and content-heavy queries
+      const needsSemanticSearch = queryCategories.responses || queryCategories.questions || !directDataFetched;
+
+      if (needsSemanticSearch) {
+        const queryEmbedding = await openAIService.generateEmbedding(input);
+        const matchCount = directDataFetched ? 5 : 10;
+        const matchThreshold = 0.65;
+
+        const { data: searchResults } = await supabase.rpc('search_project_vectors', {
+          search_project_id: projectId,
+          query_embedding: queryEmbedding,
+          match_threshold: matchThreshold,
+          match_count: matchCount
+        });
+
+        const vectorContext = searchResults?.map((result: any) => ({
+          text: result.chunk_text,
+          metadata: result.metadata,
+          type: result.source_type
+        })) || [];
+
+        // Merge with existing context, avoiding duplicates
+        const existingIds = new Set(context.map(c => c.metadata?.stakeholder_id || c.metadata?.session_id || c.metadata?.document_id).filter(Boolean));
+
+        vectorContext.forEach(vc => {
+          const id = vc.metadata?.stakeholder_id || vc.metadata?.session_id || vc.metadata?.document_id;
+          if (!id || !existingIds.has(id)) {
+            context.push(vc);
+          }
+        });
+      }
+
+      // Limit total context to prevent token overflow
+      if (context.length > 20) {
+        context = context.slice(0, 20);
       }
 
       // Build sources for display with better naming
@@ -722,29 +778,20 @@ Completion: ${session.total_questions > 0 ? Math.round((session.answered_questio
       });
 
       // Generate response using GPT with context
-      const systemPrompt = `You are a helpful project assistant with access to comprehensive project information. Answer questions based ONLY on the provided context below.
+      const systemPrompt = `You are an accurate and helpful project assistant. Answer questions using ONLY the provided context below.
 
-You have access to:
-- Project overview (name, description, status, dates, kickoff transcript)
-- All stakeholders (names, roles, departments, contact info, experience)
-- Interview questions asked in this project
-- Interview responses from each stakeholder (who answered what, when they answered, their specific responses)
-- Interview sessions (which questions were assigned to which stakeholders, completion status)
-- Uploaded files and documents (meeting notes, recordings, specifications)
-- Audio/video transcriptions from uploaded files
-- Generated documents (templates used, when generated, status)
-- Document templates available in the project
-- Project exports (most recent exports, formats, file sizes)
+CONTEXT PROVIDED (${context.length} items):
+${context.map((c: any, i: number) => `[${i + 1}] ${c.type}:\n${c.text}`).join('\n\n---\n\n')}
 
-When answering:
-- Be specific about WHO said WHAT and WHEN
-- Reference stakeholder names, roles, and departments when discussing their responses
-- Cite specific interview questions when relevant
-- Mention timestamps and dates when discussing when things happened
-- If information isn't in the context, clearly state that
-
-Project Context:
-${context.map((c: any, i: number) => `[${i + 1}] ${c.type}: ${c.text}`).join('\n\n')}`;
+INSTRUCTIONS:
+1. Answer accurately based on the context above
+2. Be specific: mention WHO (names, roles), WHAT (actions, responses), and WHEN (dates, times)
+3. If comparing or listing multiple items, be comprehensive - don't skip any
+4. If the context contains stakeholder lists, interview sessions, or documents, include ALL of them in your response
+5. When discussing completeness (e.g., "who hasn't responded"), use the complete lists in the context
+6. If information is not in the context, clearly state "I don't have information about [topic] in the current project data"
+7. Do NOT make assumptions or add information not in the context
+8. Format lists clearly with bullet points or numbers when appropriate`;
 
       const assistantResponse = await openAIService.chat([
         { role: 'system', content: systemPrompt },
