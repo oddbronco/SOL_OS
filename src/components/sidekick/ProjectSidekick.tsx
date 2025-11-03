@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User as UserIcon, RefreshCw, FileText, Users } from 'lucide-react';
+import { Send, Bot, User as UserIcon, RefreshCw, FileText, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -33,6 +33,7 @@ export const ProjectSidekick: React.FC<ProjectSidekickProps> = ({ projectId }) =
   const [loading, setLoading] = useState(false);
   const [indexing, setIndexing] = useState(false);
   const [vectorCount, setVectorCount] = useState(0);
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -829,22 +830,45 @@ ${context.map((c: any, i: number) => `[${i + 1}] ${c.type}: ${c.text}`).join('\n
                 </div>
 
                 {message.sources && message.sources.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    <p className="text-xs text-gray-600 font-medium">Sources:</p>
-                    {message.sources.map((source) => (
-                      <div key={source.sourceId} className="bg-gray-50 border border-gray-200 rounded p-2">
-                        <div className="flex items-center space-x-2 mb-1">
-                          {source.type === 'interview_response' ? (
-                            <Users className="h-3 w-3 text-gray-400" />
-                          ) : (
-                            <FileText className="h-3 w-3 text-gray-400" />
-                          )}
-                          <span className="text-xs font-medium text-gray-700">{source.name}</span>
-                          <Badge variant="default" size="sm">{source.type}</Badge>
-                        </div>
-                        <p className="text-xs text-gray-600">{source.excerpt}</p>
+                  <div className="mt-2">
+                    <button
+                      onClick={() => {
+                        const newExpanded = new Set(expandedSources);
+                        if (newExpanded.has(message.id)) {
+                          newExpanded.delete(message.id);
+                        } else {
+                          newExpanded.add(message.id);
+                        }
+                        setExpandedSources(newExpanded);
+                      }}
+                      className="flex items-center space-x-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    >
+                      {expandedSources.has(message.id) ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                      <span>{message.sources.length} {message.sources.length === 1 ? 'Source' : 'Sources'}</span>
+                    </button>
+
+                    {expandedSources.has(message.id) && (
+                      <div className="mt-2 space-y-2">
+                        {message.sources.map((source) => (
+                          <div key={source.sourceId} className="bg-gray-50 border border-gray-200 rounded p-2">
+                            <div className="flex items-center space-x-2 mb-1">
+                              {source.type === 'interview_response' ? (
+                                <Users className="h-3 w-3 text-gray-400" />
+                              ) : (
+                                <FileText className="h-3 w-3 text-gray-400" />
+                              )}
+                              <span className="text-xs font-medium text-gray-700">{source.name}</span>
+                              <Badge variant="default" size="sm">{source.type}</Badge>
+                            </div>
+                            <p className="text-xs text-gray-600">{source.excerpt}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
 
