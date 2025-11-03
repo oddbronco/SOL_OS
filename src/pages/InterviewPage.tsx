@@ -60,7 +60,8 @@ export const InterviewPage: React.FC = () => {
       setError('Invalid interview link. Please check your URL.');
       setSessionState('not_found');
     }
-  }, [sessionToken, projectId, stakeholderId, loadSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionToken, projectId, stakeholderId]);
 
   // Hash IP address for privacy-compliant tracking
   const hashIp = async (ip: string): Promise<string> => {
@@ -139,6 +140,8 @@ export const InterviewPage: React.FC = () => {
         if (stakeholderError) {
           console.error('❌ Stakeholder error:', stakeholderError);
           setError('Interview not found. Please check your link.');
+          setSessionState('not_found');
+          setLoading(false);
           return;
         }
 
@@ -167,6 +170,8 @@ export const InterviewPage: React.FC = () => {
           if (createError) {
             console.error('❌ Create session error:', createError);
             setError('Failed to create interview session.');
+            setSessionState('not_found');
+            setLoading(false);
             return;
           }
 
@@ -174,6 +179,8 @@ export const InterviewPage: React.FC = () => {
         } else if (sessionError) {
           console.error('❌ Session error:', sessionError);
           setError('Interview session not found.');
+          setSessionState('not_found');
+          setLoading(false);
           return;
         }
 
@@ -192,6 +199,8 @@ export const InterviewPage: React.FC = () => {
         if (projectError) {
           console.error('❌ Project error:', projectError);
           setError('Project not found.');
+          setSessionState('not_found');
+          setLoading(false);
           return;
         }
 
@@ -211,6 +220,8 @@ export const InterviewPage: React.FC = () => {
         if (sessionError) {
           console.error('❌ Session error:', sessionError);
           setError('Interview session not found. Please check your link.');
+          setSessionState('not_found');
+          setLoading(false);
           return;
         }
 
@@ -231,6 +242,8 @@ export const InterviewPage: React.FC = () => {
         if (stakeholderError) {
           console.error('❌ Stakeholder error:', stakeholderError);
           setError('Stakeholder not found.');
+          setSessionState('not_found');
+          setLoading(false);
           return;
         }
 
@@ -257,6 +270,7 @@ export const InterviewPage: React.FC = () => {
       } else {
         setError('Invalid interview link.');
         setSessionState('not_found');
+        setLoading(false);
         return;
       }
 
