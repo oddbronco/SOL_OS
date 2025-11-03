@@ -36,6 +36,10 @@ export interface Project {
   stakeholders_count?: number
   dueDate?: string
   isDemo?: boolean
+  brand_logo_url?: string
+  brand_primary_color?: string
+  brand_secondary_color?: string
+  brand_text_color?: string
 }
 
 export interface Stakeholder {

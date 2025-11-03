@@ -20,6 +20,7 @@ import { CSVUploadManager } from '../components/csv/CSVUploadManager';
 import { QuestionCollectionImporter } from '../components/questions/QuestionCollectionImporter';
 import { FilesTab } from '../components/project/FilesTab';
 import { IntroVideoManager } from '../components/project/IntroVideoManager';
+import { BrandingSettings } from '../components/project/BrandingSettings';
 import { DocumentRunsManager } from '../components/documents/DocumentRunsManager';
 import { ProjectSidekick } from '../components/sidekick/ProjectSidekick';
 import { ProjectExportManager } from '../components/export/ProjectExportManager';
@@ -1172,6 +1173,14 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         {activeTab === 'settings' && (
           <div className="space-y-6">
             <IntroVideoManager projectId={projectId} />
+            <BrandingSettings
+              projectId={projectId}
+              currentLogoUrl={currentProject?.brand_logo_url}
+              currentPrimaryColor={currentProject?.brand_primary_color}
+              currentSecondaryColor={currentProject?.brand_secondary_color}
+              currentTextColor={currentProject?.brand_text_color}
+              onUpdate={() => loadProjectData(projectId)}
+            />
           </div>
         )}
       </div>

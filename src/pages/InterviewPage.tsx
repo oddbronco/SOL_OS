@@ -61,6 +61,12 @@ export const InterviewPage: React.FC = () => {
   const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
   const [showIntroVideo, setShowIntroVideo] = useState(false);
   const [videoWatched, setVideoWatched] = useState(false);
+  const [projectBranding, setProjectBranding] = useState<{
+    logo_url?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    text_color?: string;
+  }>({});
 
   // Add SEO protection meta tags for interview pages (must be at top before any conditional returns)
   useEffect(() => {
@@ -320,6 +326,24 @@ export const InterviewPage: React.FC = () => {
 
         if (!videoError && videoData && videoData.length > 0) {
           setIntroVideo(videoData[0]);
+        }
+      }
+
+      // Load project branding
+      if (projectId) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('brand_logo_url, brand_primary_color, brand_secondary_color, brand_text_color')
+          .eq('id', projectId)
+          .single();
+
+        if (projectData) {
+          setProjectBranding({
+            logo_url: projectData.brand_logo_url || undefined,
+            primary_color: projectData.brand_primary_color || '#3B82F6',
+            secondary_color: projectData.brand_secondary_color || '#10B981',
+            text_color: projectData.brand_text_color || '#FFFFFF'
+          });
         }
       }
     } catch (err) {
@@ -738,6 +762,17 @@ export const InterviewPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto py-8 px-4">
+        {/* Project Logo */}
+        {projectBranding.logo_url && (
+          <div className="mb-6 flex justify-center">
+            <img
+              src={projectBranding.logo_url}
+              alt="Project logo"
+              className="h-16 object-contain"
+            />
+          </div>
+        )}
+
         {/* Header */}
         <Card className="mb-6">
           <div className="flex items-center justify-between">
@@ -819,14 +854,25 @@ export const InterviewPage: React.FC = () => {
               </div>
             ) : (
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                <iframe
-                  src={getEmbedUrl(introVideo.video_url)}
-                  className="absolute inset-0 w-full h-full"
-                  title={introVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  onLoad={() => markVideoAsWatched()}
-                />
+                {introVideo.video_type === 'upload' ? (
+                  <video
+                    src={introVideo.video_url}
+                    controls
+                    className="absolute inset-0 w-full h-full"
+                    onPlay={() => markVideoAsWatched()}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                ) : (
+                  <iframe
+                    src={getEmbedUrl(introVideo.video_url)}
+                    className="absolute inset-0 w-full h-full"
+                    title={introVideo.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    onLoad={() => markVideoAsWatched()}
+                  />
+                )}
               </div>
             )}
           </Card>
@@ -849,6 +895,10 @@ export const InterviewPage: React.FC = () => {
               onClick={() => setShowQuestions(true)}
               size="lg"
               icon={MessageSquare}
+              style={projectBranding.primary_color ? {
+                backgroundColor: projectBranding.primary_color,
+                color: projectBranding.text_color
+              } : undefined}
             >
               Start Interview
             </Button>
