@@ -180,14 +180,29 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
     }
   }, [stakeholder?.id, session?.id, getStakeholderQuestionAssignments]);
 
-  // Load questions and responses
+  // Load questions and responses only when modal first opens
   useEffect(() => {
-    if (isOpen && stakeholder && session) {
+    if (isOpen && stakeholder && session && questions.length === 0) {
       console.log('🔥 Modal opened - loading questions with session:', session.id);
       loadQuestions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, stakeholder?.id, session?.id]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setCurrentQuestionIndex(0);
+      setQuestions([]);
+      setResponses({});
+      setTextResponses(['']);
+      setRecordingBlob(null);
+      setRecordingUrl(null);
+      setUploadedFiles([]);
+      setShowOverview(false);
+      setHasUnsavedChanges(false);
+    }
+  }, [isOpen]);
 
   // Load current question's responses when question changes
   useEffect(() => {
