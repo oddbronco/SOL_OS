@@ -609,7 +609,7 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
         });
       }
 
-      if (queryCategories.overview) {
+      if (queryCategories.overview || queryCategories.timeline) {
         directDataFetched = true;
         const { data: project } = await supabase
           .from('projects')
@@ -618,9 +618,14 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
           .single();
 
         if (project) {
+          const startDate = project.start_date ? new Date(project.start_date).toLocaleDateString() : 'Not set';
+          const targetDate = project.target_completion_date ? new Date(project.target_completion_date).toLocaleDateString() : 'Not set';
+          const createdDate = new Date(project.created_at).toLocaleDateString();
+          const updatedDate = new Date(project.updated_at).toLocaleDateString();
+
           context.push({
-            text: `Project: ${project.name}\nStatus: ${project.status}\nDescription: ${project.description || 'No description'}\nStart Date: ${project.start_date || 'Not set'}\nTarget Completion: ${project.target_completion_date || 'Not set'}\nCreated: ${new Date(project.created_at).toLocaleDateString()}\nLast Updated: ${new Date(project.updated_at).toLocaleDateString()}`,
-            metadata: { project_name: project.name, status: project.status },
+            text: `Project: ${project.name}\nStatus: ${project.status}\nDescription: ${project.description || 'No description'}\nStart Date: ${startDate}\nDue Date / Target Completion: ${targetDate}\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`,
+            metadata: { project_name: project.name, status: project.status, target_completion_date: project.target_completion_date },
             type: 'project_overview'
           });
 
