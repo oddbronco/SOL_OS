@@ -26,11 +26,11 @@ function App() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   
   // Check if we're on admin subdomain (production or development)
-  const isAdminDomain = window.location.hostname === 'admin.withspeak.com' || 
+  const isAdminDomain = window.location.hostname === 'admin.solprojectos.com' ||
                        (window.location.hostname === 'localhost' && window.location.port === '5173');
-  
-  // Check if we're on app subdomain (production or development)  
-  const isAppDomain = window.location.hostname === 'app.withspeak.com' ||
+
+  // Check if we're on app subdomain (production or development)
+  const isAppDomain = window.location.hostname === 'app.solprojectos.com' ||
                      (window.location.hostname === 'localhost' && window.location.port === '5173');
   
   // Interview pages are handled by React Router - see main.tsx for routes
@@ -39,14 +39,14 @@ function App() {
   React.useEffect(() => {
     if (user && isAdminDomain && !user.isMasterAdmin && user.role !== 'master_admin') {
       if (window.location.hostname !== 'localhost') {
-        window.location.href = 'https://app.withspeak.com';
+        window.location.href = 'https://app.solprojectos.com';
       }
     }
 
     // Redirect admin users to admin domain when accessing app domain
     if (user && isAppDomain && (user.isMasterAdmin || user.role === 'master_admin')) {
       if (window.location.hostname !== 'localhost') {
-        window.location.href = 'https://admin.withspeak.com';
+        window.location.href = 'https://admin.solprojectos.com';
       }
     }
   }, [user, isAdminDomain]);

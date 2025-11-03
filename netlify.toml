@@ -26,18 +26,18 @@
   status = 200
 
 [[redirects]]
-  from = "https://respond.withspeak.com/*"
-  to = "https://respond.withspeak.com/index.html"
+  from = "https://respond.solprojectos.com/*"
+  to = "https://respond.solprojectos.com/index.html"
   status = 200
 
 [[redirects]]
-  from = "https://admin.withspeak.com/*"
-  to = "https://admin.withspeak.com/index.html"
+  from = "https://admin.solprojectos.com/*"
+  to = "https://admin.solprojectos.com/index.html"
   status = 200
 
 [[redirects]]
-  from = "https://app.withspeak.com/*"
-  to = "https://app.withspeak.com/index.html"
+  from = "https://app.solprojectos.com/*"
+  to = "https://app.solprojectos.com/index.html"
   status = 200
 
 # Catch-all redirect for SPA routing (must be last)
@@ -63,7 +63,7 @@
     X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet, noimageindex"
 
 [[headers]]
-  for = "https://respond.withspeak.com/*"
+  for = "https://respond.solprojectos.com/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet, noimageindex"
 

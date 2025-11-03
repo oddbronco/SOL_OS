@@ -5,7 +5,7 @@ export const config = {
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
   },
   domains: {
-    landing: import.meta.env.VITE_LANDING_DOMAIN || 'withspeak.com',
+    landing: import.meta.env.VITE_LANDING_DOMAIN || 'solprojectos.com',
     app: import.meta.env.VITE_APP_DOMAIN || 'localhost:5173',
     admin: import.meta.env.VITE_ADMIN_DOMAIN || 'localhost:5173',
     respond: import.meta.env.VITE_RESPOND_DOMAIN || 'localhost:5173',
