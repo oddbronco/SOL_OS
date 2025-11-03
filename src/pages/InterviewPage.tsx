@@ -217,7 +217,8 @@ export const InterviewPage: React.FC = () => {
           .select('*')
           .eq('session_token', sessionToken)
           .single();
-
+        console.log(' session data:', sessionData)
+        console.log('session error:', sessionError)
         if (sessionError) {
           console.error('❌ Session error:', sessionError);
           setError('Interview session not found. Please check your link.');
