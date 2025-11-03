@@ -94,8 +94,8 @@ export const InterviewDashboard: React.FC<InterviewDashboardProps> = ({
     setShowInterviewLinkModal(true);
   };
 
-  const overallProgress = stakeholders.length > 0 
-    ? Math.round(interviewSessions.reduce((sum, session) => sum + session.completion_percentage, 0) / stakeholders.length)
+  const overallProgress = interviewSessions.length > 0
+    ? Math.round(interviewSessions.reduce((sum, session) => sum + session.completion_percentage, 0) / interviewSessions.length)
     : 0;
 
   const completedInterviews = interviewSessions.filter(s => s.status === 'completed').length;
