@@ -53,6 +53,7 @@ export const InterviewPage: React.FC = () => {
 
   useEffect(() => {
     if (sessionToken || (projectId && stakeholderId)) {
+      console.log(sessionToken)
       loadSession();
     } else {
       // No valid interview identifier found
