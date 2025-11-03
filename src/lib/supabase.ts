@@ -9,7 +9,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseUrl || 'https://bfjyaloyehlwmtqtqnpt.supabase.co',
   supabaseAnonKey || 'placeholder-key', {
     auth: {
       detectSessionInUrl: false,
@@ -17,6 +17,15 @@ export const supabase = createClient(
     }
   }
 )
+// export const supabase = createClient(
+//   supabaseUrl || 'https://placeholder.supabase.co',
+//   supabaseAnonKey || 'placeholder-key', {
+//     auth: {
+//       detectSessionInUrl: false,
+//       flowType: 'implicit'
+//     }
+//   }
+// )
 
 // Database types
 export interface Database {
