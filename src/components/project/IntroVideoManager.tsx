@@ -72,8 +72,16 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
         videoRef.current.srcObject = stream;
       }
 
+      let mimeType = 'video/webm;codecs=vp9';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm;codecs=vp8';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'video/webm';
+        }
+      }
+
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9'
+        mimeType: mimeType
       });
 
       mediaRecorderRef.current = mediaRecorder;
@@ -86,16 +94,17 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        const blob = new Blob(chunksRef.current, { type: mimeType });
         setRecordedBlob(blob);
-        setRecordedUrl(URL.createObjectURL(blob));
+        const url = URL.createObjectURL(blob);
+        setRecordedUrl(url);
 
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(100);
       setIsRecording(true);
       setRecordingTime(0);
 
@@ -103,9 +112,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
         setRecordingTime(prev => prev + 1);
       }, 1000);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error starting recording:', err);
-      setError('Could not access camera. Please check permissions.');
+      setError(err.message || 'Could not access camera. Please check permissions.');
     }
   };
 
@@ -121,6 +130,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   };
 
   const resetRecording = () => {
+    if (recordedUrl) {
+      URL.revokeObjectURL(recordedUrl);
+    }
     setRecordedBlob(null);
     setRecordedUrl(null);
     setRecordingTime(0);
@@ -494,6 +506,8 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                   <video
                     src={recordedUrl}
                     controls
+                    playsInline
+                    preload="auto"
                     className="w-full h-full object-cover"
                   />
                 )}
