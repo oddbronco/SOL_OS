@@ -725,39 +725,87 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
           .order('updated_at', { ascending: false });
 
         if (sessions && sessions.length > 0) {
+          // Group sessions by stakeholder for summary
+          const sessionsByStakeholder: Record<string, any[]> = {};
+          const completedSessions: any[] = [];
+          const incompleteSessions: any[] = [];
+
           for (const s of sessions) {
             const createdDate = new Date(s.created_at).toLocaleString();
             const updatedDate = new Date(s.updated_at).toLocaleString();
-            const isComplete = s.status === 'completed' || s.answered_questions === s.total_questions;
+            const completionPct = s.total_questions > 0 ? Math.round((s.answered_questions / s.total_questions) * 100) : 0;
+            const isComplete = s.status === 'completed' || completionPct === 100;
+            const isPartial = s.answered_questions > 0 && !isComplete;
+            const isNotStarted = s.answered_questions === 0;
             const completionDate = isComplete ? updatedDate : 'Not completed';
 
-            let sessionText = `Interview: ${s.interview_name}\nStakeholder: ${s.stakeholders.name} (${s.stakeholders.role}, ${s.stakeholders.department})\nQuestions: ${s.total_questions}\nAnswered: ${s.answered_questions}\nStatus: ${s.status}\nCompletion: ${s.total_questions > 0 ? Math.round((s.answered_questions / s.total_questions) * 100) : 0}%\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`;
+            let sessionText = `Interview: ${s.interview_name}\nStakeholder: ${s.stakeholders.name} (${s.stakeholders.role}, ${s.stakeholders.department})\nQuestions: ${s.total_questions}\nAnswered: ${s.answered_questions}\nStatus: ${s.status}\nCompletion: ${completionPct}%`;
 
             if (isComplete) {
               sessionText += `\nCompleted: ${completionDate}`;
+            } else if (isPartial) {
+              sessionText += `\nProgress: Partially completed (${s.answered_questions}/${s.total_questions} questions answered)`;
+            } else if (isNotStarted) {
+              sessionText += `\nProgress: Not started yet`;
             }
+
+            sessionText += `\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`;
 
             context.push({
               text: sessionText,
               metadata: {
                 session_id: s.id,
+                interview_name: s.interview_name,
+                stakeholder_id: s.stakeholder_id,
                 stakeholder_name: s.stakeholders.name,
                 total_questions: s.total_questions,
                 answered_questions: s.answered_questions,
+                completion_percentage: completionPct,
                 status: s.status,
                 created_at: s.created_at,
                 updated_at: s.updated_at,
-                is_complete: isComplete
+                is_complete: isComplete,
+                is_partial: isPartial,
+                is_not_started: isNotStarted
               },
               type: 'interview_session'
             });
+
+            // Group by stakeholder
+            if (!sessionsByStakeholder[s.stakeholder_id]) {
+              sessionsByStakeholder[s.stakeholder_id] = [];
+            }
+            sessionsByStakeholder[s.stakeholder_id].push({
+              name: s.interview_name,
+              answered: s.answered_questions,
+              total: s.total_questions,
+              percentage: completionPct,
+              isComplete,
+              isPartial,
+              isNotStarted
+            });
+
+            // Track completion status
+            if (isComplete) {
+              completedSessions.push({ stakeholder: s.stakeholders.name, interview: s.interview_name });
+            } else {
+              incompleteSessions.push({
+                stakeholder: s.stakeholders.name,
+                interview: s.interview_name,
+                answered: s.answered_questions,
+                total: s.total_questions,
+                percentage: completionPct,
+                isPartial,
+                isNotStarted
+              });
+            }
 
             // If asking about completion or timeline, get the actual response timestamps
             if (queryCategories.timeline && s.answered_questions > 0) {
               const { data: responses } = await supabase
                 .from('interview_responses')
                 .select('response_text, created_at, updated_at')
-                .eq('session_id', s.id)
+                .eq('interview_session_id', s.id)
                 .order('created_at', { ascending: true });
 
               if (responses && responses.length > 0) {
@@ -765,9 +813,10 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
                 const lastResponse = new Date(responses[responses.length - 1].created_at).toLocaleString();
 
                 context.push({
-                  text: `${s.stakeholders.name}'s Response Timeline:\nFirst Response: ${firstResponse}\nLast Response: ${lastResponse}\nTotal Responses: ${responses.length}\nTime Span: ${responses.length > 1 ? 'Multiple sessions' : 'Single session'}`,
+                  text: `${s.stakeholders.name}'s Response Timeline for "${s.interview_name}":\nFirst Response: ${firstResponse}\nLast Response: ${lastResponse}\nTotal Responses: ${responses.length}\nTime Span: ${responses.length > 1 ? 'Multiple sessions' : 'Single session'}`,
                   metadata: {
                     session_id: s.id,
+                    interview_name: s.interview_name,
                     stakeholder_name: s.stakeholders.name,
                     first_response: responses[0].created_at,
                     last_response: responses[responses.length - 1].created_at,
@@ -777,6 +826,70 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
                 });
               }
             }
+          }
+
+          // Add per-stakeholder interview summary
+          Object.entries(sessionsByStakeholder).forEach(([stakeholderId, interviews]) => {
+            const stakeholder = sessions.find(s => s.stakeholder_id === stakeholderId)?.stakeholders;
+            if (!stakeholder) return;
+
+            const completed = interviews.filter(i => i.isComplete).length;
+            const partial = interviews.filter(i => i.isPartial).length;
+            const notStarted = interviews.filter(i => i.isNotStarted).length;
+
+            let summaryText = `${stakeholder.name}'s Interview Summary:\nTotal Interviews: ${interviews.length}\nCompleted: ${completed}\nPartially Complete: ${partial}\nNot Started: ${notStarted}\n\nBreakdown by Interview:`;
+
+            interviews.forEach(i => {
+              let status = 'Not started';
+              if (i.isComplete) status = `Completed (100%)`;
+              else if (i.isPartial) status = `Partial (${i.percentage}% - ${i.answered}/${i.total} questions)`;
+
+              summaryText += `\n  - ${i.name}: ${status}`;
+            });
+
+            context.push({
+              text: summaryText,
+              metadata: {
+                stakeholder_id: stakeholderId,
+                stakeholder_name: stakeholder.name,
+                total_interviews: interviews.length,
+                completed_interviews: completed,
+                partial_interviews: partial,
+                not_started_interviews: notStarted
+              },
+              type: 'stakeholder_interview_summary'
+            });
+          });
+
+          // Add completion status summary
+          if (completedSessions.length > 0) {
+            const completedList = completedSessions
+              .map(s => `  - ${s.stakeholder}: "${s.interview}"`)
+              .join('\n');
+
+            context.push({
+              text: `COMPLETED INTERVIEWS (${completedSessions.length}):\n${completedList}`,
+              metadata: { completed_count: completedSessions.length },
+              type: 'interview_completion_summary'
+            });
+          }
+
+          if (incompleteSessions.length > 0) {
+            const incompleteList = incompleteSessions
+              .map(s => {
+                if (s.isNotStarted) {
+                  return `  - ${s.stakeholder}: "${s.interview}" - Not started (0%)`;
+                } else {
+                  return `  - ${s.stakeholder}: "${s.interview}" - ${s.percentage}% complete (${s.answered}/${s.total} questions)`;
+                }
+              })
+              .join('\n');
+
+            context.push({
+              text: `INCOMPLETE INTERVIEWS (${incompleteSessions.length}):\n${incompleteList}`,
+              metadata: { incomplete_count: incompleteSessions.length },
+              type: 'interview_completion_summary'
+            });
           }
         }
       }
