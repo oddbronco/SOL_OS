@@ -33,6 +33,7 @@ export const ProjectSidekick: React.FC<ProjectSidekickProps> = ({ projectId }) =
   const [loading, setLoading] = useState(false);
   const [indexing, setIndexing] = useState(false);
   const [vectorCount, setVectorCount] = useState(0);
+  const [lastIndexed, setLastIndexed] = useState<Date | null>(null);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +74,23 @@ Ask me anything about this project!`,
         .eq('project_id', projectId);
 
       setVectorCount(count || 0);
+
+      // Get the most recent vector's created_at to show last indexed time
+      if (count && count > 0) {
+        const { data: latestVector } = await supabase
+          .from('project_vectors')
+          .select('created_at')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (latestVector) {
+          setLastIndexed(new Date(latestVector.created_at));
+        }
+      } else {
+        setLastIndexed(null);
+      }
     } catch (error) {
       console.error('Error loading vector count:', error);
     }
@@ -578,7 +596,7 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
       const lowerInput = input.toLowerCase();
       const queryCategories = {
         stakeholders: /stakeholder|who (are|is)|people|team member|participant/i.test(input),
-        overview: /overview|summary|about|describe|what is|project detail|status/i.test(input),
+        overview: /overview|summary|about|describe|what is|project detail|status|goal|objective|purpose|description/i.test(input),
         interviews: /interview|session|answered|responded|completion|progress/i.test(input),
         questions: /question|ask|inquiry/i.test(input),
         responses: /response|answer|said|mentioned|feedback|opinion/i.test(input),
@@ -591,6 +609,36 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
       // Build comprehensive context using hybrid approach
       let context: any[] = [];
       let directDataFetched = false;
+
+      // ALWAYS fetch project overview as baseline context
+      {
+        const { data: project } = await supabase
+          .from('projects')
+          .select('name, description, status, start_date, target_completion_date, created_at, updated_at, transcript')
+          .eq('id', projectId)
+          .single();
+
+        if (project) {
+          const startDate = project.start_date ? new Date(project.start_date).toLocaleDateString() : 'Not set';
+          const targetDate = project.target_completion_date ? new Date(project.target_completion_date).toLocaleDateString() : 'Not set';
+          const createdDate = new Date(project.created_at).toLocaleDateString();
+          const updatedDate = new Date(project.updated_at).toLocaleDateString();
+
+          context.push({
+            text: `Project: ${project.name}\nStatus: ${project.status}\nDescription: ${project.description || 'No description'}\nGoal/Objective: ${project.description || 'Not specified'}\nStart Date: ${startDate}\nDue Date / Target Completion: ${targetDate}\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`,
+            metadata: { project_name: project.name, status: project.status, target_completion_date: project.target_completion_date, description: project.description },
+            type: 'project_overview'
+          });
+
+          if (project.transcript) {
+            context.push({
+              text: `Kickoff Transcript:\n${project.transcript}`,
+              metadata: { source: 'Kickoff meeting' },
+              type: 'kickoff_transcript'
+            });
+          }
+        }
+      }
 
       // Strategy 1: Direct data fetching for specific entity queries
       if (queryCategories.stakeholders || queryCategories.timeline || queryCategories.interviews) {
@@ -688,32 +736,7 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
 
       if (queryCategories.overview || queryCategories.timeline) {
         directDataFetched = true;
-        const { data: project } = await supabase
-          .from('projects')
-          .select('name, description, status, start_date, target_completion_date, created_at, updated_at, transcript')
-          .eq('id', projectId)
-          .single();
-
-        if (project) {
-          const startDate = project.start_date ? new Date(project.start_date).toLocaleDateString() : 'Not set';
-          const targetDate = project.target_completion_date ? new Date(project.target_completion_date).toLocaleDateString() : 'Not set';
-          const createdDate = new Date(project.created_at).toLocaleDateString();
-          const updatedDate = new Date(project.updated_at).toLocaleDateString();
-
-          context.push({
-            text: `Project: ${project.name}\nStatus: ${project.status}\nDescription: ${project.description || 'No description'}\nStart Date: ${startDate}\nDue Date / Target Completion: ${targetDate}\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`,
-            metadata: { project_name: project.name, status: project.status, target_completion_date: project.target_completion_date },
-            type: 'project_overview'
-          });
-
-          if (project.transcript) {
-            context.push({
-              text: `Kickoff Transcript:\n${project.transcript}`,
-              metadata: { source: 'Kickoff meeting' },
-              type: 'kickoff_transcript'
-            });
-          }
-        }
+        // Project overview already fetched above as baseline context
       }
 
       if (queryCategories.interviews || queryCategories.timeline) {
@@ -1140,6 +1163,9 @@ INSTRUCTIONS:
           <h2 className="text-xl font-bold text-gray-900">Project Sidekick</h2>
           <p className="text-sm text-gray-600 mt-1">
             {vectorCount} knowledge chunks indexed
+            {lastIndexed && (
+              <span className="text-gray-500"> • Last indexed {lastIndexed.toLocaleString()}</span>
+            )}
           </p>
         </div>
         <Button
