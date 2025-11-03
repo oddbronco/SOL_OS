@@ -51,6 +51,30 @@ export const InterviewPage: React.FC = () => {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
 
+  // Add SEO protection meta tags for interview pages (must be at top before any conditional returns)
+  useEffect(() => {
+    const robotsMeta = document.createElement('meta');
+    robotsMeta.name = 'robots';
+    robotsMeta.content = 'noindex, nofollow, noarchive, nosnippet, noimageindex';
+    document.head.appendChild(robotsMeta);
+
+    const googlebotMeta = document.createElement('meta');
+    googlebotMeta.name = 'googlebot';
+    googlebotMeta.content = 'noindex, nofollow';
+    document.head.appendChild(googlebotMeta);
+
+    const xRobotsMeta = document.createElement('meta');
+    xRobotsMeta.httpEquiv = 'X-Robots-Tag';
+    xRobotsMeta.content = 'noindex, nofollow';
+    document.head.appendChild(xRobotsMeta);
+
+    return () => {
+      document.head.removeChild(robotsMeta);
+      document.head.removeChild(googlebotMeta);
+      document.head.removeChild(xRobotsMeta);
+    };
+  }, []);
+
   useEffect(() => {
     if (sessionToken || (projectId && stakeholderId)) {
       console.log(sessionToken)
@@ -591,33 +615,6 @@ export const InterviewPage: React.FC = () => {
       </div>
     );
   }
-
-  // Add SEO protection meta tags for interview pages
-  React.useEffect(() => {
-    // Add robots meta tag to prevent indexing
-    const robotsMeta = document.createElement('meta');
-    robotsMeta.name = 'robots';
-    robotsMeta.content = 'noindex, nofollow, noarchive, nosnippet, noimageindex';
-    document.head.appendChild(robotsMeta);
-
-    const googlebotMeta = document.createElement('meta');
-    googlebotMeta.name = 'googlebot';
-    googlebotMeta.content = 'noindex, nofollow';
-    document.head.appendChild(googlebotMeta);
-
-    // Add X-Robots-Tag header via meta
-    const xRobotsMeta = document.createElement('meta');
-    xRobotsMeta.httpEquiv = 'X-Robots-Tag';
-    xRobotsMeta.content = 'noindex, nofollow';
-    document.head.appendChild(xRobotsMeta);
-
-    return () => {
-      // Cleanup on unmount
-      document.head.removeChild(robotsMeta);
-      document.head.removeChild(googlebotMeta);
-      document.head.removeChild(xRobotsMeta);
-    };
-  }, []);
 
   // Don't render the main UI until we have all required data
   if (!session || !stakeholder || !project) {
