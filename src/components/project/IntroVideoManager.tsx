@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
-import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X } from 'lucide-react';
+import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw } from 'lucide-react';
 
 interface IntroVideo {
   id: string;
@@ -27,16 +27,111 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const [videos, setVideos] = useState<IntroVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [videoType, setVideoType] = useState<'external' | 'upload'>('external');
+  const [videoType, setVideoType] = useState<'external' | 'upload' | 'record'>('external');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     loadVideos();
   }, [projectId]);
+
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720 },
+        audio: true
+      });
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9'
+      });
+
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        setRecordedBlob(blob);
+        setRecordedUrl(URL.createObjectURL(blob));
+
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error starting recording:', err);
+      setError('Could not access camera. Please check permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    }
+  };
+
+  const resetRecording = () => {
+    setRecordedBlob(null);
+    setRecordedUrl(null);
+    setRecordingTime(0);
+    chunksRef.current = [];
+  };
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const loadVideos = async () => {
     try {
@@ -61,13 +156,44 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
     setError(null);
 
     try {
-      if (!title.trim() || !videoUrl.trim()) {
-        setError('Please fill in all required fields');
+      if (!title.trim()) {
+        setError('Please enter a title');
+        return;
+      }
+
+      if (videoType === 'external' && !videoUrl.trim()) {
+        setError('Please enter a video URL');
+        return;
+      }
+
+      if (videoType === 'record' && !recordedBlob) {
+        setError('Please record a video first');
         return;
       }
 
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
+
+      let finalVideoUrl = videoUrl.trim();
+
+      if (videoType === 'record' && recordedBlob) {
+        const fileName = `${projectId}/${Date.now()}-intro-video.webm`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('project-intro-videos')
+          .upload(fileName, recordedBlob, {
+            contentType: 'video/webm',
+            cacheControl: '3600'
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('project-intro-videos')
+          .getPublicUrl(fileName);
+
+        finalVideoUrl = publicUrl;
+      }
 
       const { error } = await supabase
         .from('project_intro_videos')
@@ -75,8 +201,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           project_id: projectId,
           title: title.trim(),
           description: description.trim() || null,
-          video_url: videoUrl.trim(),
-          video_type: videoType,
+          video_url: finalVideoUrl,
+          video_type: videoType === 'record' ? 'upload' : videoType,
+          duration_seconds: videoType === 'record' ? recordingTime : null,
           created_by: userData.user.id,
           is_active: videos.length === 0
         });
@@ -86,6 +213,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       setTitle('');
       setDescription('');
       setVideoUrl('');
+      resetRecording();
       setShowAddModal(false);
       loadVideos();
     } catch (err: any) {
@@ -260,11 +388,19 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       <Modal
         isOpen={showAddModal}
         onClose={() => {
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+          }
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+          }
           setShowAddModal(false);
           setError(null);
           setTitle('');
           setDescription('');
           setVideoUrl('');
+          resetRecording();
+          setIsRecording(false);
         }}
         title="Add Introduction Video"
       >
@@ -279,31 +415,44 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Video Type
             </label>
-            <div className="flex gap-4">
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setVideoType('record');
+                  resetRecording();
+                }}
+                className={`p-4 border-2 rounded-lg text-center transition-colors ${
+                  videoType === 'record'
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <Camera className="h-6 w-6 mx-auto mb-2 text-gray-700" />
+                <div className="font-medium text-sm">Record</div>
+                <div className="text-xs text-gray-600 mt-1">Use camera</div>
+              </button>
               <button
                 type="button"
                 onClick={() => setVideoType('external')}
-                className={`flex-1 p-4 border-2 rounded-lg text-center transition-colors ${
+                className={`p-4 border-2 rounded-lg text-center transition-colors ${
                   videoType === 'external'
                     ? 'border-primary-500 bg-primary-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <LinkIcon className="h-6 w-6 mx-auto mb-2 text-gray-700" />
-                <div className="font-medium">External Link</div>
-                <div className="text-xs text-gray-600 mt-1">YouTube, Vimeo, etc.</div>
+                <div className="font-medium text-sm">Link</div>
+                <div className="text-xs text-gray-600 mt-1">YouTube, Vimeo</div>
               </button>
               <button
                 type="button"
                 onClick={() => setVideoType('upload')}
-                className={`flex-1 p-4 border-2 rounded-lg text-center transition-colors ${
-                  videoType === 'upload'
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
+                disabled
+                className="p-4 border-2 rounded-lg text-center opacity-50 cursor-not-allowed border-gray-200"
               >
                 <Upload className="h-6 w-6 mx-auto mb-2 text-gray-700" />
-                <div className="font-medium">Upload Video</div>
+                <div className="font-medium text-sm">Upload</div>
                 <div className="text-xs text-gray-600 mt-1">Coming soon</div>
               </button>
             </div>
@@ -330,7 +479,78 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             />
           </div>
 
-          {videoType === 'external' ? (
+          {videoType === 'record' && (
+            <div className="space-y-4">
+              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                {!recordedUrl ? (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <video
+                    src={recordedUrl}
+                    controls
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                {isRecording && (
+                  <div className="absolute top-4 right-4 flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded-full">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium">{formatTime(recordingTime)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-center gap-3">
+                {!isRecording && !recordedUrl && (
+                  <Button
+                    type="button"
+                    onClick={startRecording}
+                    icon={Camera}
+                    variant="primary"
+                  >
+                    Start Recording
+                  </Button>
+                )}
+                {isRecording && (
+                  <Button
+                    type="button"
+                    onClick={stopRecording}
+                    icon={Square}
+                    variant="secondary"
+                  >
+                    Stop Recording
+                  </Button>
+                )}
+                {recordedUrl && (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={resetRecording}
+                      icon={RotateCcw}
+                      variant="secondary"
+                    >
+                      Record Again
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {recordedUrl && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    ✓ Video recorded successfully ({formatTime(recordingTime)})
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {videoType === 'external' && (
             <Input
               label="Video URL"
               value={videoUrl}
@@ -339,7 +559,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
               required
               icon={LinkIcon}
             />
-          ) : (
+          )}
+
+          {videoType === 'upload' && (
             <div className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center">
               <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-600">Video upload functionality coming soon</p>
@@ -356,9 +578,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             </Button>
             <Button
               type="submit"
-              disabled={submitting || (videoType === 'upload')}
+              disabled={submitting || videoType === 'upload' || isRecording || (videoType === 'record' && !recordedBlob)}
             >
-              {submitting ? 'Adding...' : 'Add Video'}
+              {submitting ? 'Uploading...' : 'Add Video'}
             </Button>
           </div>
         </form>
