@@ -211,7 +211,7 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
       loadCurrentQuestionResponses();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentQuestionIndex, questions.length]);
+  }, [currentQuestionIndex]);
 
   // Calculate max recording time based on system settings
   useEffect(() => {
@@ -260,23 +260,20 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
     if (!currentQuestion) return;
 
     const questionResponses = responses[currentQuestion.id] || [];
-    
+
     // Load text responses
-    const textResponses = questionResponses
+    const savedTextResponses = questionResponses
       .filter(r => r.response_type === 'text')
       .map(r => r.response_text || '');
-    
-    if (textResponses.length > 0) {
-      setTextResponses(textResponses);
+
+    if (savedTextResponses.length > 0) {
+      setTextResponses(savedTextResponses);
     } else {
       setTextResponses(['']);
     }
 
-    // Load uploaded files for file type
-    if (responseType === 'file') {
-      const fileResponses = questionResponses.filter(r => r.response_type === 'file');
-      setUploadedFiles([]);
-    }
+    // Clear uploaded files when switching questions
+    setUploadedFiles([]);
 
     // Reset recording state when switching questions
     cleanupRecording();
@@ -713,7 +710,10 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
         if (onSuccess) {
           onSuccess();
         }
-        
+
+        // Reset unsaved changes flag
+        setHasUnsavedChanges(false);
+
         // Auto-advance to next question
         if (currentQuestionIndex < questions.length - 1) {
           setCurrentQuestionIndex(prev => prev + 1);
@@ -854,45 +854,44 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
   const getButtonText = () => {
     const currentResponse = getCurrentResponse();
     const isLastQuestion = currentQuestionIndex === questions.length - 1;
-    
-    if (!hasUnsavedChanges && currentResponse) {
-      return isLastQuestion ? 'Complete Interview' : 'Next Question';
+
+    // Already has response, no changes - just navigation
+    if (currentResponse && !hasUnsavedChanges) {
+      return isLastQuestion ? 'Complete Interview' : 'Next';
     }
-    
-    if (currentResponse) {
-      return isLastQuestion ? 'Update & Complete' : 'Update & Next Question';
-    }
-    
-    return isLastQuestion ? 'Save & Complete' : 'Save & Next Question';
+
+    // Has changes or new response
+    return hasUnsavedChanges ? (isLastQuestion ? 'Save & Complete' : 'Save & Next') : 'Skip';
   };
 
   const isButtonEnabled = () => {
     const currentResponse = getCurrentResponse();
-    
-    // If there's an existing response and no changes, always enabled
-    if (currentResponse && !hasUnsavedChanges) {
-      return true;
-    }
-    
-    // If there are unsaved changes, enabled
-    if (hasUnsavedChanges) {
-      return true;
-    }
-    
-    // If no response exists and no new data, disabled
-    return false;
+
+    // Always allow navigation if response exists or if there are changes
+    return currentResponse !== null || hasUnsavedChanges;
   };
 
   const handleSaveAndNext = async () => {
-    if (!hasUnsavedChanges && getCurrentResponse()) {
-      // Just navigate to next question if no changes and response exists
-      if (currentQuestionIndex < questions.length - 1) {
+    const currentResponse = getCurrentResponse();
+    const isLastQuestion = currentQuestionIndex === questions.length - 1;
+
+    // If no changes and response exists, just navigate
+    if (!hasUnsavedChanges && currentResponse) {
+      if (!isLastQuestion) {
         setCurrentQuestionIndex(prev => prev + 1);
+      } else {
+        await completeInterview();
       }
       return;
     }
-    
+
+    // Save and navigate
     await saveAndNext();
+
+    // Complete interview if last question
+    if (isLastQuestion) {
+      await completeInterview();
+    }
   };
 
   if (loading) {
@@ -1626,28 +1625,16 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
               Close Interview
             </Button>
             
-            {currentQuestionIndex < questions.length - 1 ? (
-              <Button
-                onClick={getButtonText().includes('Next') || getButtonText().includes('Complete') ? handleSaveAndNext : completeInterview}
-                loading={saving}
-                disabled={!isButtonEnabled()}
-                icon={ArrowRight}
-                iconPosition="right"
-                size="lg"
-              >
-                {getButtonText()}
-              </Button>
-            ) : (
-              <Button
-                onClick={completeInterview}
-                loading={saving}
-                icon={CheckCircle}
-                className="bg-primary-600 hover:bg-primary-700"
-                size="lg"
-              >
-                Complete Interview
-              </Button>
-            )}
+            <Button
+              onClick={handleSaveAndNext}
+              loading={saving}
+              disabled={!isButtonEnabled()}
+              icon={currentQuestionIndex === questions.length - 1 ? CheckCircle : ArrowRight}
+              iconPosition="right"
+              size="lg"
+            >
+              {getButtonText()}
+            </Button>
           </div>
         </div>
       </div>
