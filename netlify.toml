@@ -21,8 +21,8 @@
 # Redirect rules for subdomain routing
 # Interview subdomain - for stakeholder interview sessions
 [[redirects]]
-  from = "https://interviews.speakprojects.com/*"
-  to = "https://interviews.speakprojects.com/index.html"
+  from = "https://interviews.solprojectos.com/*"
+  to = "https://interviews.solprojectos.com/index.html"
   status = 200
 
 [[redirects]]
@@ -58,7 +58,7 @@
 
 # No-index headers for interview and respond subdomains (SEO protection)
 [[headers]]
-  for = "https://interviews.speakprojects.com/*"
+  for = "https://interviews.solprojectos.com/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet, noimageindex"
 
