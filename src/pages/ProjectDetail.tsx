@@ -112,21 +112,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     loadProjectData();
   }, [projectId]);
 
-  const loadProjectData = async () => {
+  const loadProjectData = async (forceReload = false) => {
     if (!projectId) return;
 
     try {
       setLoading(true);
       setProjectNotFound(false);
-      console.log('🔄 Loading project data for:', projectId);
+      console.log('🔄 Loading project data for:', projectId, 'Force reload:', forceReload);
 
-      // Get project from existing state
-      let projectData = getProject(projectId);
+      // Get project from existing state (skip cache if forceReload is true)
+      let projectData = forceReload ? null : getProject(projectId);
       console.log('📁 Project found in state:', !!projectData);
-      
-      // If not found in state, try loading directly from database
+
+      // If not found in state or force reload, try loading directly from database
       if (!projectData) {
-        console.log('🔍 Project not in state, loading from database...');
+        console.log('🔍 Project not in state or force reload, loading from database...');
         
         const { data: dbProject, error } = await supabase
           .from('projects')
@@ -1179,7 +1179,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               currentPrimaryColor={project?.brand_primary_color}
               currentSecondaryColor={project?.brand_secondary_color}
               currentTextColor={project?.brand_text_color}
-              onUpdate={() => loadProjectData(projectId)}
+              onUpdate={() => loadProjectData(true)}
             />
           </div>
         )}
