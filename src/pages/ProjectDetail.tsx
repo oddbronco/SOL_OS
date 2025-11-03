@@ -19,6 +19,7 @@ import { StakeholderInterviewView } from '../components/interviews/StakeholderIn
 import { CSVUploadManager } from '../components/csv/CSVUploadManager';
 import { QuestionCollectionImporter } from '../components/questions/QuestionCollectionImporter';
 import { FilesTab } from '../components/project/FilesTab';
+import { IntroVideoManager } from '../components/project/IntroVideoManager';
 import { DocumentRunsManager } from '../components/documents/DocumentRunsManager';
 import { ProjectSidekick } from '../components/sidekick/ProjectSidekick';
 import { ProjectExportManager } from '../components/export/ProjectExportManager';
@@ -786,7 +787,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                 { id: 'files', label: 'Files', icon: FolderOpen },
                 { id: 'documents', label: 'Documents', icon: FileText },
                 { id: 'sidekick', label: 'Sidekick', icon: Bot },
-                { id: 'export', label: 'Export', icon: Package }
+                { id: 'export', label: 'Export', icon: Package },
+                { id: 'settings', label: 'Settings', icon: Settings }
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -1165,6 +1167,12 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
         {activeTab === 'export' && (
           <ProjectExportManager projectId={projectId} projectName={project.name} />
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <IntroVideoManager projectId={projectId} />
+          </div>
         )}
       </div>
 

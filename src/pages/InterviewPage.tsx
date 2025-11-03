@@ -6,9 +6,17 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { Lock, MessageSquare, CheckCircle, User, Calendar, Clock, XCircle, AlertCircle, Ban } from 'lucide-react';
+import { Lock, MessageSquare, CheckCircle, User, Calendar, Clock, XCircle, AlertCircle, Ban, Video, Play } from 'lucide-react';
 
 type SessionState = 'active' | 'expired' | 'locked' | 'closed' | 'not_found';
+
+interface IntroVideo {
+  id: string;
+  title: string;
+  description: string | null;
+  video_url: string;
+  video_type: 'upload' | 'external';
+}
 
 export const InterviewPage: React.FC = () => {
   // Use React Router's useParams to get URL parameters
@@ -50,6 +58,9 @@ export const InterviewPage: React.FC = () => {
   const [sessionState, setSessionState] = useState<SessionState>('active');
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
+  const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
+  const [showIntroVideo, setShowIntroVideo] = useState(false);
+  const [videoWatched, setVideoWatched] = useState(false);
 
   // Add SEO protection meta tags for interview pages (must be at top before any conditional returns)
   useEffect(() => {
@@ -301,6 +312,20 @@ export const InterviewPage: React.FC = () => {
       }
 
       console.log('✅ Session loaded successfully');
+
+      // Load intro video if available
+      if (projectId) {
+        const { data: videoData } = await supabase
+          .from('project_intro_videos')
+          .select('id, title, description, video_url, video_type')
+          .eq('project_id', projectId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (videoData) {
+          setIntroVideo(videoData);
+        }
+      }
     } catch (err) {
       console.error('💥 Error loading session:', err);
       setError('Failed to load interview session.');
@@ -376,6 +401,40 @@ export const InterviewPage: React.FC = () => {
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleAuthentication(password);
+  };
+
+  const getEmbedUrl = (url: string): string => {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      const videoId = url.includes('youtu.be')
+        ? url.split('/').pop()?.split('?')[0]
+        : new URL(url).searchParams.get('v');
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+
+    if (url.includes('vimeo.com')) {
+      const videoId = url.split('/').pop();
+      return `https://player.vimeo.com/video/${videoId}`;
+    }
+
+    return url;
+  };
+
+  const markVideoAsWatched = async () => {
+    if (!session?.id || videoWatched) return;
+
+    try {
+      await supabase
+        .from('interview_sessions')
+        .update({
+          intro_video_watched: true,
+          intro_video_watched_at: new Date().toISOString()
+        })
+        .eq('id', session.id);
+
+      setVideoWatched(true);
+    } catch (err) {
+      console.error('Error marking video as watched:', err);
+    }
   };
 
   const handleInterviewComplete = async () => {
@@ -735,6 +794,48 @@ export const InterviewPage: React.FC = () => {
           </div>
         </Card>
 
+        {/* Introduction Video */}
+        {introVideo && !showQuestions && (
+          <Card className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                <Video className="h-5 w-5 text-primary-600" />
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900">{introVideo.title}</h3>
+                {introVideo.description && (
+                  <p className="text-sm text-gray-600">{introVideo.description}</p>
+                )}
+              </div>
+            </div>
+
+            {!showIntroVideo ? (
+              <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden group cursor-pointer"
+                onClick={() => setShowIntroVideo(true)}>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Play className="h-10 w-10 text-primary-600 ml-1" />
+                  </div>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                  <p className="text-white text-sm font-medium">Click to watch introduction video</p>
+                </div>
+              </div>
+            ) : (
+              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                <iframe
+                  src={getEmbedUrl(introVideo.video_url)}
+                  className="absolute inset-0 w-full h-full"
+                  title={introVideo.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  onLoad={() => markVideoAsWatched()}
+                />
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* Start Interview */}
         {!showQuestions ? (
           <Card className="text-center">
@@ -743,8 +844,10 @@ export const InterviewPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to Begin?</h3>
             <p className="text-gray-600 mb-6">
-              You can answer questions using text, audio, or video responses. 
-              The interview should take about 15-20 minutes to complete.
+              {introVideo && !showIntroVideo
+                ? 'Watch the introduction video above, then start the interview when ready.'
+                : 'You can answer questions using text, audio, or video responses. The interview should take about 15-20 minutes to complete.'
+              }
             </p>
             <Button
               onClick={() => setShowQuestions(true)}
