@@ -593,23 +593,97 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
       let directDataFetched = false;
 
       // Strategy 1: Direct data fetching for specific entity queries
-      if (queryCategories.stakeholders || queryCategories.timeline) {
+      if (queryCategories.stakeholders || queryCategories.timeline || queryCategories.interviews) {
         directDataFetched = true;
+
+        // Get stakeholders with their interview response counts
         const { data: stakeholders } = await supabase
           .from('stakeholders')
-          .select('*')
+          .select(`
+            *,
+            interview_responses(count)
+          `)
           .eq('project_id', projectId)
           .order('created_at', { ascending: true });
 
-        stakeholders?.forEach(s => {
-          const addedDate = new Date(s.created_at).toLocaleString();
-          const updatedDate = new Date(s.updated_at).toLocaleString();
-          context.push({
-            text: `Stakeholder: ${s.name}\nRole: ${s.role}\nDepartment: ${s.department}\nEmail: ${s.email || 'Not provided'}\nPhone: ${s.phone || 'Not provided'}\nStatus: ${s.status}\nSeniority: ${s.seniority || 'Not specified'}\nExperience: ${s.experience_years ? `${s.experience_years} years` : 'Not specified'}\nAdded to Project: ${addedDate}\nLast Updated: ${updatedDate}`,
-            metadata: { stakeholder_id: s.id, stakeholder_name: s.name, role: s.role, department: s.department, created_at: s.created_at, updated_at: s.updated_at },
-            type: 'stakeholder_info'
+        if (stakeholders && stakeholders.length > 0) {
+          // Create summary lists for quick answers
+          const respondedStakeholders: any[] = [];
+          const notRespondedStakeholders: any[] = [];
+
+          stakeholders.forEach(s => {
+            const addedDate = new Date(s.created_at).toLocaleString();
+            const updatedDate = new Date(s.updated_at).toLocaleString();
+            const responseCount = s.interview_responses?.[0]?.count || 0;
+            const hasResponded = responseCount > 0 || s.status === 'responded' || s.status === 'completed';
+
+            // Track responded vs not responded
+            if (hasResponded) {
+              respondedStakeholders.push({ name: s.name, role: s.role, count: responseCount });
+            } else {
+              notRespondedStakeholders.push({ name: s.name, role: s.role, status: s.status });
+            }
+
+            context.push({
+              text: `Stakeholder: ${s.name}\nRole: ${s.role}\nDepartment: ${s.department}\nEmail: ${s.email || 'Not provided'}\nPhone: ${s.phone || 'Not provided'}\nStatus: ${s.status}\nResponse Status: ${hasResponded ? `Has responded (${responseCount} responses)` : 'Has not responded yet'}\nSeniority: ${s.seniority || 'Not specified'}\nExperience: ${s.experience_years ? `${s.experience_years} years` : 'Not specified'}\nAdded to Project: ${addedDate}\nLast Updated: ${updatedDate}`,
+              metadata: {
+                stakeholder_id: s.id,
+                stakeholder_name: s.name,
+                role: s.role,
+                department: s.department,
+                status: s.status,
+                response_count: responseCount,
+                has_responded: hasResponded,
+                created_at: s.created_at,
+                updated_at: s.updated_at
+              },
+              type: 'stakeholder_info'
+            });
           });
-        });
+
+          // Add summary context for response status queries
+          if (respondedStakeholders.length > 0) {
+            const respondedList = respondedStakeholders
+              .map(s => `  - ${s.name} (${s.role}): ${s.count} responses`)
+              .join('\n');
+
+            context.push({
+              text: `STAKEHOLDERS WHO HAVE RESPONDED (${respondedStakeholders.length}):\n${respondedList}`,
+              metadata: {
+                responded_count: respondedStakeholders.length,
+                responded_names: respondedStakeholders.map(s => s.name)
+              },
+              type: 'response_summary'
+            });
+          }
+
+          if (notRespondedStakeholders.length > 0) {
+            const notRespondedList = notRespondedStakeholders
+              .map(s => `  - ${s.name} (${s.role}): ${s.status}`)
+              .join('\n');
+
+            context.push({
+              text: `STAKEHOLDERS WHO HAVE NOT RESPONDED (${notRespondedStakeholders.length}):\n${notRespondedList}`,
+              metadata: {
+                not_responded_count: notRespondedStakeholders.length,
+                not_responded_names: notRespondedStakeholders.map(s => s.name)
+              },
+              type: 'response_summary'
+            });
+          }
+
+          // Add overall summary
+          context.push({
+            text: `RESPONSE STATUS SUMMARY:\nTotal Stakeholders: ${stakeholders.length}\nHave Responded: ${respondedStakeholders.length}\nNot Responded: ${notRespondedStakeholders.length}\nResponse Rate: ${Math.round((respondedStakeholders.length / stakeholders.length) * 100)}%`,
+            metadata: {
+              total: stakeholders.length,
+              responded: respondedStakeholders.length,
+              not_responded: notRespondedStakeholders.length,
+              response_rate: Math.round((respondedStakeholders.length / stakeholders.length) * 100)
+            },
+            type: 'response_summary'
+          });
+        }
       }
 
       if (queryCategories.overview || queryCategories.timeline) {
