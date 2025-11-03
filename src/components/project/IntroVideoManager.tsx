@@ -4,7 +4,9 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
-import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw } from 'lucide-react';
+import { Badge } from '../ui/Badge';
+import { VideoAssignmentModal } from './VideoAssignmentModal';
+import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users } from 'lucide-react';
 
 interface IntroVideo {
   id: string;
@@ -25,8 +27,13 @@ interface IntroVideoManagerProps {
 
 export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId }) => {
   const [videos, setVideos] = useState<IntroVideo[]>([]);
+  const [stakeholders, setStakeholders] = useState<any[]>([]);
+  const [interviewSessions, setInterviewSessions] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<IntroVideo | null>(null);
   const [videoType, setVideoType] = useState<'external' | 'upload' | 'record'>('external');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -46,8 +53,17 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    loadVideos();
+    loadData();
   }, [projectId]);
+
+  const loadData = async () => {
+    await Promise.all([
+      loadVideos(),
+      loadStakeholders(),
+      loadInterviewSessions(),
+      loadAssignments()
+    ]);
+  };
 
   useEffect(() => {
     return () => {
@@ -159,6 +175,63 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       console.error('Error loading videos:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStakeholders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stakeholders')
+        .select('id, name, email')
+        .eq('project_id', projectId)
+        .order('name');
+
+      if (error) throw error;
+      setStakeholders(data || []);
+    } catch (err) {
+      console.error('Error loading stakeholders:', err);
+    }
+  };
+
+  const loadInterviewSessions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('interview_sessions')
+        .select(`
+          id,
+          stakeholder_id,
+          session_token,
+          created_at,
+          stakeholders (name)
+        `)
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInterviewSessions(data || []);
+    } catch (err) {
+      console.error('Error loading interview sessions:', err);
+    }
+  };
+
+  const loadAssignments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('intro_video_assignments')
+        .select(`
+          id,
+          video_id,
+          stakeholder_id,
+          interview_session_id,
+          stakeholders (name),
+          interview_sessions (session_token)
+        `)
+        .eq('project_id', projectId);
+
+      if (error) throw error;
+      setAssignments(data || []);
+    } catch (err) {
+      console.error('Error loading assignments:', err);
     }
   };
 
@@ -332,67 +405,100 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           </div>
         ) : (
           <div className="space-y-4">
-            {videos.map((video) => (
-              <Card key={video.id} className={video.is_active ? 'border-2 border-primary-500' : ''}>
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-32 h-20 bg-gray-100 rounded-lg overflow-hidden relative group">
-                    {video.video_type === 'external' ? (
-                      <iframe
-                        src={getEmbedUrl(video.video_url)}
-                        className="w-full h-full pointer-events-none"
-                        title={video.title}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Play className="h-8 w-8 text-gray-400" />
-                      </div>
-                    )}
-                    {video.is_active && (
-                      <div className="absolute top-1 right-1 bg-primary-600 text-white text-xs px-2 py-0.5 rounded">
-                        Active
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-medium text-gray-900">{video.title}</h4>
-                        {video.description && (
-                          <p className="text-sm text-gray-600 mt-1">{video.description}</p>
-                        )}
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <LinkIcon className="h-3 w-3" />
-                            {video.video_type === 'external' ? 'External Video' : 'Uploaded'}
-                          </span>
-                          <span>Added {new Date(video.created_at).toLocaleDateString()}</span>
+            {videos.map((video) => {
+              const videoAssignments = assignments.filter(a => a.video_id === video.id);
+              return (
+                <Card key={video.id} className={video.is_active ? 'border-2 border-primary-500' : ''}>
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-32 h-20 bg-gray-100 rounded-lg overflow-hidden relative group">
+                      {video.video_type === 'external' ? (
+                        <iframe
+                          src={getEmbedUrl(video.video_url)}
+                          className="w-full h-full pointer-events-none"
+                          title={video.title}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Play className="h-8 w-8 text-gray-400" />
                         </div>
-                      </div>
+                      )}
+                      {video.is_active && (
+                        <div className="absolute top-1 right-1 bg-primary-600 text-white text-xs px-2 py-0.5 rounded">
+                          Default
+                        </div>
+                      )}
+                    </div>
 
-                      <div className="flex items-center gap-2">
-                        <Button
-                          onClick={() => toggleActive(video.id, video.is_active)}
-                          variant={video.is_active ? 'secondary' : 'primary'}
-                          size="sm"
-                          icon={video.is_active ? X : Check}
-                        >
-                          {video.is_active ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button
-                          onClick={() => deleteVideo(video.id)}
-                          variant="secondary"
-                          size="sm"
-                          icon={Trash2}
-                        >
-                          Delete
-                        </Button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{video.title}</h4>
+                          {video.description && (
+                            <p className="text-sm text-gray-600 mt-1">{video.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <LinkIcon className="h-3 w-3" />
+                              {video.video_type === 'external' ? 'External Video' : 'Uploaded'}
+                            </span>
+                            <span>Added {new Date(video.created_at).toLocaleDateString()}</span>
+                          </div>
+                          {videoAssignments.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {videoAssignments.map((assignment: any) => (
+                                <Badge key={assignment.id} variant="secondary">
+                                  {assignment.stakeholder_id ? (
+                                    <>
+                                      <Users className="h-3 w-3 mr-1" />
+                                      {assignment.stakeholders?.name || 'Stakeholder'}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Video className="h-3 w-3 mr-1" />
+                                      Session
+                                    </>
+                                  )}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => {
+                              setSelectedVideo(video);
+                              setShowAssignModal(true);
+                            }}
+                            variant="secondary"
+                            size="sm"
+                            icon={UserPlus}
+                          >
+                            Assign
+                          </Button>
+                          <Button
+                            onClick={() => toggleActive(video.id, video.is_active)}
+                            variant={video.is_active ? 'secondary' : 'primary'}
+                            size="sm"
+                            icon={video.is_active ? X : Check}
+                          >
+                            {video.is_active ? 'Remove Default' : 'Make Default'}
+                          </Button>
+                          <Button
+                            onClick={() => deleteVideo(video.id)}
+                            variant="secondary"
+                            size="sm"
+                            icon={Trash2}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </Card>
@@ -599,6 +705,21 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           </div>
         </form>
       </Modal>
+
+      {selectedVideo && (
+        <VideoAssignmentModal
+          isOpen={showAssignModal}
+          onClose={() => {
+            setShowAssignModal(false);
+            setSelectedVideo(null);
+          }}
+          video={selectedVideo}
+          projectId={projectId}
+          stakeholders={stakeholders}
+          interviewSessions={interviewSessions}
+          onAssignmentCreated={loadAssignments}
+        />
+      )}
     </>
   );
 };

@@ -313,17 +313,13 @@ export const InterviewPage: React.FC = () => {
 
       console.log('✅ Session loaded successfully');
 
-      // Load intro video if available
-      if (projectId) {
-        const { data: videoData } = await supabase
-          .from('project_intro_videos')
-          .select('id, title, description, video_url, video_type')
-          .eq('project_id', projectId)
-          .eq('is_active', true)
-          .maybeSingle();
+      // Load intro video if available using priority system (session > stakeholder > project)
+      if (sessionData?.id) {
+        const { data: videoData, error: videoError } = await supabase
+          .rpc('get_intro_video_for_session', { session_id: sessionData.id });
 
-        if (videoData) {
-          setIntroVideo(videoData);
+        if (!videoError && videoData && videoData.length > 0) {
+          setIntroVideo(videoData[0]);
         }
       }
     } catch (err) {
