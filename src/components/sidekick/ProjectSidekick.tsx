@@ -48,7 +48,18 @@ export const ProjectSidekick: React.FC<ProjectSidekickProps> = ({ projectId }) =
     setMessages([{
       id: 'welcome',
       role: 'assistant',
-      content: `Hello! I'm your project assistant. I can answer questions about this project based on stakeholder interviews, uploaded documents, and project context. What would you like to know?`,
+      content: `Hello! I'm your Project Sidekick - your AI assistant with full access to this project's data.
+
+I can help you with:
+• Project overview and timeline information
+• Stakeholder details (who they are, their roles, experience)
+• Interview questions and who they were assigned to
+• Stakeholder responses (what each person said and when)
+• Uploaded files and transcriptions
+• Generated documents and exports
+• Project status and progress
+
+Ask me anything about this project!`,
       timestamp: new Date()
     }]);
   };
@@ -334,6 +345,197 @@ Uploaded: ${new Date(upload.created_at).toLocaleDateString()}
         });
       }
 
+      // 7. Index transcriptions from audio/video files
+      const { data: transcriptions } = await supabase
+        .from('transcriptions')
+        .select('*')
+        .eq('project_id', projectId);
+
+      for (const transcription of transcriptions || []) {
+        if (transcription.transcription_text) {
+          const transcriptText = `
+Transcription from: ${transcription.original_file_url || 'Unknown file'}
+Language: ${transcription.language || 'Not specified'}
+Word Count: ${transcription.word_count || 0}
+Confidence: ${transcription.confidence_score ? (transcription.confidence_score * 100).toFixed(1) + '%' : 'Not available'}
+Created: ${new Date(transcription.created_at).toLocaleDateString()}
+
+Transcript:
+${transcription.transcription_text}
+          `.trim();
+
+          const embedding = await openAIService.generateEmbedding(transcriptText);
+          await supabase.from('project_vectors').insert({
+            project_id: projectId,
+            source_type: 'transcription',
+            source_id: transcription.id,
+            chunk_text: transcriptText,
+            embedding,
+            metadata: {
+              transcription_id: transcription.id,
+              file_url: transcription.original_file_url,
+              language: transcription.language,
+              word_count: transcription.word_count,
+              confidence_score: transcription.confidence_score,
+              created_at: transcription.created_at
+            }
+          });
+        }
+      }
+
+      // 8. Index interview sessions (what questions were assigned to whom)
+      const { data: sessions } = await supabase
+        .from('interview_sessions')
+        .select(`
+          *,
+          stakeholders!inner(id, name, role, department)
+        `)
+        .eq('project_id', projectId);
+
+      for (const session of sessions || []) {
+        const sessionText = `
+Interview Session: ${session.interview_name}
+Stakeholder: ${session.stakeholders.name} (${session.stakeholders.role}, ${session.stakeholders.department})
+Total Questions: ${session.total_questions}
+Answered: ${session.answered_questions}
+Status: ${session.status}
+Created: ${new Date(session.created_at).toLocaleDateString()}
+Last Activity: ${session.last_activity_at ? new Date(session.last_activity_at).toLocaleDateString() : 'None'}
+Completion: ${session.total_questions > 0 ? Math.round((session.answered_questions / session.total_questions) * 100) : 0}%
+        `.trim();
+
+        const embedding = await openAIService.generateEmbedding(sessionText);
+        await supabase.from('project_vectors').insert({
+          project_id: projectId,
+          source_type: 'interview_session',
+          source_id: session.id,
+          chunk_text: sessionText,
+          embedding,
+          metadata: {
+            session_id: session.id,
+            interview_name: session.interview_name,
+            stakeholder_id: session.stakeholder_id,
+            stakeholder_name: session.stakeholders.name,
+            stakeholder_role: session.stakeholders.role,
+            total_questions: session.total_questions,
+            answered_questions: session.answered_questions,
+            status: session.status,
+            created_at: session.created_at
+          }
+        });
+      }
+
+      // 9. Index document templates
+      const { data: templates } = await supabase
+        .from('document_templates')
+        .select('*')
+        .or(`project_id.eq.${projectId},is_system_template.eq.true`);
+
+      for (const template of templates || []) {
+        const templateText = `
+Document Template: ${template.name}
+Type: ${template.is_system_template ? 'System Template' : 'Custom Template'}
+Description: ${template.description || 'No description'}
+Output Format: ${template.output_format}
+Category: ${template.category || 'General'}
+Created: ${new Date(template.created_at).toLocaleDateString()}
+        `.trim();
+
+        const embedding = await openAIService.generateEmbedding(templateText);
+        await supabase.from('project_vectors').insert({
+          project_id: projectId,
+          source_type: 'document_template',
+          source_id: template.id,
+          chunk_text: templateText,
+          embedding,
+          metadata: {
+            template_id: template.id,
+            template_name: template.name,
+            is_system: template.is_system_template,
+            output_format: template.output_format,
+            category: template.category,
+            created_at: template.created_at
+          }
+        });
+      }
+
+      // 10. Index document runs (generated documents)
+      const { data: docRuns } = await supabase
+        .from('document_runs')
+        .select(`
+          *,
+          document_templates!inner(name, output_format)
+        `)
+        .eq('project_id', projectId);
+
+      for (const run of docRuns || []) {
+        const runText = `
+Generated Document: ${run.document_templates.name}
+Format: ${run.document_templates.output_format}
+Status: ${run.status}
+Generated: ${new Date(run.created_at).toLocaleDateString()}
+Completed: ${run.completed_at ? new Date(run.completed_at).toLocaleDateString() : 'In progress'}
+Duration: ${run.processing_time_seconds ? `${run.processing_time_seconds} seconds` : 'N/A'}
+        `.trim();
+
+        const embedding = await openAIService.generateEmbedding(runText);
+        await supabase.from('project_vectors').insert({
+          project_id: projectId,
+          source_type: 'document_run',
+          source_id: run.id,
+          chunk_text: runText,
+          embedding,
+          metadata: {
+            run_id: run.id,
+            template_name: run.document_templates.name,
+            output_format: run.document_templates.output_format,
+            status: run.status,
+            created_at: run.created_at,
+            completed_at: run.completed_at
+          }
+        });
+      }
+
+      // 11. Index project exports
+      const { data: exports } = await supabase
+        .from('project_exports')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      for (const exp of exports || []) {
+        const exportText = `
+Project Export
+Format: ${exp.export_format}
+Type: ${exp.export_type}
+Status: ${exp.status}
+File: ${exp.file_name || 'Not available'}
+Size: ${exp.file_size ? (exp.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'N/A'}
+Created: ${new Date(exp.created_at).toLocaleDateString()} at ${new Date(exp.created_at).toLocaleTimeString()}
+Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() : 'In progress'}
+        `.trim();
+
+        const embedding = await openAIService.generateEmbedding(exportText);
+        await supabase.from('project_vectors').insert({
+          project_id: projectId,
+          source_type: 'project_export',
+          source_id: exp.id,
+          chunk_text: exportText,
+          embedding,
+          metadata: {
+            export_id: exp.id,
+            export_format: exp.export_format,
+            export_type: exp.export_type,
+            status: exp.status,
+            file_name: exp.file_name,
+            file_size: exp.file_size,
+            created_at: exp.created_at,
+            completed_at: exp.completed_at
+          }
+        });
+      }
+
       await loadVectorCount();
       alert(`✅ Project re-indexed successfully! ${vectorCount} knowledge chunks created.`);
     } catch (error) {
@@ -389,16 +591,65 @@ Uploaded: ${new Date(upload.created_at).toLocaleDateString()}
         type: result.source_type
       })) || [];
 
-      // Build sources for display
-      const sources: Source[] = context.map((c: any, i: number) => ({
-        type: c.type,
-        name: c.metadata.stakeholder_name || c.metadata.file_name || 'Project Info',
-        excerpt: c.text.slice(0, 150) + '...',
-        sourceId: `source-${i}`
-      }));
+      // Build sources for display with better naming
+      const sources: Source[] = context.map((c: any, i: number) => {
+        let name = 'Project Info';
+
+        if (c.type === 'interview_response') {
+          name = `${c.metadata.stakeholder_name} - ${c.metadata.question_category || 'Response'}`;
+        } else if (c.type === 'stakeholder_info') {
+          name = `${c.metadata.stakeholder_name} (${c.metadata.role})`;
+        } else if (c.type === 'interview_session') {
+          name = `Session: ${c.metadata.interview_name}`;
+        } else if (c.type === 'question') {
+          name = `Question: ${c.metadata.category}`;
+        } else if (c.type === 'document') {
+          name = `Doc: ${c.metadata.title}`;
+        } else if (c.type === 'document_run') {
+          name = `Generated: ${c.metadata.template_name}`;
+        } else if (c.type === 'document_template') {
+          name = `Template: ${c.metadata.template_name}`;
+        } else if (c.type === 'project_export') {
+          name = `Export: ${c.metadata.export_format}`;
+        } else if (c.type === 'transcription') {
+          name = `Transcript: ${c.metadata.file_url?.split('/').pop() || 'Audio/Video'}`;
+        } else if (c.type === 'upload') {
+          name = `File: ${c.metadata.file_name}`;
+        } else if (c.type === 'project_overview') {
+          name = 'Project Overview';
+        } else if (c.type === 'kickoff_transcript') {
+          name = 'Kickoff Transcript';
+        }
+
+        return {
+          type: c.type,
+          name,
+          excerpt: c.text.slice(0, 150) + '...',
+          sourceId: `source-${i}`
+        };
+      });
 
       // Generate response using GPT with context
-      const systemPrompt = `You are a helpful project assistant. Answer questions ONLY based on the provided project context. If the information is not in the context, say so clearly.
+      const systemPrompt = `You are a helpful project assistant with access to comprehensive project information. Answer questions based ONLY on the provided context below.
+
+You have access to:
+- Project overview (name, description, status, dates, kickoff transcript)
+- All stakeholders (names, roles, departments, contact info, experience)
+- Interview questions asked in this project
+- Interview responses from each stakeholder (who answered what, when they answered, their specific responses)
+- Interview sessions (which questions were assigned to which stakeholders, completion status)
+- Uploaded files and documents (meeting notes, recordings, specifications)
+- Audio/video transcriptions from uploaded files
+- Generated documents (templates used, when generated, status)
+- Document templates available in the project
+- Project exports (most recent exports, formats, file sizes)
+
+When answering:
+- Be specific about WHO said WHAT and WHEN
+- Reference stakeholder names, roles, and departments when discussing their responses
+- Cite specific interview questions when relevant
+- Mention timestamps and dates when discussing when things happened
+- If information isn't in the context, clearly state that
 
 Project Context:
 ${context.map((c: any, i: number) => `[${i + 1}] ${c.type}: ${c.text}`).join('\n\n')}`;
@@ -556,7 +807,7 @@ ${context.map((c: any, i: number) => `[${i + 1}] ${c.type}: ${c.text}`).join('\n
             </Button>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Ask questions about stakeholder responses, project goals, requirements, and more.
+            Ask about stakeholder responses, interview sessions, project status, uploaded files, generated documents, and more.
           </p>
         </div>
       </Card>
