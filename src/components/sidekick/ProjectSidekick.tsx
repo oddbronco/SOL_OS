@@ -573,23 +573,114 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
     setLoading(true);
 
     try {
+      // Detect question type to adjust search strategy
+      const lowerInput = input.toLowerCase();
+      const isStakeholderQuery = lowerInput.includes('stakeholder') || lowerInput.includes('who are') || lowerInput.includes('people involved');
+      const isOverviewQuery = lowerInput.includes('overview') || lowerInput.includes('about this project') || lowerInput.includes('summary');
+      const isInterviewQuery = lowerInput.includes('interview') || lowerInput.includes('session') || lowerInput.includes('answered') || lowerInput.includes('responded');
+
       // Generate embedding for user query
       const queryEmbedding = await openAIService.generateEmbedding(input);
+
+      // Adjust search parameters based on query type
+      let matchCount = 8;
+      let matchThreshold = 0.7;
+
+      if (isStakeholderQuery || isOverviewQuery) {
+        matchCount = 15; // Get more results for broad queries
+        matchThreshold = 0.6; // Lower threshold for better recall
+      }
 
       // Search vectors
       const { data: searchResults } = await supabase.rpc('search_project_vectors', {
         search_project_id: projectId,
         query_embedding: queryEmbedding,
-        match_threshold: 0.7,
-        match_count: 5
+        match_threshold: matchThreshold,
+        match_count: matchCount
       });
 
       // Build context from search results
-      const context = searchResults?.map((result: any) => ({
+      let context = searchResults?.map((result: any) => ({
         text: result.chunk_text,
         metadata: result.metadata,
         type: result.source_type
       })) || [];
+
+      // For stakeholder queries, ensure we have all stakeholder info
+      if (isStakeholderQuery) {
+        const { data: allStakeholders } = await supabase
+          .from('stakeholders')
+          .select('*')
+          .eq('project_id', projectId);
+
+        if (allStakeholders && allStakeholders.length > 0) {
+          // Add any missing stakeholders to context
+          const stakeholderIds = new Set(context.filter(c => c.metadata?.stakeholder_id).map(c => c.metadata.stakeholder_id));
+
+          for (const stakeholder of allStakeholders) {
+            if (!stakeholderIds.has(stakeholder.id)) {
+              context.push({
+                text: `
+Stakeholder: ${stakeholder.name}
+Role: ${stakeholder.role}
+Department: ${stakeholder.department}
+Email: ${stakeholder.email || 'Not provided'}
+Phone: ${stakeholder.phone || 'Not provided'}
+Status: ${stakeholder.status}
+Seniority: ${stakeholder.seniority || 'Not specified'}
+Experience: ${stakeholder.experience_years ? `${stakeholder.experience_years} years` : 'Not specified'}
+Added: ${new Date(stakeholder.created_at).toLocaleDateString()}
+                `.trim(),
+                metadata: {
+                  stakeholder_id: stakeholder.id,
+                  stakeholder_name: stakeholder.name,
+                  role: stakeholder.role,
+                  department: stakeholder.department,
+                  status: stakeholder.status
+                },
+                type: 'stakeholder_info'
+              });
+            }
+          }
+        }
+      }
+
+      // For interview status queries, add session data
+      if (isInterviewQuery) {
+        const { data: sessions } = await supabase
+          .from('interview_sessions')
+          .select(`
+            *,
+            stakeholders!inner(id, name, role, department)
+          `)
+          .eq('project_id', projectId);
+
+        if (sessions && sessions.length > 0) {
+          for (const session of sessions) {
+            const sessionText = `
+Interview Session: ${session.interview_name}
+Stakeholder: ${session.stakeholders.name} (${session.stakeholders.role}, ${session.stakeholders.department})
+Total Questions: ${session.total_questions}
+Answered: ${session.answered_questions}
+Status: ${session.status}
+Completion: ${session.total_questions > 0 ? Math.round((session.answered_questions / session.total_questions) * 100) : 0}%
+            `.trim();
+
+            context.push({
+              text: sessionText,
+              metadata: {
+                session_id: session.id,
+                stakeholder_name: session.stakeholders.name,
+                stakeholder_role: session.stakeholders.role,
+                total_questions: session.total_questions,
+                answered_questions: session.answered_questions,
+                status: session.status
+              },
+              type: 'interview_session'
+            });
+          }
+        }
+      }
 
       // Build sources for display with better naming
       const sources: Source[] = context.map((c: any, i: number) => {
