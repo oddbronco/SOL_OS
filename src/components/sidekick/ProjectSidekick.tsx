@@ -601,9 +601,10 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
           .order('created_at', { ascending: true });
 
         stakeholders?.forEach(s => {
+          const addedDate = new Date(s.created_at).toLocaleString();
           context.push({
-            text: `Stakeholder: ${s.name}\nRole: ${s.role}\nDepartment: ${s.department}\nEmail: ${s.email || 'Not provided'}\nPhone: ${s.phone || 'Not provided'}\nStatus: ${s.status}\nSeniority: ${s.seniority || 'Not specified'}\nExperience: ${s.experience_years ? `${s.experience_years} years` : 'Not specified'}`,
-            metadata: { stakeholder_id: s.id, stakeholder_name: s.name, role: s.role, department: s.department },
+            text: `Stakeholder: ${s.name}\nRole: ${s.role}\nDepartment: ${s.department}\nEmail: ${s.email || 'Not provided'}\nPhone: ${s.phone || 'Not provided'}\nStatus: ${s.status}\nSeniority: ${s.seniority || 'Not specified'}\nExperience: ${s.experience_years ? `${s.experience_years} years` : 'Not specified'}\nAdded to Project: ${addedDate}`,
+            metadata: { stakeholder_id: s.id, stakeholder_name: s.name, role: s.role, department: s.department, created_at: s.created_at },
             type: 'stakeholder_info'
           });
         });
@@ -639,20 +640,69 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
         }
       }
 
-      if (queryCategories.interviews) {
+      if (queryCategories.interviews || queryCategories.timeline) {
         directDataFetched = true;
         const { data: sessions } = await supabase
           .from('interview_sessions')
           .select(`*, stakeholders!inner(id, name, role, department)`)
-          .eq('project_id', projectId);
+          .eq('project_id', projectId)
+          .order('updated_at', { ascending: false });
 
-        sessions?.forEach(s => {
-          context.push({
-            text: `Interview: ${s.interview_name}\nStakeholder: ${s.stakeholders.name} (${s.stakeholders.role})\nQuestions: ${s.total_questions}\nAnswered: ${s.answered_questions}\nStatus: ${s.status}\nCompletion: ${s.total_questions > 0 ? Math.round((s.answered_questions / s.total_questions) * 100) : 0}%`,
-            metadata: { session_id: s.id, stakeholder_name: s.stakeholders.name, total_questions: s.total_questions, answered_questions: s.answered_questions },
-            type: 'interview_session'
-          });
-        });
+        if (sessions && sessions.length > 0) {
+          for (const s of sessions) {
+            const createdDate = new Date(s.created_at).toLocaleString();
+            const updatedDate = new Date(s.updated_at).toLocaleString();
+            const isComplete = s.status === 'completed' || s.answered_questions === s.total_questions;
+            const completionDate = isComplete ? updatedDate : 'Not completed';
+
+            let sessionText = `Interview: ${s.interview_name}\nStakeholder: ${s.stakeholders.name} (${s.stakeholders.role}, ${s.stakeholders.department})\nQuestions: ${s.total_questions}\nAnswered: ${s.answered_questions}\nStatus: ${s.status}\nCompletion: ${s.total_questions > 0 ? Math.round((s.answered_questions / s.total_questions) * 100) : 0}%\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`;
+
+            if (isComplete) {
+              sessionText += `\nCompleted: ${completionDate}`;
+            }
+
+            context.push({
+              text: sessionText,
+              metadata: {
+                session_id: s.id,
+                stakeholder_name: s.stakeholders.name,
+                total_questions: s.total_questions,
+                answered_questions: s.answered_questions,
+                status: s.status,
+                created_at: s.created_at,
+                updated_at: s.updated_at,
+                is_complete: isComplete
+              },
+              type: 'interview_session'
+            });
+
+            // If asking about completion or timeline, get the actual response timestamps
+            if (queryCategories.timeline && s.answered_questions > 0) {
+              const { data: responses } = await supabase
+                .from('interview_responses')
+                .select('response_text, created_at, updated_at')
+                .eq('session_id', s.id)
+                .order('created_at', { ascending: true });
+
+              if (responses && responses.length > 0) {
+                const firstResponse = new Date(responses[0].created_at).toLocaleString();
+                const lastResponse = new Date(responses[responses.length - 1].created_at).toLocaleString();
+
+                context.push({
+                  text: `${s.stakeholders.name}'s Response Timeline:\nFirst Response: ${firstResponse}\nLast Response: ${lastResponse}\nTotal Responses: ${responses.length}\nTime Span: ${responses.length > 1 ? 'Multiple sessions' : 'Single session'}`,
+                  metadata: {
+                    session_id: s.id,
+                    stakeholder_name: s.stakeholders.name,
+                    first_response: responses[0].created_at,
+                    last_response: responses[responses.length - 1].created_at,
+                    response_count: responses.length
+                  },
+                  type: 'response_timeline'
+                });
+              }
+            }
+          }
+        }
       }
 
       if (queryCategories.documents) {
@@ -665,9 +715,11 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
           .limit(10);
 
         docs?.forEach(d => {
+          const createdDate = new Date(d.created_at).toLocaleString();
+          const updatedDate = new Date(d.updated_at).toLocaleString();
           context.push({
-            text: `Document: ${d.title}\nType: ${d.type}\nStatus: ${d.status}\nVersion: ${d.version || 1}\nCreated: ${new Date(d.created_at).toLocaleDateString()}\nLast Updated: ${new Date(d.updated_at).toLocaleDateString()}`,
-            metadata: { document_id: d.id, title: d.title, type: d.type },
+            text: `Document: ${d.title}\nType: ${d.type}\nStatus: ${d.status}\nVersion: ${d.version || 1}\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`,
+            metadata: { document_id: d.id, title: d.title, type: d.type, created_at: d.created_at, updated_at: d.updated_at },
             type: 'document'
           });
         });
@@ -681,9 +733,10 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
           .limit(10);
 
         uploads?.forEach(u => {
+          const uploadedDate = new Date(u.created_at).toLocaleString();
           context.push({
-            text: `File: ${u.file_name}\nType: ${u.upload_type}\nSize: ${(u.file_size / 1024).toFixed(2)} KB\nDescription: ${u.description || 'No description'}\nUploaded: ${new Date(u.created_at).toLocaleDateString()}`,
-            metadata: { upload_id: u.id, file_name: u.file_name, upload_type: u.upload_type },
+            text: `File: ${u.file_name}\nType: ${u.upload_type}\nSize: ${(u.file_size / 1024).toFixed(2)} KB\nDescription: ${u.description || 'No description'}\nUploaded: ${uploadedDate}`,
+            metadata: { upload_id: u.id, file_name: u.file_name, upload_type: u.upload_type, created_at: u.created_at },
             type: 'upload'
           });
         });
@@ -699,9 +752,10 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
           .limit(5);
 
         exports?.forEach(e => {
+          const createdDate = new Date(e.created_at).toLocaleString();
           context.push({
-            text: `Export: ${e.file_name || 'Unnamed'}\nFormat: ${e.export_format}\nType: ${e.export_type}\nStatus: ${e.status}\nSize: ${e.file_size ? (e.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'N/A'}\nCreated: ${new Date(e.created_at).toLocaleDateString()}`,
-            metadata: { export_id: e.id, export_format: e.export_format, status: e.status },
+            text: `Export: ${e.file_name || 'Unnamed'}\nFormat: ${e.export_format}\nType: ${e.export_type}\nStatus: ${e.status}\nSize: ${e.file_size ? (e.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'N/A'}\nCreated: ${createdDate}`,
+            metadata: { export_id: e.id, export_format: e.export_format, status: e.status, created_at: e.created_at },
             type: 'project_export'
           });
         });
