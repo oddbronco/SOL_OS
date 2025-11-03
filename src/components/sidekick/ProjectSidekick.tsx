@@ -584,7 +584,8 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
         responses: /response|answer|said|mentioned|feedback|opinion/i.test(input),
         documents: /document|file|upload|template|generated/i.test(input),
         exports: /export|download|output/i.test(input),
-        timeline: /when|date|timeline|schedule|deadline/i.test(input)
+        timeline: /when|date|timeline|schedule|deadline|created|uploaded|added|completed/i.test(input),
+        client: /client|company|customer|how many project|other project/i.test(input)
       };
 
       // Build comprehensive context using hybrid approach
@@ -592,7 +593,7 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
       let directDataFetched = false;
 
       // Strategy 1: Direct data fetching for specific entity queries
-      if (queryCategories.stakeholders) {
+      if (queryCategories.stakeholders || queryCategories.timeline) {
         directDataFetched = true;
         const { data: stakeholders } = await supabase
           .from('stakeholders')
@@ -602,9 +603,10 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
 
         stakeholders?.forEach(s => {
           const addedDate = new Date(s.created_at).toLocaleString();
+          const updatedDate = new Date(s.updated_at).toLocaleString();
           context.push({
-            text: `Stakeholder: ${s.name}\nRole: ${s.role}\nDepartment: ${s.department}\nEmail: ${s.email || 'Not provided'}\nPhone: ${s.phone || 'Not provided'}\nStatus: ${s.status}\nSeniority: ${s.seniority || 'Not specified'}\nExperience: ${s.experience_years ? `${s.experience_years} years` : 'Not specified'}\nAdded to Project: ${addedDate}`,
-            metadata: { stakeholder_id: s.id, stakeholder_name: s.name, role: s.role, department: s.department, created_at: s.created_at },
+            text: `Stakeholder: ${s.name}\nRole: ${s.role}\nDepartment: ${s.department}\nEmail: ${s.email || 'Not provided'}\nPhone: ${s.phone || 'Not provided'}\nStatus: ${s.status}\nSeniority: ${s.seniority || 'Not specified'}\nExperience: ${s.experience_years ? `${s.experience_years} years` : 'Not specified'}\nAdded to Project: ${addedDate}\nLast Updated: ${updatedDate}`,
+            metadata: { stakeholder_id: s.id, stakeholder_name: s.name, role: s.role, department: s.department, created_at: s.created_at, updated_at: s.updated_at },
             type: 'stakeholder_info'
           });
         });
@@ -705,7 +707,7 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
         }
       }
 
-      if (queryCategories.documents) {
+      if (queryCategories.documents || queryCategories.timeline) {
         directDataFetched = true;
         const { data: docs } = await supabase
           .from('documents')
@@ -735,21 +737,21 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
         uploads?.forEach(u => {
           const uploadedDate = new Date(u.created_at).toLocaleString();
           context.push({
-            text: `File: ${u.file_name}\nType: ${u.upload_type}\nSize: ${(u.file_size / 1024).toFixed(2)} KB\nDescription: ${u.description || 'No description'}\nUploaded: ${uploadedDate}`,
-            metadata: { upload_id: u.id, file_name: u.file_name, upload_type: u.upload_type, created_at: u.created_at },
+            text: `File Upload: ${u.file_name}\nType: ${u.upload_type}\nSize: ${(u.file_size / 1024).toFixed(2)} KB\nDescription: ${u.description || 'No description'}\nUploaded: ${uploadedDate}\nUploaded By User ID: ${u.uploaded_by}`,
+            metadata: { upload_id: u.id, file_name: u.file_name, upload_type: u.upload_type, created_at: u.created_at, uploaded_by: u.uploaded_by },
             type: 'upload'
           });
         });
       }
 
-      if (queryCategories.exports) {
+      if (queryCategories.exports || queryCategories.timeline) {
         directDataFetched = true;
         const { data: exports } = await supabase
           .from('project_exports')
           .select('*')
           .eq('project_id', projectId)
           .order('created_at', { ascending: false })
-          .limit(5);
+          .limit(10);
 
         exports?.forEach(e => {
           const createdDate = new Date(e.created_at).toLocaleString();
@@ -759,6 +761,70 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
             type: 'project_export'
           });
         });
+      }
+
+      if (queryCategories.client) {
+        directDataFetched = true;
+
+        // Get current project's client info
+        const { data: currentProject } = await supabase
+          .from('projects')
+          .select('client_company_id, companies(id, name)')
+          .eq('id', projectId)
+          .single();
+
+        if (currentProject?.companies) {
+          const clientName = currentProject.companies.name;
+          const clientId = currentProject.companies.id;
+
+          // Get all projects for this client
+          const { data: clientProjects } = await supabase
+            .from('projects')
+            .select('id, name, status, created_at, target_completion_date, updated_at')
+            .eq('client_company_id', clientId)
+            .order('created_at', { ascending: false });
+
+          if (clientProjects && clientProjects.length > 0) {
+            const projectsList = clientProjects.map(p => {
+              const created = new Date(p.created_at).toLocaleString();
+              const dueDate = p.target_completion_date ? new Date(p.target_completion_date).toLocaleDateString() : 'Not set';
+              return `  - ${p.name} (${p.status}) - Created: ${created}, Due: ${dueDate}`;
+            }).join('\n');
+
+            context.push({
+              text: `Client: ${clientName}\nTotal Projects: ${clientProjects.length}\n\nAll Projects for ${clientName}:\n${projectsList}`,
+              metadata: {
+                client_name: clientName,
+                client_id: clientId,
+                total_projects: clientProjects.length,
+                projects: clientProjects
+              },
+              type: 'client_history'
+            });
+
+            // Add time-based analysis
+            const now = new Date();
+            const lastYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+            const last6Months = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+            const last3Months = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+
+            const projectsLastYear = clientProjects.filter(p => new Date(p.created_at) >= lastYear).length;
+            const projectsLast6Months = clientProjects.filter(p => new Date(p.created_at) >= last6Months).length;
+            const projectsLast3Months = clientProjects.filter(p => new Date(p.created_at) >= last3Months).length;
+
+            context.push({
+              text: `${clientName} Project Activity:\nLast 3 months: ${projectsLast3Months} project(s)\nLast 6 months: ${projectsLast6Months} project(s)\nLast 12 months: ${projectsLastYear} project(s)\nAll time: ${clientProjects.length} project(s)`,
+              metadata: {
+                client_name: clientName,
+                last_3_months: projectsLast3Months,
+                last_6_months: projectsLast6Months,
+                last_year: projectsLastYear,
+                all_time: clientProjects.length
+              },
+              type: 'client_activity'
+            });
+          }
+        }
       }
 
       // Strategy 2: Semantic search for responses and content-heavy queries
