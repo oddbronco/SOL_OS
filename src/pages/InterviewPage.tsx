@@ -260,6 +260,22 @@ export const InterviewPage: React.FC = () => {
         console.log('✅ Setting branding:', branding);
         setProjectBranding(branding);
 
+        // Load intro video if available using priority system (session > stakeholder > project)
+        if (sessionData?.id) {
+          console.log('🎬 Loading intro video for session:', sessionData.id);
+          const { data: videoData, error: videoError } = await supabase
+            .rpc('get_intro_video_for_session', { session_id: sessionData.id });
+
+          console.log('🎬 Intro video result:', { videoData, videoError });
+
+          if (!videoError && videoData && videoData.length > 0) {
+            console.log('✅ Setting intro video:', videoData[0]);
+            setIntroVideo(videoData[0]);
+          } else {
+            console.log('⚠️ No intro video found');
+          }
+        }
+
       } else if (sessionToken) {
         // Handle original /interview/{sessionToken} format
         console.log('🔍 Loading interview session:', sessionToken);
@@ -333,6 +349,22 @@ export const InterviewPage: React.FC = () => {
         };
         console.log('✅ Setting branding:', branding);
         setProjectBranding(branding);
+
+        // Load intro video if available using priority system (session > stakeholder > project)
+        if (sessionData?.id) {
+          console.log('🎬 Loading intro video for session:', sessionData.id);
+          const { data: videoData, error: videoError } = await supabase
+            .rpc('get_intro_video_for_session', { session_id: sessionData.id });
+
+          console.log('🎬 Intro video result:', { videoData, videoError });
+
+          if (!videoError && videoData && videoData.length > 0) {
+            console.log('✅ Setting intro video:', videoData[0]);
+            setIntroVideo(videoData[0]);
+          } else {
+            console.log('⚠️ No intro video found');
+          }
+        }
       } else {
         setError('Invalid interview link.');
         setSessionState('not_found');
@@ -341,22 +373,6 @@ export const InterviewPage: React.FC = () => {
       }
 
       console.log('✅ Session loaded successfully');
-
-      // Load intro video if available using priority system (session > stakeholder > project)
-      if (sessionData?.id) {
-        console.log('🎬 Loading intro video for session:', sessionData.id);
-        const { data: videoData, error: videoError } = await supabase
-          .rpc('get_intro_video_for_session', { session_id: sessionData.id });
-
-        console.log('🎬 Intro video result:', { videoData, videoError });
-
-        if (!videoError && videoData && videoData.length > 0) {
-          console.log('✅ Setting intro video:', videoData[0]);
-          setIntroVideo(videoData[0]);
-        } else {
-          console.log('⚠️ No intro video found');
-        }
-      }
     } catch (err) {
       console.error('💥 Error loading session:', err);
       setError('Failed to load interview session.');
