@@ -34,6 +34,7 @@ interface AnswerQuestionsModalProps {
   project: any;
   session: any;
   onSuccess: () => void;
+  onComplete?: () => void;
 }
 
 interface Question {
@@ -62,7 +63,8 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
   stakeholder,
   project,
   session,
-  onSuccess
+  onSuccess,
+  onComplete
 }) => {
   const { isDark } = useTheme();
   const { 
@@ -738,28 +740,11 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
 
   const completeInterview = async () => {
     try {
-      console.log('🏁 Completing interview...');
+      console.log('🏁 Completing interview from modal...');
 
-      // Update stakeholder status to completed
-      await supabase
-        .from('stakeholders')
-        .update({ status: 'completed' })
-        .eq('id', stakeholder.id);
-
-      // Update interview session
-      await supabase
-        .from('interview_sessions')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          is_closed: true,
-          closed_at: new Date().toISOString()
-        })
-        .eq('id', session.id);
-
-      // Refresh parent data to update progress metrics
-      if (onSuccess) {
-        onSuccess();
+      // Call the onComplete callback from parent which handles the actual completion
+      if (onComplete) {
+        await onComplete();
       }
 
       console.log('✅ Interview completed successfully');

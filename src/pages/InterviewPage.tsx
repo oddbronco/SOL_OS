@@ -472,8 +472,29 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
+  const refreshSessionData = async () => {
+    try {
+      // Just reload the session data to update progress
+      if (session?.id) {
+        const { data: sessionData } = await supabase
+          .from('interview_sessions')
+          .select('*')
+          .eq('id', session.id)
+          .maybeSingle();
+
+        if (sessionData) {
+          setSession(sessionData);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+    }
+  };
+
   const handleInterviewComplete = async () => {
     try {
+      console.log('🏁 Completing interview from parent...');
+
       // Update session status to completed and close it
       await supabase
         .from('interview_sessions')
@@ -990,7 +1011,8 @@ export const InterviewPage: React.FC = () => {
             stakeholder={stakeholder}
             project={project}
             session={session}
-            onSuccess={handleInterviewComplete}
+            onSuccess={refreshSessionData}
+            onComplete={handleInterviewComplete}
           />
         )}
 

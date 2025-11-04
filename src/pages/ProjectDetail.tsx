@@ -16,6 +16,7 @@ import { InterviewDashboard } from '../components/interviews/InterviewDashboard'
 import { QuestionAssignmentModal } from '../components/interviews/QuestionAssignmentModal';
 import { AnswerQuestionsModal } from '../components/interviews/AnswerQuestionsModal';
 import { StakeholderInterviewView } from '../components/interviews/StakeholderInterviewView';
+import { ViewResponsesModal } from '../components/interviews/ViewResponsesModal';
 import { CSVUploadManager } from '../components/csv/CSVUploadManager';
 import { QuestionCollectionImporter } from '../components/questions/QuestionCollectionImporter';
 import { FilesTab } from '../components/project/FilesTab';
@@ -85,6 +86,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [showInterviewModal, setShowInterviewModal] = useState(false);
   const [showInterviewLinkModal, setShowInterviewLinkModal] = useState(false);
   const [showUploadResponseModal, setShowUploadResponseModal] = useState(false);
+  const [showViewResponsesModal, setShowViewResponsesModal] = useState(false);
+  const [selectedQuestionForResponses, setSelectedQuestionForResponses] = useState<Question | null>(null);
   const [selectedStakeholderForInterview, setSelectedStakeholderForInterview] = useState<Stakeholder | null>(null);
   const [selectedStakeholderForUpload, setSelectedStakeholderForUpload] = useState<Stakeholder | null>(null);
   const [interviewPassword, setInterviewPassword] = useState('');
@@ -1109,6 +1112,17 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
                         <Badge variant={statusVariant}>{statusText}</Badge>
                       </div>
                       <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={Eye}
+                          onClick={() => {
+                            setSelectedQuestionForResponses(question);
+                            setShowViewResponsesModal(true);
+                          }}
+                        >
+                          View Responses ({answeredCount})
+                        </Button>
                         <Button size="sm" variant="ghost" icon={Edit}>Edit</Button>
                       </div>
                     </div>
@@ -1798,6 +1812,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         session={selectedSession}
         onSuccess={handleInterviewSuccess}
       />
+
+      {/* View Responses Modal */}
+      {selectedQuestionForResponses && (
+        <ViewResponsesModal
+          isOpen={showViewResponsesModal}
+          onClose={() => {
+            setShowViewResponsesModal(false);
+            setSelectedQuestionForResponses(null);
+          }}
+          questionId={selectedQuestionForResponses.id}
+          questionText={selectedQuestionForResponses.text}
+          projectId={projectId}
+        />
+      )}
     </div>
   );
 };
