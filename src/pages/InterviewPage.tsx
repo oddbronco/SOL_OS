@@ -321,29 +321,40 @@ export const InterviewPage: React.FC = () => {
 
       // Load intro video if available using priority system (session > stakeholder > project)
       if (sessionData?.id) {
+        console.log('🎬 Loading intro video for session:', sessionData.id);
         const { data: videoData, error: videoError } = await supabase
           .rpc('get_intro_video_for_session', { session_id: sessionData.id });
 
+        console.log('🎬 Intro video result:', { videoData, videoError });
+
         if (!videoError && videoData && videoData.length > 0) {
+          console.log('✅ Setting intro video:', videoData[0]);
           setIntroVideo(videoData[0]);
+        } else {
+          console.log('⚠️ No intro video found');
         }
       }
 
       // Load project branding
       if (projectId) {
-        const { data: projectData } = await supabase
+        console.log('🎨 Loading branding for project:', projectId);
+        const { data: projectData, error: brandingError } = await supabase
           .from('projects')
           .select('brand_logo_url, brand_primary_color, brand_secondary_color, brand_text_color')
           .eq('id', projectId)
           .single();
 
+        console.log('🎨 Branding result:', { projectData, brandingError });
+
         if (projectData) {
-          setProjectBranding({
+          const branding = {
             logo_url: projectData.brand_logo_url || undefined,
             primary_color: projectData.brand_primary_color || '#3B82F6',
             secondary_color: projectData.brand_secondary_color || '#10B981',
             text_color: projectData.brand_text_color || '#FFFFFF'
-          });
+          };
+          console.log('✅ Setting branding:', branding);
+          setProjectBranding(branding);
         }
       }
     } catch (err) {
