@@ -128,13 +128,13 @@ export const useAuth = () => {
             isMasterAdmin: dbUser?.is_master_admin === true,
             createdAt: session.user.created_at || new Date().toISOString(),
             subscription: {
-              plan: (customerData?.subscription_plan || user?.subscription.plan || 'starter') as 'starter' | 'pro' | 'enterprise',
-              maxProjects: customerData?.max_projects || planLimits?.max_projects || user?.subscription.maxProjects || 3,
-              maxStakeholders: customerData?.max_stakeholders || planLimits?.max_stakeholders_per_project || user?.subscription.maxStakeholders || 15,
-              maxQuestions: planLimits?.max_questions_per_project || user?.subscription.maxQuestions || (customerData?.subscription_plan === 'enterprise' ? 1000 : customerData?.subscription_plan === 'pro' ? 200 : 50),
-              maxFileSize: planLimits?.max_file_size_mb || user?.subscription.maxFileSize || (customerData?.subscription_plan === 'enterprise' ? 2000 : customerData?.subscription_plan === 'pro' ? 500 : 100),
-              maxRecordingMinutes: planLimits?.max_recording_minutes || user?.subscription.maxRecordingMinutes || (customerData?.subscription_plan === 'enterprise' ? 30 : customerData?.subscription_plan === 'pro' ? 10 : 5),
-              status: (customerData?.subscription_status || user?.subscription.status || 'trial') as 'active' | 'paused' | 'trial'
+              plan: (customerData?.subscription_plan || planLimits?.plan_code || 'starter') as 'starter' | 'pro' | 'enterprise',
+              maxProjects: customerData?.max_projects || planLimits?.max_projects || 3,
+              maxStakeholders: customerData?.max_stakeholders || planLimits?.max_stakeholders_per_project || 15,
+              maxQuestions: planLimits?.max_questions_per_project || (customerData?.subscription_plan === 'enterprise' ? 1000 : customerData?.subscription_plan === 'pro' ? 200 : 50),
+              maxFileSize: planLimits?.max_file_size_mb || (customerData?.subscription_plan === 'enterprise' ? 2000 : customerData?.subscription_plan === 'pro' ? 500 : 100),
+              maxRecordingMinutes: planLimits?.max_recording_minutes || (customerData?.subscription_plan === 'enterprise' ? 30 : customerData?.subscription_plan === 'pro' ? 10 : 5),
+              status: (customerData?.subscription_status || 'trial') as 'active' | 'paused' | 'trial'
             }
           }
 
@@ -232,13 +232,13 @@ export const useAuth = () => {
           isMasterAdmin: dbUser?.is_master_admin === true,
           createdAt: session.user.created_at || new Date().toISOString(),
           subscription: {
-            plan: (customerData?.subscription_plan || user?.subscription.plan || 'starter') as 'starter' | 'pro' | 'enterprise',
-            maxProjects: customerData?.max_projects || planLimits?.max_projects || user?.subscription.maxProjects || 3,
-            maxStakeholders: customerData?.max_stakeholders || planLimits?.max_stakeholders_per_project || user?.subscription.maxStakeholders || 15,
-            maxQuestions: planLimits?.max_questions_per_project || user?.subscription.maxQuestions || (customerData?.subscription_plan === 'enterprise' ? 1000 : customerData?.subscription_plan === 'pro' ? 200 : 50),
-            maxFileSize: planLimits?.max_file_size_mb || user?.subscription.maxFileSize || (customerData?.subscription_plan === 'enterprise' ? 2000 : customerData?.subscription_plan === 'pro' ? 500 : 100),
-            maxRecordingMinutes: planLimits?.max_recording_minutes || user?.subscription.maxRecordingMinutes || (customerData?.subscription_plan === 'enterprise' ? 30 : customerData?.subscription_plan === 'pro' ? 10 : 5),
-            status: (customerData?.subscription_status || user?.subscription.status || 'trial') as 'active' | 'paused' | 'trial'
+            plan: (customerData?.subscription_plan || planLimits?.plan_code || 'starter') as 'starter' | 'pro' | 'enterprise',
+            maxProjects: customerData?.max_projects || planLimits?.max_projects || 3,
+            maxStakeholders: customerData?.max_stakeholders || planLimits?.max_stakeholders_per_project || 15,
+            maxQuestions: planLimits?.max_questions_per_project || (customerData?.subscription_plan === 'enterprise' ? 1000 : customerData?.subscription_plan === 'pro' ? 200 : 50),
+            maxFileSize: planLimits?.max_file_size_mb || (customerData?.subscription_plan === 'enterprise' ? 2000 : customerData?.subscription_plan === 'pro' ? 500 : 100),
+            maxRecordingMinutes: planLimits?.max_recording_minutes || (customerData?.subscription_plan === 'enterprise' ? 30 : customerData?.subscription_plan === 'pro' ? 10 : 5),
+            status: (customerData?.subscription_status || 'trial') as 'active' | 'paused' | 'trial'
           }
         };
         setUser(userData);
