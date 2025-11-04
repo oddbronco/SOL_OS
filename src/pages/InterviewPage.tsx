@@ -931,21 +931,28 @@ export const InterviewPage: React.FC = () => {
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                 {introVideo.video_type === 'upload' ? (
                   <video
-                    src={introVideo.video_url}
                     controls
-                    crossOrigin="anonymous"
                     preload="metadata"
+                    playsInline
                     className="absolute inset-0 w-full h-full"
                     onPlay={() => markVideoAsWatched()}
                     onError={(e) => {
+                      const video = e.currentTarget as HTMLVideoElement;
                       console.error('❌ Video load error:', {
                         url: introVideo.video_url,
-                        error: e,
-                        videoElement: e.currentTarget
+                        networkState: video.networkState,
+                        readyState: video.readyState,
+                        error: video.error ? {
+                          code: video.error.code,
+                          message: video.error.message
+                        } : 'No error object',
+                        currentSrc: video.currentSrc
                       });
                     }}
                     onLoadedMetadata={() => console.log('✅ Video metadata loaded:', introVideo.video_url)}
                   >
+                    <source src={introVideo.video_url} type="video/webm" />
+                    <source src={introVideo.video_url} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
                 ) : (
