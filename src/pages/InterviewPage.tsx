@@ -775,7 +775,7 @@ export const InterviewPage: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: projectBranding.secondary_color || '#F9FAFB' }}>
       <div className="max-w-4xl mx-auto py-8 px-4">
         {/* Project Logo */}
         {projectBranding.logo_url && (
@@ -804,8 +804,14 @@ export const InterviewPage: React.FC = () => {
         {/* Stakeholder Info */}
         <Card className="mb-6">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <User className="h-6 w-6 text-blue-600" />
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: projectBranding.primary_color ? `${projectBranding.primary_color}20` : '#DBEAFE',
+                color: projectBranding.primary_color || '#2563EB'
+              }}
+            >
+              <User className="h-6 w-6" />
             </div>
             <div>
               <h3 className="font-medium text-gray-900">Welcome, {stakeholder.name}!</h3>
@@ -832,20 +838,68 @@ export const InterviewPage: React.FC = () => {
               </div>
               <div className="w-32 bg-gray-200 rounded-full h-2 mt-1">
                 <div
-                  className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${session.completion_percentage || 0}%` }}
+                  className="h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${session.completion_percentage || 0}%`,
+                    backgroundColor: projectBranding.primary_color || '#2563EB'
+                  }}
                 />
               </div>
             </div>
           </div>
         </Card>
 
+        {/* Start Interview - Prominent Position */}
+        {!showQuestions && (
+          <Card className="mb-6 text-center" style={{
+            backgroundColor: projectBranding.primary_color ? `${projectBranding.primary_color}10` : undefined,
+            borderColor: projectBranding.primary_color || undefined,
+            borderWidth: projectBranding.primary_color ? '2px' : undefined
+          }}>
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{
+                backgroundColor: projectBranding.primary_color ? `${projectBranding.primary_color}20` : '#EFF6FF',
+                color: projectBranding.primary_color || '#2563EB'
+              }}
+            >
+              <MessageSquare className="h-8 w-8" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Ready to Begin?</h3>
+            <p className="text-gray-600 mb-6">
+              {introVideo && !showIntroVideo
+                ? 'Watch the introduction video below, then click the button when ready to start.'
+                : 'You can answer questions using text, audio, or video responses. The interview should take about 15-20 minutes to complete.'
+              }
+            </p>
+            <Button
+              onClick={() => setShowQuestions(true)}
+              size="lg"
+              icon={MessageSquare}
+              className="inline-flex"
+              style={{
+                backgroundColor: projectBranding.primary_color || '#3B82F6',
+                color: projectBranding.text_color || '#FFFFFF',
+                borderColor: projectBranding.primary_color || '#3B82F6'
+              }}
+            >
+              Start Interview
+            </Button>
+          </Card>
+        )}
+
         {/* Introduction Video */}
         {introVideo && !showQuestions && (
           <Card className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                <Video className="h-5 w-5 text-primary-600" />
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: projectBranding.primary_color ? `${projectBranding.primary_color}20` : '#EFF6FF',
+                  color: projectBranding.primary_color || '#2563EB'
+                }}
+              >
+                <Video className="h-5 w-5" />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">{introVideo.title}</h3>
@@ -859,8 +913,14 @@ export const InterviewPage: React.FC = () => {
               <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden group cursor-pointer"
                 onClick={() => setShowIntroVideo(true)}>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    <Play className="h-10 w-10 text-primary-600 ml-1" />
+                  <div
+                    className="w-20 h-20 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"
+                    style={{
+                      backgroundColor: projectBranding.primary_color || '#FFFFFF',
+                      color: projectBranding.text_color || '#2563EB'
+                    }}
+                  >
+                    <Play className="h-10 w-10 ml-1" />
                   </div>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
@@ -893,32 +953,8 @@ export const InterviewPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Start Interview */}
-        {!showQuestions ? (
-          <Card className="text-center">
-            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="h-8 w-8 text-primary-600" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to Begin?</h3>
-            <p className="text-gray-600 mb-6">
-              {introVideo && !showIntroVideo
-                ? 'Watch the introduction video above, then start the interview when ready.'
-                : 'You can answer questions using text, audio, or video responses. The interview should take about 15-20 minutes to complete.'
-              }
-            </p>
-            <Button
-              onClick={() => setShowQuestions(true)}
-              size="lg"
-              icon={MessageSquare}
-              style={projectBranding.primary_color ? {
-                backgroundColor: projectBranding.primary_color,
-                color: projectBranding.text_color
-              } : undefined}
-            >
-              Start Interview
-            </Button>
-          </Card>
-        ) : (
+        {/* Questions Modal */}
+        {showQuestions && (
           <AnswerQuestionsModal
             isOpen={showQuestions}
             onClose={() => setShowQuestions(false)}

@@ -33,6 +33,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<IntroVideo | null>(null);
   const [videoType, setVideoType] = useState<'external' | 'upload' | 'record'>('external');
   const [title, setTitle] = useState('');
@@ -448,7 +449,13 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
               return (
                 <Card key={video.id} className={video.is_active ? 'border-2 border-primary-500' : ''}>
                   <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-32 h-20 bg-gray-100 rounded-lg overflow-hidden relative group">
+                    <div
+                      className="flex-shrink-0 w-32 h-20 bg-gray-100 rounded-lg overflow-hidden relative group cursor-pointer"
+                      onClick={() => {
+                        setSelectedVideo(video);
+                        setShowPreviewModal(true);
+                      }}
+                    >
                       {video.video_type === 'external' ? (
                         <iframe
                           src={getEmbedUrl(video.video_url)}
@@ -456,10 +463,15 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                           title={video.title}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Play className="h-8 w-8 text-gray-400" />
-                        </div>
+                        <video
+                          src={video.video_url}
+                          className="w-full h-full object-cover"
+                          preload="metadata"
+                        />
                       )}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Play className="h-8 w-8 text-white drop-shadow-lg" />
+                      </div>
                       {video.is_active && (
                         <div className="absolute top-1 right-1 bg-primary-600 text-white text-xs px-2 py-0.5 rounded">
                           Default
@@ -815,18 +827,66 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       </Modal>
 
       {selectedVideo && (
-        <VideoAssignmentModal
-          isOpen={showAssignModal}
-          onClose={() => {
-            setShowAssignModal(false);
-            setSelectedVideo(null);
-          }}
-          video={selectedVideo}
-          projectId={projectId}
-          stakeholders={stakeholders}
-          interviewSessions={interviewSessions}
-          onAssignmentCreated={loadAssignments}
-        />
+        <>
+          <VideoAssignmentModal
+            isOpen={showAssignModal}
+            onClose={() => {
+              setShowAssignModal(false);
+              setSelectedVideo(null);
+            }}
+            video={selectedVideo}
+            projectId={projectId}
+            stakeholders={stakeholders}
+            interviewSessions={interviewSessions}
+            onAssignmentCreated={loadAssignments}
+          />
+
+          <Modal
+            isOpen={showPreviewModal}
+            onClose={() => {
+              setShowPreviewModal(false);
+              setSelectedVideo(null);
+            }}
+            title={selectedVideo.title}
+          >
+            <div className="space-y-4">
+              {selectedVideo.description && (
+                <p className="text-gray-600">{selectedVideo.description}</p>
+              )}
+
+              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                {selectedVideo.video_type === 'external' ? (
+                  <iframe
+                    src={getEmbedUrl(selectedVideo.video_url)}
+                    className="absolute inset-0 w-full h-full"
+                    title={selectedVideo.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    src={selectedVideo.video_url}
+                    controls
+                    autoPlay
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <span className="flex items-center gap-1">
+                  <LinkIcon className="h-4 w-4" />
+                  {selectedVideo.video_type === 'external' ? 'External Video' : 'Uploaded Video'}
+                </span>
+                {selectedVideo.duration_seconds && (
+                  <span>Duration: {Math.floor(selectedVideo.duration_seconds / 60)}:{(selectedVideo.duration_seconds % 60).toString().padStart(2, '0')}</span>
+                )}
+              </div>
+            </div>
+          </Modal>
+        </>
       )}
     </>
   );
