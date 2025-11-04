@@ -468,6 +468,24 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
+  const handleInterviewRefresh = async () => {
+    // Just reload the session data to show updated progress
+    // This is called after each question is answered
+    try {
+      const { data: sessionData } = await supabase
+        .from('interview_sessions')
+        .select('*')
+        .eq('id', session.id)
+        .single();
+
+      if (sessionData) {
+        setSession(sessionData);
+      }
+    } catch (err) {
+      console.error('Error refreshing session:', err);
+    }
+  };
+
   const handleInterviewComplete = async () => {
     try {
       // Update session status to completed and close it
@@ -767,7 +785,8 @@ export const InterviewPage: React.FC = () => {
     hasSession: !!session,
     hasStakeholder: !!stakeholder,
     hasProject: !!project,
-    sessionStatus: session?.status
+    sessionStatus: session?.status,
+    branding: projectBranding
   });
 
   return (
@@ -788,10 +807,21 @@ export const InterviewPage: React.FC = () => {
         <Card className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
+              <h1
+                className="text-2xl font-bold"
+                style={{ color: projectBranding.primary_color || '#111827' }}
+              >
+                {project.name}
+              </h1>
               <p className="text-gray-600">Stakeholder Interview</p>
             </div>
-            <Badge variant="info">
+            <Badge
+              variant="info"
+              style={{
+                backgroundColor: projectBranding.secondary_color ? `${projectBranding.secondary_color}20` : undefined,
+                color: projectBranding.secondary_color || undefined
+              }}
+            >
               {session.status.replace('_', ' ')}
             </Badge>
           </div>
@@ -800,8 +830,16 @@ export const InterviewPage: React.FC = () => {
         {/* Stakeholder Info */}
         <Card className="mb-6">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <User className="h-6 w-6 text-blue-600" />
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: projectBranding.primary_color ? `${projectBranding.primary_color}20` : '#DBEAFE'
+              }}
+            >
+              <User
+                className="h-6 w-6"
+                style={{ color: projectBranding.primary_color || '#2563EB' }}
+              />
             </div>
             <div>
               <h3 className="font-medium text-gray-900">Welcome, {stakeholder.name}!</h3>
@@ -828,8 +866,11 @@ export const InterviewPage: React.FC = () => {
               </div>
               <div className="w-32 bg-gray-200 rounded-full h-2 mt-1">
                 <div
-                  className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${session.completion_percentage || 0}%` }}
+                  className="h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${session.completion_percentage || 0}%`,
+                    backgroundColor: projectBranding.primary_color || '#2563EB'
+                  }}
                 />
               </div>
             </div>
@@ -840,8 +881,16 @@ export const InterviewPage: React.FC = () => {
         {introVideo && !showQuestions && (
           <Card className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                <Video className="h-5 w-5 text-primary-600" />
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: projectBranding.primary_color ? `${projectBranding.primary_color}20` : '#DBEAFE'
+                }}
+              >
+                <Video
+                  className="h-5 w-5"
+                  style={{ color: projectBranding.primary_color || '#2563EB' }}
+                />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">{introVideo.title}</h3>
@@ -856,7 +905,10 @@ export const InterviewPage: React.FC = () => {
                 onClick={() => setShowIntroVideo(true)}>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    <Play className="h-10 w-10 text-primary-600 ml-1" />
+                    <Play
+                      className="h-10 w-10 ml-1"
+                      style={{ color: projectBranding.primary_color || '#2563EB' }}
+                    />
                   </div>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
@@ -892,8 +944,16 @@ export const InterviewPage: React.FC = () => {
         {/* Start Interview */}
         {!showQuestions ? (
           <Card className="text-center">
-            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageSquare className="h-8 w-8 text-primary-600" />
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{
+                backgroundColor: projectBranding.primary_color ? `${projectBranding.primary_color}20` : '#DBEAFE'
+              }}
+            >
+              <MessageSquare
+                className="h-8 w-8"
+                style={{ color: projectBranding.primary_color || '#2563EB' }}
+              />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to Begin?</h3>
             <p className="text-gray-600 mb-6">
@@ -921,7 +981,7 @@ export const InterviewPage: React.FC = () => {
             stakeholder={stakeholder}
             project={project}
             session={session}
-            onSuccess={handleInterviewComplete}
+            onSuccess={handleInterviewRefresh}
           />
         )}
 
