@@ -246,8 +246,20 @@ export const InterviewPage: React.FC = () => {
           return;
         }
 
+        console.log('✅ Project loaded:', projectData);
         setProject(projectData);
-        
+
+        // Extract and set branding from the project data we just loaded
+        console.log('🎨 Extracting branding from project data');
+        const branding = {
+          logo_url: projectData.brand_logo_url || undefined,
+          primary_color: projectData.brand_primary_color || '#3B82F6',
+          secondary_color: projectData.brand_secondary_color || '#10B981',
+          text_color: projectData.brand_text_color || '#FFFFFF'
+        };
+        console.log('✅ Setting branding:', branding);
+        setProjectBranding(branding);
+
       } else if (sessionToken) {
         // Handle original /interview/{sessionToken} format
         console.log('🔍 Loading interview session:', sessionToken);
