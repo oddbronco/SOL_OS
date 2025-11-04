@@ -18,8 +18,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/i/:sessionToken" element={<InterviewPage />} />
           {/* Legacy interview routes: /interview/{sessionToken} */}
           <Route path="/interview/:sessionToken" element={<InterviewPage />} />
-          {/* Respond subdomain routes: respond.solprojectos.com/{project_id}/{stakeholder_id} */}
-          <Route path="/:projectId/:stakeholderId" element={<InterviewPage />} />
+          {/* Interview with project+stakeholder: /interview/:projectId/:stakeholderId */}
+          <Route path="/interview/:projectId/:stakeholderId" element={<InterviewPage />} />
+          {/* Main app routes (must come after specific interview routes) */}
           <Route path="*" element={<App />} />
         </Routes>
       </Router>
