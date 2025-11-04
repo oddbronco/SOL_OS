@@ -177,9 +177,9 @@ export const InterviewPage: React.FC = () => {
           .select('*')
           .eq('id', stakeholderId)
           .eq('project_id', projectId)
-          .single();
+          .maybeSingle();
 
-        if (stakeholderError) {
+        if (stakeholderError || !stakeholderData) {
           console.error('❌ Stakeholder error:', stakeholderError);
           setError('Interview not found. Please check your link.');
           setSessionState('not_found');
@@ -195,10 +195,19 @@ export const InterviewPage: React.FC = () => {
           .select('*')
           .eq('stakeholder_id', stakeholderId)
           .eq('project_id', projectId)
-          .single();
+          .maybeSingle();
 
-        if (sessionError && sessionError.code === 'PGRST116') {
+        if (sessionError) {
+          console.error('❌ Session query error:', sessionError);
+          setError('Failed to load interview session.');
+          setSessionState('not_found');
+          setLoading(false);
+          return;
+        }
+
+        if (!sessionData) {
           // Create new session if none exists
+          console.log('📝 Creating new interview session...');
           const { data: newSession, error: createError } = await supabase
             .from('interview_sessions')
             .insert({
@@ -209,7 +218,7 @@ export const InterviewPage: React.FC = () => {
             .select()
             .single();
 
-          if (createError) {
+          if (createError || !newSession) {
             console.error('❌ Create session error:', createError);
             setError('Failed to create interview session.');
             setSessionState('not_found');
@@ -218,12 +227,7 @@ export const InterviewPage: React.FC = () => {
           }
 
           sessionData = newSession;
-        } else if (sessionError) {
-          console.error('❌ Session error:', sessionError);
-          setError('Interview session not found.');
-          setSessionState('not_found');
-          setLoading(false);
-          return;
+          console.log('✅ New session created:', sessionData);
         }
 
         // Check session state
@@ -231,14 +235,14 @@ export const InterviewPage: React.FC = () => {
         setSessionState(state);
         setSession(sessionData);
 
-        // Get project data
+        // Get project data with branding
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
           .select('*')
           .eq('id', projectId)
-          .single();
+          .maybeSingle();
 
-        if (projectError) {
+        if (projectError || !projectData) {
           console.error('❌ Project error:', projectError);
           setError('Project not found.');
           setSessionState('not_found');
@@ -248,12 +252,22 @@ export const InterviewPage: React.FC = () => {
 
         setProject(projectData);
 
-        // Load intro video if available using priority system (session > stakeholder > project)
-        const { data: videoData, error: videoError } = await supabase
-          .rpc('get_intro_video_for_session', { session_id: sessionData.id });
+        // Set project branding
+        setProjectBranding({
+          logo_url: projectData.brand_logo_url || undefined,
+          primary_color: projectData.brand_primary_color || '#3B82F6',
+          secondary_color: projectData.brand_secondary_color || '#10B981',
+          text_color: projectData.brand_text_color || '#FFFFFF'
+        });
 
-        if (!videoError && videoData && videoData.length > 0) {
-          setIntroVideo(videoData[0]);
+        // Load intro video if available using priority system (session > stakeholder > project)
+        if (sessionData?.id) {
+          const { data: videoData, error: videoError } = await supabase
+            .rpc('get_intro_video_for_session', { session_id: sessionData.id });
+
+          if (!videoError && videoData && videoData.length > 0) {
+            setIntroVideo(videoData[0]);
+          }
         }
 
       } else if (sessionToken) {
@@ -265,10 +279,12 @@ export const InterviewPage: React.FC = () => {
           .from('interview_sessions')
           .select('*')
           .eq('session_token', sessionToken)
-          .single();
-        console.log(' session data:', sessionData)
-        console.log('session error:', sessionError)
-        if (sessionError) {
+          .maybeSingle();
+
+        console.log('📊 Session data:', sessionData);
+        console.log('📊 Session error:', sessionError);
+
+        if (sessionError || !sessionData) {
           console.error('❌ Session error:', sessionError);
           setError('Interview session not found. Please check your link.');
           setSessionState('not_found');
@@ -288,9 +304,9 @@ export const InterviewPage: React.FC = () => {
           .from('stakeholders')
           .select('*')
           .eq('id', sessionData.stakeholder_id)
-          .single();
+          .maybeSingle();
 
-        if (stakeholderError) {
+        if (stakeholderError || !stakeholderData) {
           console.error('❌ Stakeholder error:', stakeholderError);
           setError('Stakeholder not found.');
           setSessionState('not_found');
@@ -301,17 +317,18 @@ export const InterviewPage: React.FC = () => {
         console.log('✅ Stakeholder loaded:', stakeholderData);
         setStakeholder(stakeholderData);
 
-        // Get project data
+        // Get project data with branding
         console.log('🔍 Fetching project with ID:', sessionData.project_id);
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
           .select('*')
           .eq('id', sessionData.project_id)
-          .single();
+          .maybeSingle();
 
-        if (projectError) {
+        if (projectError || !projectData) {
           console.error('❌ Project error:', projectError);
           setError('Project not found.');
+          setSessionState('not_found');
           setLoading(false);
           return;
         }
@@ -319,12 +336,22 @@ export const InterviewPage: React.FC = () => {
         console.log('✅ Project loaded:', projectData);
         setProject(projectData);
 
-        // Load intro video if available using priority system (session > stakeholder > project)
-        const { data: videoData, error: videoError } = await supabase
-          .rpc('get_intro_video_for_session', { session_id: sessionData.id });
+        // Set project branding
+        setProjectBranding({
+          logo_url: projectData.brand_logo_url || undefined,
+          primary_color: projectData.brand_primary_color || '#3B82F6',
+          secondary_color: projectData.brand_secondary_color || '#10B981',
+          text_color: projectData.brand_text_color || '#FFFFFF'
+        });
 
-        if (!videoError && videoData && videoData.length > 0) {
-          setIntroVideo(videoData[0]);
+        // Load intro video if available using priority system (session > stakeholder > project)
+        if (sessionData?.id) {
+          const { data: videoData, error: videoError } = await supabase
+            .rpc('get_intro_video_for_session', { session_id: sessionData.id });
+
+          if (!videoError && videoData && videoData.length > 0) {
+            setIntroVideo(videoData[0]);
+          }
         }
       } else {
         setError('Invalid interview link.');
@@ -334,24 +361,6 @@ export const InterviewPage: React.FC = () => {
       }
 
       console.log('✅ Session loaded successfully');
-
-      // Load project branding
-      if (projectId) {
-        const { data: projectData } = await supabase
-          .from('projects')
-          .select('brand_logo_url, brand_primary_color, brand_secondary_color, brand_text_color')
-          .eq('id', projectId)
-          .single();
-
-        if (projectData) {
-          setProjectBranding({
-            logo_url: projectData.brand_logo_url || undefined,
-            primary_color: projectData.brand_primary_color || '#3B82F6',
-            secondary_color: projectData.brand_secondary_color || '#10B981',
-            text_color: projectData.brand_text_color || '#FFFFFF'
-          });
-        }
-      }
     } catch (err) {
       console.error('💥 Error loading session:', err);
       setError('Failed to load interview session.');
