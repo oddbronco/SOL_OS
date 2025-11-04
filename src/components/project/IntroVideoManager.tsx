@@ -868,7 +868,16 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                     src={selectedVideo.video_url}
                     controls
                     autoPlay
+                    crossOrigin="anonymous"
+                    preload="metadata"
                     className="absolute inset-0 w-full h-full"
+                    onError={(e) => {
+                      console.error('❌ Video preview error:', {
+                        url: selectedVideo.video_url,
+                        error: e
+                      });
+                    }}
+                    onLoadedMetadata={() => console.log('✅ Video preview loaded')}
                   >
                     Your browser does not support the video tag.
                   </video>

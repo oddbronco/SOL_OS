@@ -933,8 +933,18 @@ export const InterviewPage: React.FC = () => {
                   <video
                     src={introVideo.video_url}
                     controls
+                    crossOrigin="anonymous"
+                    preload="metadata"
                     className="absolute inset-0 w-full h-full"
                     onPlay={() => markVideoAsWatched()}
+                    onError={(e) => {
+                      console.error('❌ Video load error:', {
+                        url: introVideo.video_url,
+                        error: e,
+                        videoElement: e.currentTarget
+                      });
+                    }}
+                    onLoadedMetadata={() => console.log('✅ Video metadata loaded:', introVideo.video_url)}
                   >
                     Your browser does not support the video tag.
                   </video>
