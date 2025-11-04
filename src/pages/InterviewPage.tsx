@@ -247,7 +247,15 @@ export const InterviewPage: React.FC = () => {
         }
 
         setProject(projectData);
-        
+
+        // Load intro video if available using priority system (session > stakeholder > project)
+        const { data: videoData, error: videoError } = await supabase
+          .rpc('get_intro_video_for_session', { session_id: sessionData.id });
+
+        if (!videoError && videoData && videoData.length > 0) {
+          setIntroVideo(videoData[0]);
+        }
+
       } else if (sessionToken) {
         // Handle original /interview/{sessionToken} format
         console.log('🔍 Loading interview session:', sessionToken);
@@ -310,6 +318,14 @@ export const InterviewPage: React.FC = () => {
 
         console.log('✅ Project loaded:', projectData);
         setProject(projectData);
+
+        // Load intro video if available using priority system (session > stakeholder > project)
+        const { data: videoData, error: videoError } = await supabase
+          .rpc('get_intro_video_for_session', { session_id: sessionData.id });
+
+        if (!videoError && videoData && videoData.length > 0) {
+          setIntroVideo(videoData[0]);
+        }
       } else {
         setError('Invalid interview link.');
         setSessionState('not_found');
@@ -318,16 +334,6 @@ export const InterviewPage: React.FC = () => {
       }
 
       console.log('✅ Session loaded successfully');
-
-      // Load intro video if available using priority system (session > stakeholder > project)
-      if (sessionData?.id) {
-        const { data: videoData, error: videoError } = await supabase
-          .rpc('get_intro_video_for_session', { session_id: sessionData.id });
-
-        if (!videoError && videoData && videoData.length > 0) {
-          setIntroVideo(videoData[0]);
-        }
-      }
 
       // Load project branding
       if (projectId) {
