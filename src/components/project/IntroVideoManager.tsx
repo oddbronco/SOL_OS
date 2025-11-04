@@ -8,6 +8,22 @@ import { Badge } from '../ui/Badge';
 import { VideoAssignmentModal } from './VideoAssignmentModal';
 import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users } from 'lucide-react';
 
+const fixWebMDuration = async (blob: Blob): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const buffer = reader.result as ArrayBuffer;
+        resolve(new Blob([buffer], { type: blob.type }));
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(blob);
+    } catch (err) {
+      reject(err);
+    }
+  });
+};
+
 interface IntroVideo {
   id: string;
   project_id: string;
@@ -113,18 +129,27 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
         }
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
-        setRecordedBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setRecordedUrl(url);
+
+        try {
+          const fixedBlob = await fixWebMDuration(blob);
+          setRecordedBlob(fixedBlob || blob);
+          const url = URL.createObjectURL(fixedBlob || blob);
+          setRecordedUrl(url);
+        } catch (err) {
+          console.error('Error fixing WebM:', err);
+          setRecordedBlob(blob);
+          const url = URL.createObjectURL(blob);
+          setRecordedUrl(url);
+        }
 
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
         }
       };
 
-      mediaRecorder.start(100);
+      mediaRecorder.start(1000);
       setIsRecording(true);
       setRecordingTime(0);
 
