@@ -45,12 +45,15 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadData();
@@ -263,6 +266,11 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
         return;
       }
 
+      if (videoType === 'upload' && !uploadedFile) {
+        setError('Please select a video file');
+        return;
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
 
@@ -275,6 +283,26 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           .from('project-intro-videos')
           .upload(fileName, recordedBlob, {
             contentType: 'video/webm',
+            cacheControl: '3600'
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('project-intro-videos')
+          .getPublicUrl(fileName);
+
+        finalVideoUrl = publicUrl;
+      }
+
+      if (videoType === 'upload' && uploadedFile) {
+        const fileExt = uploadedFile.name.split('.').pop();
+        const fileName = `${projectId}/${Date.now()}-intro-video.${fileExt}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('project-intro-videos')
+          .upload(fileName, uploadedFile, {
+            contentType: uploadedFile.type,
             cacheControl: '3600'
           });
 
@@ -305,6 +333,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       setTitle('');
       setDescription('');
       setVideoUrl('');
+      setUploadedFile(null);
+      setUploadPreviewUrl(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       resetRecording();
       setShowAddModal(false);
       loadVideos();
