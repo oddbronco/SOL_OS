@@ -604,7 +604,8 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
             {
               response_type: 'text',
               response_text: text
-            }
+            },
+            session.id
           );
           savedAny = true;
         }
@@ -624,15 +625,16 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
           'response'
         );
 
-        // Transcribe the recording
+        // Transcribe the recording (skip if no API key available)
         let transcription = '';
         try {
           setTranscribing(true);
-          console.log('🎤 Transcribing recording...');
+          console.log('🎤 Attempting to transcribe recording...');
           transcription = await transcribeAudio(file);
           console.log('✅ Recording transcribed successfully');
         } catch (error) {
-          console.warn('⚠️ Recording transcription failed:', error);
+          console.warn('⚠️ Recording transcription skipped (API key may not be configured):', error);
+          // Transcription is optional - continue without it
         } finally {
           setTranscribing(false);
         }
@@ -648,7 +650,8 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
             file_size: uploadResult.file_size,
             duration_seconds: recordingDuration,
             transcription
-          }
+          },
+          session.id
         );
 
         discardRecording();
@@ -669,11 +672,12 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
           if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
             try {
               setTranscribing(true);
-              console.log('🎤 Transcribing uploaded file...');
+              console.log('🎤 Attempting to transcribe uploaded file...');
               transcription = await transcribeAudio(file);
               console.log('✅ File transcribed successfully');
             } catch (error) {
-              console.warn('⚠️ File transcription failed:', error);
+              console.warn('⚠️ File transcription skipped (API key may not be configured):', error);
+              // Transcription is optional - continue without it
             } finally {
               setTranscribing(false);
             }
@@ -694,7 +698,8 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
               file_size: uploadResult.file_size,
               duration_seconds: duration,
               transcription
-            }
+            },
+            session.id
           );
           savedAny = true;
         }
@@ -733,43 +738,36 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
 
   const completeInterview = async () => {
     try {
-      // Save current response first if there is one
-      await saveAndNext();
-      
+      console.log('🏁 Completing interview...');
+
       // Update stakeholder status to completed
       await supabase
         .from('stakeholders')
         .update({ status: 'completed' })
         .eq('id', stakeholder.id);
 
-      // Update interview session if exists
-      const { data: sessions } = await supabase
+      // Update interview session
+      await supabase
         .from('interview_sessions')
-        .select('id')
-        .eq('stakeholder_id', stakeholder.id)
-        .limit(1);
-
-      if (sessions && sessions.length > 0) {
-        await supabase
-          .from('interview_sessions')
-          .update({ 
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            completion_percentage: 100
-          })
-          .eq('id', sessions[0].id);
-      }
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          is_closed: true,
+          closed_at: new Date().toISOString()
+        })
+        .eq('id', session.id);
 
       // Refresh parent data to update progress metrics
       if (onSuccess) {
         onSuccess();
       }
 
-      onSuccess();
+      console.log('✅ Interview completed successfully');
       onClose();
       alert('Interview completed successfully! Thank you for your participation.');
     } catch (error) {
       console.error('Error completing interview:', error);
+      alert('There was an error completing the interview. Please try again.');
     }
   };
 
@@ -874,8 +872,9 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
   const handleSaveAndNext = async () => {
     const currentResponse = getCurrentResponse();
     const isLastQuestion = currentQuestionIndex === questions.length - 1;
+    const hadUnsavedChanges = hasUnsavedChanges;
 
-    // If no changes and response exists, just navigate
+    // If no changes and response exists, just navigate or complete
     if (!hasUnsavedChanges && currentResponse) {
       if (!isLastQuestion) {
         setCurrentQuestionIndex(prev => prev + 1);
@@ -885,11 +884,11 @@ export const AnswerQuestionsModal: React.FC<AnswerQuestionsModalProps> = ({
       return;
     }
 
-    // Save and navigate
+    // Save response (this will auto-advance to next question if not last)
     await saveAndNext();
 
-    // Complete interview if last question
-    if (isLastQuestion) {
+    // Complete interview if last question AND we just saved
+    if (isLastQuestion && hadUnsavedChanges) {
       await completeInterview();
     }
   };
