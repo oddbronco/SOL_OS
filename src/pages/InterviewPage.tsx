@@ -102,7 +102,8 @@ export const InterviewPage: React.FC = () => {
       setError('Invalid interview link. Please check your URL.');
       setSessionState('not_found');
     }
-  }, [sessionToken, projectId, stakeholderId, loadSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionToken, projectId, stakeholderId]);
 
   // Hash IP address for privacy-compliant tracking
   const hashIp = async (ip: string): Promise<string> => {
