@@ -27,7 +27,7 @@ export const VideoAssignmentModal: React.FC<VideoAssignmentModalProps> = ({
   interviewSessions,
   onAssignmentCreated
 }) => {
-  const [assignmentType, setAssignmentType] = useState<'stakeholder' | 'session'>('stakeholder');
+  const [assignmentType, setAssignmentType] = useState<'stakeholder' | 'session' | 'all'>('stakeholder');
   const [selectedStakeholder, setSelectedStakeholder] = useState('');
   const [selectedSession, setSelectedSession] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -42,31 +42,47 @@ export const VideoAssignmentModal: React.FC<VideoAssignmentModalProps> = ({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
 
-      const assignment: any = {
-        video_id: video.id,
-        project_id: projectId,
-        created_by: userData.user.id
-      };
+      if (assignmentType === 'all') {
+        // Assign to all stakeholders
+        const assignments = stakeholders.map(stakeholder => ({
+          video_id: video.id,
+          project_id: projectId,
+          stakeholder_id: stakeholder.id,
+          created_by: userData.user.id
+        }));
 
-      if (assignmentType === 'stakeholder') {
-        if (!selectedStakeholder) {
-          setError('Please select a stakeholder');
-          return;
-        }
-        assignment.stakeholder_id = selectedStakeholder;
+        const { error: insertError } = await supabase
+          .from('intro_video_assignments')
+          .insert(assignments);
+
+        if (insertError) throw insertError;
       } else {
-        if (!selectedSession) {
-          setError('Please select an interview session');
-          return;
+        const assignment: any = {
+          video_id: video.id,
+          project_id: projectId,
+          created_by: userData.user.id
+        };
+
+        if (assignmentType === 'stakeholder') {
+          if (!selectedStakeholder) {
+            setError('Please select a stakeholder');
+            return;
+          }
+          assignment.stakeholder_id = selectedStakeholder;
+        } else {
+          if (!selectedSession) {
+            setError('Please select an interview session');
+            return;
+          }
+          assignment.interview_session_id = selectedSession;
         }
-        assignment.interview_session_id = selectedSession;
+
+        const { error: insertError } = await supabase
+          .from('intro_video_assignments')
+          .insert(assignment);
+
+        if (insertError) throw insertError;
       }
-
-      const { error: insertError } = await supabase
-        .from('intro_video_assignments')
-        .insert(assignment);
-
-      if (insertError) throw insertError;
 
       onAssignmentCreated();
       onClose();
@@ -102,7 +118,20 @@ export const VideoAssignmentModal: React.FC<VideoAssignmentModalProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Assignment Type
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setAssignmentType('all')}
+              className={`p-4 border-2 rounded-lg text-center transition-colors ${
+                assignmentType === 'all'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <UserPlus className="h-6 w-6 mx-auto mb-2 text-gray-700" />
+              <div className="font-medium text-sm">All Stakeholders</div>
+              <div className="text-xs text-gray-600 mt-1">Project default</div>
+            </button>
             <button
               type="button"
               onClick={() => setAssignmentType('stakeholder')}
@@ -113,7 +142,7 @@ export const VideoAssignmentModal: React.FC<VideoAssignmentModalProps> = ({
               }`}
             >
               <Users className="h-6 w-6 mx-auto mb-2 text-gray-700" />
-              <div className="font-medium text-sm">Stakeholder</div>
+              <div className="font-medium text-sm">One Stakeholder</div>
               <div className="text-xs text-gray-600 mt-1">All their interviews</div>
             </button>
             <button
@@ -132,7 +161,14 @@ export const VideoAssignmentModal: React.FC<VideoAssignmentModalProps> = ({
           </div>
         </div>
 
-        {assignmentType === 'stakeholder' ? (
+        {assignmentType === 'all' ? (
+          <Card className="bg-blue-50 border-blue-200">
+            <p className="text-sm text-blue-800">
+              This video will be assigned to all {stakeholders.length} stakeholders in this project.
+              They will see this video in all their interview sessions.
+            </p>
+          </Card>
+        ) : assignmentType === 'stakeholder' ? (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Stakeholder
