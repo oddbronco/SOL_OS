@@ -565,13 +565,19 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
               </button>
               <button
                 type="button"
-                onClick={() => setVideoType('upload')}
-                disabled
-                className="p-4 border-2 rounded-lg text-center opacity-50 cursor-not-allowed border-gray-200"
+                onClick={() => {
+                  setVideoType('upload');
+                  resetRecording();
+                }}
+                className={`p-4 border-2 rounded-lg text-center transition-colors ${
+                  videoType === 'upload'
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
               >
                 <Upload className="h-6 w-6 mx-auto mb-2 text-gray-700" />
                 <div className="font-medium text-sm">Upload</div>
-                <div className="text-xs text-gray-600 mt-1">Coming soon</div>
+                <div className="text-xs text-gray-600 mt-1">Upload video file</div>
               </button>
             </div>
           </div>
@@ -682,9 +688,68 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           )}
 
           {videoType === 'upload' && (
-            <div className="p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center">
-              <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">Video upload functionality coming soon</p>
+            <div className="space-y-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 500 * 1024 * 1024) {
+                      setError('File size must be less than 500MB');
+                      return;
+                    }
+                    setUploadedFile(file);
+                    setUploadPreviewUrl(URL.createObjectURL(file));
+                    setError(null);
+                  }
+                }}
+                className="hidden"
+              />
+
+              {!uploadedFile ? (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full p-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                >
+                  <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-700 mb-1">Click to upload video</p>
+                  <p className="text-xs text-gray-500">MP4, WebM, or other video formats (max 500MB, ~5 min at HD quality)</p>
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                    <video
+                      src={uploadPreviewUrl || undefined}
+                      controls
+                      className="w-full h-full"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-800">✓ Video selected</p>
+                      <p className="text-xs text-green-600">{uploadedFile.name} ({(uploadedFile.size / (1024 * 1024)).toFixed(2)} MB)</p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setUploadedFile(null);
+                        setUploadPreviewUrl(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      variant="secondary"
+                      size="sm"
+                      icon={X}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -698,7 +763,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             </Button>
             <Button
               type="submit"
-              disabled={submitting || videoType === 'upload' || isRecording || (videoType === 'record' && !recordedBlob)}
+              disabled={submitting || isRecording || (videoType === 'record' && !recordedBlob) || (videoType === 'upload' && !uploadedFile)}
             >
               {submitting ? 'Uploading...' : 'Add Video'}
             </Button>
