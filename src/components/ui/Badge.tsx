@@ -19,19 +19,19 @@ export const Badge: React.FC<BadgeProps> = ({
   const getVariantClasses = () => {
     if (isDark) {
       return {
-        default: 'bg-gray-700 text-gray-300',
-        success: 'bg-green-900/50 text-primary-400 border border-primary-500/30',
-        warning: 'bg-yellow-900/50 text-yellow-400 border border-yellow-500/30',
-        error: 'bg-red-900/50 text-red-400 border border-red-500/30',
-        info: 'bg-blue-900/50 text-blue-400 border border-blue-500/30'
+        default: 'bg-slate-800 text-slate-300',
+        success: 'bg-teal-900/50 text-teal-400 border border-teal-500/30',
+        warning: 'bg-lime-900/50 text-lime-400 border border-lime-500/30',
+        error: 'bg-coral-900/50 text-coral-400 border border-coral-500/30',
+        info: 'bg-lavender-900/50 text-lavender-400 border border-lavender-500/30'
       };
     } else {
       return {
-        default: 'bg-gray-100 text-gray-700',
-        success: 'bg-primary-100 text-primary-800 border border-green-200',
-        warning: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-        error: 'bg-red-100 text-red-800 border border-red-200',
-        info: 'bg-blue-100 text-blue-800 border border-blue-200'
+        default: 'bg-slate-100 text-slate-700',
+        success: 'bg-teal-100 text-teal-800 border border-teal-200',
+        warning: 'bg-lime-100 text-lime-800 border border-lime-200',
+        error: 'bg-coral-100 text-coral-800 border border-coral-200',
+        info: 'bg-lavender-100 text-lavender-800 border border-lavender-200'
       };
     }
   };

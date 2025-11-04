@@ -27,15 +27,15 @@ export const Button: React.FC<ButtonProps> = ({
   
   const getVariantClasses = () => {
     const variants = {
-      primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-sm',
-      secondary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-sm',
+      primary: 'bg-coral-400 text-white hover:bg-coral-500 active:bg-coral-600 focus:ring-coral-400 shadow-sm hover:shadow-md transform hover:scale-[1.02] active:scale-[0.98]',
+      secondary: 'bg-teal-400 text-white hover:bg-teal-500 active:bg-teal-600 focus:ring-teal-400 shadow-sm hover:shadow-md',
       outline: isDark
-        ? 'border-2 border-gray-600 text-gray-300 hover:bg-primary-900/20 hover:border-primary-500 hover:text-primary-400 focus:ring-primary-500'
-        : 'border-2 border-gray-300 text-gray-700 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 focus:ring-primary-500',
+        ? 'border-2 border-slate-600 text-slate-300 hover:bg-teal-900/20 hover:border-teal-500 hover:text-teal-400 focus:ring-teal-500'
+        : 'border-2 border-slate-300 text-slate-700 hover:bg-teal-50 hover:border-teal-400 hover:text-teal-700 focus:ring-teal-400',
       ghost: isDark
-        ? 'text-gray-400 hover:text-primary-400 hover:bg-primary-900/20 focus:ring-primary-500'
-        : 'text-gray-600 hover:text-primary-700 hover:bg-primary-50 focus:ring-primary-500',
-      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm'
+        ? 'text-slate-400 hover:text-teal-400 hover:bg-teal-900/20 focus:ring-teal-500'
+        : 'text-slate-600 hover:text-teal-700 hover:bg-teal-50 focus:ring-teal-400',
+      danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 focus:ring-red-500 shadow-sm'
     };
     return variants[variant];
   };

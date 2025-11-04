@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+  }
+}
+
 @keyframes gradient-shift {
   0% {
     background-position: 0% 50%;
@@ -15,7 +25,28 @@
 }
 
 .animated-gradient {
-  background: linear-gradient(135deg, #1e2a4a, #2e47eb, #3d5cff, #2639c0);
+  background: linear-gradient(135deg, #2B3440, #456072, #5DCCB4, #A594D4);
   background-size: 400% 400%;
   animation: gradient-shift 15s ease infinite;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-coral-400 hover:bg-coral-500 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md;
+  }
+
+  .btn-secondary {
+    @apply bg-teal-400 hover:bg-teal-500 text-white font-medium rounded-lg transition-all duration-200;
+  }
+
+  .card-gradient {
+    background: linear-gradient(135deg, #5DCCB4 0%, #A594D4 100%);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #5DCCB4, #A594D4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }
