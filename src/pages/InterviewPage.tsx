@@ -468,6 +468,24 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
+  const handleInterviewRefresh = async () => {
+    // Just reload the session data to show updated progress
+    // This is called after each question is answered
+    try {
+      const { data: sessionData } = await supabase
+        .from('interview_sessions')
+        .select('*')
+        .eq('id', session.id)
+        .single();
+
+      if (sessionData) {
+        setSession(sessionData);
+      }
+    } catch (err) {
+      console.error('Error refreshing session:', err);
+    }
+  };
+
   const handleInterviewComplete = async () => {
     try {
       // Update session status to completed and close it
@@ -767,7 +785,8 @@ export const InterviewPage: React.FC = () => {
     hasSession: !!session,
     hasStakeholder: !!stakeholder,
     hasProject: !!project,
-    sessionStatus: session?.status
+    sessionStatus: session?.status,
+    branding: projectBranding
   });
 
   return (
@@ -962,7 +981,7 @@ export const InterviewPage: React.FC = () => {
             stakeholder={stakeholder}
             project={project}
             session={session}
-            onSuccess={handleInterviewComplete}
+            onSuccess={handleInterviewRefresh}
           />
         )}
 
