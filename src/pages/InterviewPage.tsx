@@ -931,30 +931,42 @@ export const InterviewPage: React.FC = () => {
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                 {introVideo.video_type === 'upload' ? (
                   <video
+                    key={introVideo.video_url}
+                    src={introVideo.video_url}
                     controls
-                    preload="metadata"
+                    preload="auto"
                     playsInline
-                    className="absolute inset-0 w-full h-full"
+                    className="absolute inset-0 w-full h-full object-contain bg-black"
                     onPlay={() => markVideoAsWatched()}
+                    onCanPlay={() => console.log('✅ Video can play')}
+                    onLoadStart={() => console.log('📥 Video load started')}
+                    onLoadedData={() => console.log('✅ Video data loaded')}
                     onError={(e) => {
                       const video = e.currentTarget as HTMLVideoElement;
                       console.error('❌ Video load error:', {
                         url: introVideo.video_url,
                         networkState: video.networkState,
+                        networkStateName: ['EMPTY', 'IDLE', 'LOADING', 'NO_SOURCE'][video.networkState],
                         readyState: video.readyState,
+                        readyStateName: ['HAVE_NOTHING', 'HAVE_METADATA', 'HAVE_CURRENT_DATA', 'HAVE_FUTURE_DATA', 'HAVE_ENOUGH_DATA'][video.readyState],
                         error: video.error ? {
                           code: video.error.code,
-                          message: video.error.message
+                          message: video.error.message,
+                          errorName: ['', 'MEDIA_ERR_ABORTED', 'MEDIA_ERR_NETWORK', 'MEDIA_ERR_DECODE', 'MEDIA_ERR_SRC_NOT_SUPPORTED'][video.error.code]
                         } : 'No error object',
                         currentSrc: video.currentSrc
                       });
                     }}
-                    onLoadedMetadata={() => console.log('✅ Video metadata loaded:', introVideo.video_url)}
-                  >
-                    <source src={introVideo.video_url} type="video/webm" />
-                    <source src={introVideo.video_url} type="video/mp4" />
-                    Your browser does not support the video tag.
-                  </video>
+                    onLoadedMetadata={(e) => {
+                      const video = e.currentTarget as HTMLVideoElement;
+                      console.log('✅ Video metadata loaded:', {
+                        url: introVideo.video_url,
+                        duration: video.duration,
+                        videoWidth: video.videoWidth,
+                        videoHeight: video.videoHeight
+                      });
+                    }}
+                  />
                 ) : (
                   <iframe
                     src={getEmbedUrl(introVideo.video_url)}
