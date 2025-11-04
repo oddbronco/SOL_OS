@@ -125,7 +125,14 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       setRecordingTime(0);
 
       timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          // Auto-stop at 5 minutes (300 seconds)
+          if (newTime >= 300) {
+            stopRecording();
+          }
+          return newTime;
+        });
       }, 1000);
 
     } catch (err: any) {
@@ -624,9 +631,14 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                   />
                 )}
                 {isRecording && (
-                  <div className="absolute top-4 right-4 flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded-full">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium">{formatTime(recordingTime)}</span>
+                  <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded-full">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium">{formatTime(recordingTime)}</span>
+                    </div>
+                    <div className="bg-black/75 text-white px-3 py-1 rounded text-xs">
+                      {formatTime(300 - recordingTime)} remaining
+                    </div>
                   </div>
                 )}
               </div>
