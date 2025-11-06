@@ -73,6 +73,63 @@ export const InterviewPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
+  // Initialize HLS video player when intro video is shown
+  useEffect(() => {
+    if (!showIntroVideo || !introVideo || !videoRef.current || introVideo.video_type !== 'upload') {
+      return;
+    }
+
+    const video = videoRef.current;
+    const videoUrl = introVideo.mux_playback_id
+      ? `https://stream.mux.com/${introVideo.mux_playback_id}.m3u8`
+      : introVideo.video_url;
+
+    console.log('🎬 Initializing video player:', { videoUrl, muxId: introVideo.mux_playback_id });
+
+    // Clean up previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 90
+      });
+
+      hls.loadSource(videoUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('✅ HLS manifest loaded');
+      });
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.error('❌ HLS error:', data);
+        if (data.fatal) {
+          console.error('Fatal HLS error:', data.type, data.details);
+        }
+      });
+
+      hlsRef.current = hls;
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS support (Safari)
+      video.src = videoUrl;
+      console.log('✅ Using native HLS support');
+    } else {
+      console.error('❌ HLS not supported');
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [showIntroVideo, introVideo]);
+
   // Add SEO protection meta tags for interview pages (must be at top before any conditional returns)
   useEffect(() => {
     const robotsMeta = document.createElement('meta');
@@ -908,84 +965,80 @@ export const InterviewPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Introduction Video */}
-        {introVideo && !showQuestions && (
-          <Card className="mb-8 shadow-lg border-0 animate-slide-up" style={{ animationDelay: '200ms' }}>
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md"
-                  style={{
-                    backgroundColor: `${primaryColor}20`,
-                    color: primaryColor
-                  }}
-                >
-                  <Video className="h-6 w-6" />
+        {/* Combined Introduction Video & CTA Section */}
+        {!showQuestions && (
+          <Card className="shadow-xl border-0 overflow-hidden animate-slide-up" style={{ animationDelay: '200ms' }}>
+            {/* Video Section */}
+            {introVideo && (
+              <div className="p-6 pb-0">
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md"
+                    style={{
+                      backgroundColor: `${primaryColor}20`,
+                      color: primaryColor
+                    }}
+                  >
+                    <Video className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{introVideo.title}</h3>
+                    {introVideo.description && (
+                      <p className="text-sm text-gray-600">{introVideo.description}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{introVideo.title}</h3>
-                  {introVideo.description && (
-                    <p className="text-sm text-gray-600">{introVideo.description}</p>
-                  )}
-                </div>
-              </div>
 
-              {!showIntroVideo ? (
-                <div
-                  className="relative aspect-video bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl overflow-hidden group cursor-pointer shadow-lg"
-                  onClick={() => setShowIntroVideo(true)}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/20"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div
-                      className="w-24 h-24 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-all duration-300 backdrop-blur-sm"
-                      style={{
-                        backgroundColor: `${primaryColor}E6`,
-                        color: textColor
-                      }}
-                    >
-                      <Play className="h-12 w-12 ml-2" />
+                {!showIntroVideo ? (
+                  <div
+                    className="relative aspect-video bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl overflow-hidden group cursor-pointer shadow-lg mb-6"
+                    onClick={() => setShowIntroVideo(true)}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/20"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div
+                        className="w-24 h-24 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-all duration-300 backdrop-blur-sm"
+                        style={{
+                          backgroundColor: `${primaryColor}E6`,
+                          color: textColor
+                        }}
+                      >
+                        <Play className="h-12 w-12 ml-2" />
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                      <p className="text-white text-lg font-medium mb-1">Click to watch introduction</p>
+                      <p className="text-white/80 text-sm">Learn more about this interview</p>
                     </div>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                    <p className="text-white text-lg font-medium mb-1">Click to watch introduction</p>
-                    <p className="text-white/80 text-sm">Learn more about this interview</p>
+                ) : (
+                  <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
+                    {introVideo.video_type === 'upload' ? (
+                      <video
+                        ref={videoRef}
+                        key={introVideo.mux_playback_id || introVideo.video_url}
+                        controls
+                        preload="metadata"
+                        playsInline
+                        className="absolute inset-0 w-full h-full object-contain"
+                        onPlay={() => {
+                          markVideoAsWatched();
+                        }}
+                      />
+                    ) : (
+                      <iframe
+                        src={introVideo.video_url}
+                        className="absolute inset-0 w-full h-full"
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowFullScreen
+                      />
+                    )}
                   </div>
-                </div>
-              ) : (
-                <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg">
-                  {introVideo.video_type === 'upload' ? (
-                    <video
-                      ref={videoRef}
-                      key={introVideo.mux_playback_id || introVideo.video_url}
-                      controls
-                      preload="none"
-                      playsInline
-                      muted
-                      className="absolute inset-0 w-full h-full object-contain"
-                      onPlay={() => {
-                        markVideoAsWatched();
-                        const video = document.querySelector('video');
-                        if (video) video.muted = false;
-                      }}
-                    />
-                  ) : (
-                    <iframe
-                      src={introVideo.video_url}
-                      className="absolute inset-0 w-full h-full"
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
+                )}
+              </div>
+            )}
 
-        {/* CTA Section */}
-        {!showQuestions && (
-          <Card className="shadow-xl border-0 overflow-hidden animate-slide-up" style={{ animationDelay: '300ms' }}>
+            {/* CTA Section */}
             <div
               className="p-8 text-center relative overflow-hidden"
               style={{
@@ -1037,10 +1090,16 @@ export const InterviewPage: React.FC = () => {
         )}
 
         {/* Questions Modal */}
-        {showQuestions && (
+        {showQuestions && session && stakeholder && project && (
           <AnswerQuestionsModal
+            isOpen={showQuestions}
             session={session}
+            stakeholder={stakeholder}
+            project={project}
             onClose={() => setShowQuestions(false)}
+            onSuccess={async () => {
+              await loadSession();
+            }}
             onComplete={async () => {
               await loadSession();
               setShowQuestions(false);
