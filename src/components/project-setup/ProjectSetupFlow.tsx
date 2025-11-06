@@ -83,6 +83,10 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     template: ''
   });
   const [customDocFile, setCustomDocFile] = useState<File | null>(null);
+  const [showCollectionPicker, setShowCollectionPicker] = useState(false);
+  const [showCSVUpload, setShowCSVUpload] = useState(false);
+  const [csvFile, setCSVFile] = useState<File | null>(null);
+  const [collections, setCollections] = useState<any[]>([]);
 
   // All available document types including standard and custom
   const getAllDocumentTypes = () => {
@@ -147,7 +151,25 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
   // Load existing project data on mount
   useEffect(() => {
     loadProjectData();
+    loadCollections();
   }, [projectId]);
+
+  const loadCollections = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('question_collections')
+        .select('*')
+        .or(`customer_id.eq.${user.id},scope.eq.system`)
+        .order('name');
+
+      if (error) throw error;
+      setCollections(data || []);
+    } catch (err) {
+      console.error('Error loading collections:', err);
+    }
+  };
 
   const loadProjectData = async () => {
     try {
@@ -483,8 +505,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       const questions = await openAIService.generateQuestions({
         projectDescription: projectData.description,
         transcription: projectData.transcript,
-        stakeholders: projectData.stakeholders.map(s => ({ role: s.role, department: s.department })),
-        documentTypes: projectData.selectedDocumentTypes
+        stakeholders: projectData.stakeholders.map(s => ({ role: s.role, department: s.department }))
       });
 
       const updates = { questions };
@@ -492,7 +513,6 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       setProjectData(prev => ({ ...prev, ...updates }));
 
       console.log('✅ Questions generated');
-      setCurrentStep(5);
 
     } catch (err) {
       console.error('💥 Question generation failed:', err);
@@ -549,8 +569,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
         const questions = await openAIService.generateQuestions({
           projectDescription: projectData.description,
           transcription: projectData.transcript,
-          stakeholders: projectData.stakeholders.map(s => ({ role: s.role, department: s.department })),
-          documentTypes: projectData.selectedDocumentTypes
+          stakeholders: projectData.stakeholders.map(s => ({ role: s.role, department: s.department }))
         });
 
         const updates = { questions };
@@ -653,6 +672,88 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     } catch (error) {
       console.error('Failed to read file:', error);
       alert('Failed to read file. Please try again.');
+    }
+  };
+
+  const handleImportCollection = async (collectionId: string) => {
+    try {
+      setLoading(true);
+
+      const { data: questions, error } = await supabase
+        .from('question_collection_items')
+        .select('question_text, category, target_roles')
+        .eq('collection_id', collectionId);
+
+      if (error) throw error;
+
+      const importedQuestions: Question[] = (questions || []).map(q => ({
+        text: q.question_text,
+        category: q.category || 'Imported',
+        target_roles: q.target_roles || ['All']
+      }));
+
+      const updates = { questions: importedQuestions };
+      await saveProjectData(updates);
+      setProjectData(prev => ({ ...prev, ...updates }));
+      setShowCollectionPicker(false);
+
+      console.log(`✅ Imported ${importedQuestions.length} questions from collection`);
+    } catch (err) {
+      console.error('Error importing collection:', err);
+      alert('Failed to import collection. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setLoading(true);
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+
+      // Skip header row, parse CSV
+      const importedQuestions: Question[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const match = line.match(/(?:^|,)("(?:[^"]|"")*"|[^,]*)/g);
+        if (!match || match.length < 2) continue;
+
+        const clean = (str: string) => str.replace(/^[,"]|["']$/g, '').trim();
+        const questionText = clean(match[0]);
+        const category = clean(match[1] || 'Imported');
+        const rolesStr = clean(match[2] || 'All');
+        const target_roles = rolesStr.split(';').map(r => r.trim()).filter(r => r);
+
+        if (questionText) {
+          importedQuestions.push({
+            text: questionText,
+            category: category || 'Imported',
+            target_roles: target_roles.length > 0 ? target_roles : ['All']
+          });
+        }
+      }
+
+      if (importedQuestions.length === 0) {
+        alert('No questions found in CSV. Expected format:\nQuestion,Category,Target Roles (semicolon-separated)');
+        return;
+      }
+
+      const updates = { questions: importedQuestions };
+      await saveProjectData(updates);
+      setProjectData(prev => ({ ...prev, ...updates }));
+      setShowCSVUpload(false);
+      setCSVFile(null);
+
+      console.log(`✅ Imported ${importedQuestions.length} questions from CSV`);
+    } catch (err) {
+      console.error('Error importing CSV:', err);
+      alert('Failed to import CSV. Please check the format and try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1290,39 +1391,105 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
               </div>
 
               {projectData.questions.length === 0 ? (
-                <div className="text-center py-12">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-medium mb-2 text-gray-900">No questions generated yet</h3>
-                  <p className="text-gray-600 mb-6">Generate comprehensive questions for each stakeholder</p>
-                  <Button
-                    onClick={generateQuestions}
-                    disabled={!(projectData.stakeholders.length > 0 && projectData.selectedDocumentTypes.length > 0)}
-                    className={!(projectData.stakeholders.length > 0 && projectData.selectedDocumentTypes.length > 0) ? 'opacity-50 cursor-not-allowed' : ''}
-                    loading={loading}
-                    icon={Sparkles}
-                    size="lg"
-                  >
-                    {!(projectData.stakeholders.length > 0 && projectData.selectedDocumentTypes.length > 0)
-                      ? 'Select Documents & Add Stakeholders First'
-                      : 'Generate Questions with AI'
-                    }
-                  </Button>
-                  
-                  {!(projectData.stakeholders.length > 0 && projectData.selectedDocumentTypes.length > 0) && (
-                    <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-center">
-                        <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
-                        <p className="text-sm text-yellow-800">
-                          {projectData.stakeholders.length === 0 && projectData.selectedDocumentTypes.length === 0
-                            ? 'Please add stakeholders and select document types first.'
-                            : projectData.stakeholders.length === 0
-                            ? 'Please add stakeholders first.'
-                            : 'Please select document types first.'
-                          }
-                        </p>
+                <div className="py-8">
+                  <div className="text-center mb-8">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium mb-2 text-gray-900">Add Interview Questions</h3>
+                    <p className="text-gray-600">Choose how you'd like to add questions for stakeholder interviews</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+                    {/* AI Generation */}
+                    <button
+                      onClick={generateQuestions}
+                      disabled={projectData.stakeholders.length === 0}
+                      className={`p-6 border-2 rounded-lg text-left transition-all ${
+                        projectData.stakeholders.length === 0
+                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50'
+                          : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer'
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-blue-100 rounded-lg">
+                          <Sparkles className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">AI Generate</h4>
+                          <p className="text-sm text-gray-600">
+                            Automatically generate comprehensive questions based on your stakeholders and project context
+                          </p>
+                          {projectData.stakeholders.length === 0 && (
+                            <p className="text-xs text-yellow-600 mt-2">⚠️ Add stakeholders first</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    </button>
+
+                    {/* Import from Collection */}
+                    <button
+                      onClick={() => setShowCollectionPicker(true)}
+                      className="p-6 border-2 border-gray-300 rounded-lg text-left hover:border-green-500 hover:bg-green-50 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-green-100 rounded-lg">
+                          <FileText className="w-6 h-6 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">Import Collection</h4>
+                          <p className="text-sm text-gray-600">
+                            Select from your saved question collections or templates
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* CSV Upload */}
+                    <button
+                      onClick={() => setShowCSVUpload(true)}
+                      className="p-6 border-2 border-gray-300 rounded-lg text-left hover:border-purple-500 hover:bg-purple-50 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-purple-100 rounded-lg">
+                          <Upload className="w-6 h-6 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">Upload CSV</h4>
+                          <p className="text-sm text-gray-600">
+                            Bulk import questions from a CSV file
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Manual Entry */}
+                    <button
+                      onClick={() => {
+                        const newQuestion = {
+                          text: '',
+                          category: 'Custom',
+                          target_roles: ['All']
+                        };
+                        setProjectData(prev => ({
+                          ...prev,
+                          questions: [...prev.questions, newQuestion]
+                        }));
+                        setEditingQuestion(0);
+                      }}
+                      className="p-6 border-2 border-gray-300 rounded-lg text-left hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-orange-100 rounded-lg">
+                          <Edit className="w-6 h-6 text-orange-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">Manual Entry</h4>
+                          <p className="text-sm text-gray-600">
+                            Add questions one by one manually
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div>
@@ -1721,6 +1888,120 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
               icon={RefreshCw}
             >
               Regenerate {regenerateType === 'stakeholders' ? 'Stakeholders' : 'Questions'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Collection Picker Modal */}
+      <Modal
+        isOpen={showCollectionPicker}
+        onClose={() => setShowCollectionPicker(false)}
+        title="Import Question Collection"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {collections.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-600">No question collections found.</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Create collections in the Question Collections page first.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600 mb-4">
+                Select a question collection to import into this project:
+              </p>
+              {collections.map((collection) => (
+                <button
+                  key={collection.id}
+                  onClick={() => handleImportCollection(collection.id)}
+                  className="w-full p-4 border border-gray-300 rounded-lg text-left hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-medium text-gray-900">{collection.name}</h4>
+                      {collection.description && (
+                        <p className="text-sm text-gray-600 mt-1">{collection.description}</p>
+                      )}
+                    </div>
+                    {collection.scope === 'system' && (
+                      <Badge variant="info" size="sm">System</Badge>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <Button
+              variant="outline"
+              onClick={() => setShowCollectionPicker(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* CSV Upload Modal */}
+      <Modal
+        isOpen={showCSVUpload}
+        onClose={() => {
+          setShowCSVUpload(false);
+          setCSVFile(null);
+        }}
+        title="Upload Questions CSV"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-900 mb-2">CSV Format</h4>
+            <p className="text-sm text-blue-800 mb-2">
+              Your CSV should have the following columns:
+            </p>
+            <div className="bg-white rounded p-3 font-mono text-xs">
+              Question,Category,Target Roles<br/>
+              "What are the main goals?","Project Goals","Product Manager;Stakeholder"<br/>
+              "What is the timeline?","Planning","All"
+            </div>
+            <p className="text-xs text-blue-700 mt-2">
+              • Use semicolons to separate multiple target roles<br/>
+              • Use "All" for questions that apply to everyone
+            </p>
+          </div>
+
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCSVUpload}
+              className="hidden"
+              id="csv-upload"
+            />
+            <label htmlFor="csv-upload" className="cursor-pointer">
+              <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-700 mb-1">
+                Click to upload CSV file
+              </p>
+              <p className="text-xs text-gray-500">
+                or drag and drop
+              </p>
+            </label>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCSVUpload(false);
+                setCSVFile(null);
+              }}
+            >
+              Cancel
             </Button>
           </div>
         </div>
