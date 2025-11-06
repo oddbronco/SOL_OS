@@ -181,6 +181,36 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const triggerVideoConversion = async (videoId: string, sourceUrl: string, sourceFormat: string) => {
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/convert-video`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoId,
+          sourceUrl,
+          sourceFormat
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Conversion trigger failed:', error);
+      } else {
+        console.log('✅ Conversion triggered successfully');
+        // Refresh video list after a delay to show updated status
+        setTimeout(() => loadVideos(), 2000);
+      }
+    } catch (error) {
+      console.error('Error triggering conversion:', error);
+    }
+  };
+
   const loadVideos = async () => {
     try {
       const { data, error } = await supabase
@@ -338,7 +368,13 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
         finalVideoUrl = publicUrl;
       }
 
-      const { error } = await supabase
+      // Determine if conversion is needed
+      const needsConversion = !finalVideoUrl.toLowerCase().endsWith('.mp4');
+      const originalFormat = needsConversion
+        ? (finalVideoUrl.split('.').pop() || 'webm')
+        : null;
+
+      const { data: insertData, error } = await supabase
         .from('project_intro_videos')
         .insert({
           project_id: projectId,
@@ -348,10 +384,20 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           video_type: videoType === 'record' ? 'upload' : videoType,
           duration_seconds: videoType === 'record' ? recordingTime : null,
           created_by: userData.user.id,
-          is_active: videos.length === 0
-        });
+          is_active: videos.length === 0,
+          conversion_status: needsConversion ? 'pending' : 'completed',
+          original_format: originalFormat
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Trigger conversion in background if needed
+      if (needsConversion && insertData) {
+        console.log(`🎬 Triggering conversion for ${originalFormat} → MP4`);
+        triggerVideoConversion(insertData.id, finalVideoUrl, originalFormat!);
+      }
 
       setTitle('');
       setDescription('');
@@ -593,7 +639,24 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                               {video.video_type === 'external' ? 'External Video' : 'Uploaded'}
                             </span>
                             <span>Added {new Date(video.created_at).toLocaleDateString()}</span>
-                            {video.video_url.includes('.webm') && (
+
+                            {/* Show conversion status */}
+                            {video.conversion_status === 'pending' && (
+                              <span className="flex items-center gap-1 text-blue-600 font-semibold">
+                                ⏳ Queued for conversion
+                              </span>
+                            )}
+                            {video.conversion_status === 'converting' && (
+                              <span className="flex items-center gap-1 text-blue-600 font-semibold animate-pulse">
+                                🔄 Converting to MP4...
+                              </span>
+                            )}
+                            {video.conversion_status === 'failed' && (
+                              <span className="flex items-center gap-1 text-red-600 font-semibold">
+                                ❌ Conversion failed
+                              </span>
+                            )}
+                            {video.conversion_status === 'completed' && video.video_url.includes('.webm') && (
                               <span className="flex items-center gap-1 text-orange-600 font-semibold">
                                 ⚠️ WebM - Safari incompatible
                               </span>
@@ -754,17 +817,14 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             </div>
 
             {videoType === 'record' && (
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-blue-900">
-                    <p className="font-medium">Browser Compatibility</p>
-                    <p className="mt-1 text-blue-700">
-                      <strong>Safari:</strong> Records as MP4 (works everywhere) ✓<br />
-                      <strong>Chrome/Firefox:</strong> Records as WebM (won't work in Safari) ⚠️
-                    </p>
-                    <p className="mt-2 text-xs text-blue-600">
-                      For universal compatibility, record in Safari or convert WebM files to MP4 before uploading.
+                  <AlertCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-green-900">
+                    <p className="font-medium">✅ Automatic Format Conversion</p>
+                    <p className="mt-1 text-green-700">
+                      Non-MP4 videos (WebM, MOV) will be automatically converted to MP4 for universal compatibility.
+                      The conversion happens in the background and typically takes 10-30 seconds.
                     </p>
                   </div>
                 </div>
@@ -772,13 +832,13 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             )}
 
             {videoType === 'upload' && (
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-blue-900">
-                    <p className="font-medium">Recommended Format: MP4</p>
-                    <p className="mt-1 text-blue-700">
-                      MP4 videos work on all browsers and devices. WebM files won't play in Safari.
+                  <AlertCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-green-900">
+                    <p className="font-medium">✅ Automatic Format Conversion</p>
+                    <p className="mt-1 text-green-700">
+                      Upload any video format. Non-MP4 files will be automatically converted for universal playback.
                     </p>
                   </div>
                 </div>
