@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { AnswerQuestionsModal } from '../components/interviews/AnswerQuestionsModal';
@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { Lock, MessageSquare, CheckCircle, User, Calendar, Clock, XCircle, AlertCircle, Ban, Video, Play } from 'lucide-react';
+import Hls from 'hls.js';
 
 type SessionState = 'active' | 'expired' | 'locked' | 'closed' | 'not_found';
 
@@ -69,6 +70,8 @@ export const InterviewPage: React.FC = () => {
     secondary_color?: string;
     text_color?: string;
   }>({});
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
   // Add SEO protection meta tags for interview pages (must be at top before any conditional returns)
   useEffect(() => {
@@ -401,6 +404,74 @@ export const InterviewPage: React.FC = () => {
       setLoading(false);
     }
   }, [sessionToken, projectId, stakeholderId]);
+
+  // Initialize HLS.js for Mux video playback
+  useEffect(() => {
+    if (!introVideo || !videoRef.current) return;
+
+    const video = videoRef.current;
+    const videoUrl = introVideo.mux_playback_id
+      ? `https://stream.mux.com/${introVideo.mux_playback_id}.m3u8`
+      : introVideo.video_url;
+
+    // If it's an HLS stream (.m3u8) and browser doesn't support HLS natively
+    if (videoUrl.includes('.m3u8')) {
+      if (Hls.isSupported()) {
+        // Clean up existing HLS instance
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+        }
+
+        // Initialize HLS.js
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+        });
+
+        hls.loadSource(videoUrl);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log('✅ HLS manifest loaded, ready to play');
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('❌ HLS error:', data);
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.error('Fatal network error, trying to recover');
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.error('Fatal media error, trying to recover');
+                hls.recoverMediaError();
+                break;
+              default:
+                console.error('Fatal error, cannot recover');
+                hls.destroy();
+                break;
+            }
+          }
+        });
+
+        hlsRef.current = hls;
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        video.src = videoUrl;
+      }
+    } else {
+      // Regular video file
+      video.src = videoUrl;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [introVideo]);
 
   const handleAuthentication = useCallback(async (inputPassword: string) => {
     if (!stakeholder || !inputPassword || !session) return;
@@ -984,10 +1055,8 @@ export const InterviewPage: React.FC = () => {
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                 {introVideo.video_type === 'upload' ? (
                   <video
+                    ref={videoRef}
                     key={introVideo.mux_playback_id || introVideo.video_url}
-                    src={introVideo.mux_playback_id
-                      ? `https://stream.mux.com/${introVideo.mux_playback_id}.m3u8`
-                      : introVideo.video_url}
                     controls
                     preload="metadata"
                     playsInline
