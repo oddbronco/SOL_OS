@@ -26,17 +26,35 @@ const convertWebMToMP4 = async (
   });
 
   onProgress?.(5);
-  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
 
-  await Promise.race([
-    ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    }),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('FFmpeg load timeout after 60 seconds')), 60000)
-    )
-  ]);
+  const cdnSources = [
+    'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm',
+    'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm',
+  ];
+
+  let loaded = false;
+  for (const baseURL of cdnSources) {
+    if (loaded) break;
+    try {
+      await Promise.race([
+        ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('CDN timeout after 45 seconds')), 45000)
+        )
+      ]);
+      loaded = true;
+    } catch (err) {
+      console.warn(`Failed to load from ${baseURL}:`, err);
+      continue;
+    }
+  }
+
+  if (!loaded) {
+    throw new Error('Could not load FFmpeg from any CDN');
+  }
 
   onProgress?.(10);
 

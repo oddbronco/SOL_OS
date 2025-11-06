@@ -37,22 +37,41 @@ const convertWebMToMP4 = async (
     console.log('📥 Loading FFmpeg WASM (this may take 30 seconds on first load)...');
     onProgress?.(5);
 
-    // Load FFmpeg WASM - try multiple CDN sources for reliability
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+    // Try multiple CDN sources for reliability
+    const cdnSources = [
+      'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm',
+      'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm',
+    ];
 
-    try {
-      await Promise.race([
-        ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('FFmpeg load timeout after 60 seconds')), 60000)
-        )
-      ]);
-    } catch (loadError) {
-      console.error('Failed to load FFmpeg:', loadError);
-      throw new Error('Could not load FFmpeg. Please check your internet connection and try again.');
+    let loaded = false;
+    let lastError: Error | null = null;
+
+    for (const baseURL of cdnSources) {
+      if (loaded) break;
+
+      try {
+        console.log(`🔄 Trying CDN: ${baseURL}`);
+        await Promise.race([
+          ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('CDN timeout after 45 seconds')), 45000)
+          )
+        ]);
+        loaded = true;
+        console.log(`✅ Successfully loaded from: ${baseURL}`);
+      } catch (err) {
+        console.warn(`❌ Failed to load from ${baseURL}:`, err);
+        lastError = err instanceof Error ? err : new Error(String(err));
+        continue;
+      }
+    }
+
+    if (!loaded) {
+      console.error('All CDN sources failed');
+      throw new Error(`Could not load FFmpeg from any CDN. Last error: ${lastError?.message || 'Unknown'}. Please check your internet connection and try again.`);
     }
 
     console.log('✅ FFmpeg loaded successfully');
