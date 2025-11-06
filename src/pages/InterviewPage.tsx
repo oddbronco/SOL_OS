@@ -111,9 +111,29 @@ export const InterviewPage: React.FC = () => {
     if (passwordFromUrl && stakeholder && session && !authenticated && !autoAuthAttempted && sessionState === 'active') {
       console.log('🔓 Auto-authenticating with URL password...');
       setAutoAuthAttempted(true);
-      handleAuthentication(passwordFromUrl);
+
+      // Inline authentication logic to avoid circular dependency
+      if (passwordFromUrl === stakeholder.access_password) {
+        console.log('✅ Auto-authentication successful');
+        setAuthenticated(true);
+        setError(null);
+        setFailedAttempts(0);
+
+        // Update session if it's still pending
+        if (session.status === 'pending') {
+          supabase
+            .from('interview_sessions')
+            .update({ status: 'in_progress' })
+            .eq('id', session.id)
+            .then(() => {
+              setSession((prev: any) => ({ ...prev, status: 'in_progress' }));
+            });
+        }
+      } else {
+        console.log('❌ Auto-authentication failed - incorrect password');
+        setError('Incorrect password in URL. Please enter your password manually.');
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passwordFromUrl, stakeholder, session, authenticated, autoAuthAttempted, sessionState]);
 
   const loadSession = useCallback(async () => {
