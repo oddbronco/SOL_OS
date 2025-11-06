@@ -490,7 +490,11 @@ export const InterviewPage: React.FC = () => {
     if (!match) return storageUrl;
 
     const path = match[1];
-    return `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-video?path=${encodeURIComponent(path)}`;
+
+    // Get Supabase URL from the client instance
+    const supabaseUrl = (supabase as any).supabaseUrl || 'https://bfjyaloyehlwmtqtqnpt.supabase.co';
+
+    return `${supabaseUrl}/functions/v1/proxy-video?path=${encodeURIComponent(path)}`;
   };
 
   const markVideoAsWatched = async () => {
