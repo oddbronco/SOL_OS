@@ -1023,8 +1023,29 @@ export const InterviewPage: React.FC = () => {
                         currentSrc: video.currentSrc
                       });
 
-                      // Show user-friendly error message
-                      alert(`Video failed to load. Error: ${video.error?.message || 'Unknown'}. Please check console for details.`);
+                      // Show user-friendly error message based on error type
+                      let errorMessage = 'Video playback failed.\n\n';
+
+                      if (video.error?.code === 4 || video.error?.code === 3) {
+                        // MEDIA_ERR_SRC_NOT_SUPPORTED or MEDIA_ERR_DECODE
+                        if (introVideo.video_url.includes('.webm')) {
+                          errorMessage += '⚠️ This video is in WebM format which is not supported in Safari or some browsers.\n\n';
+                          errorMessage += '📱 Please try opening this page in:\n';
+                          errorMessage += '• Google Chrome\n';
+                          errorMessage += '• Mozilla Firefox\n';
+                          errorMessage += '• Microsoft Edge\n\n';
+                          errorMessage += 'Or ask the project owner to upload an MP4 video instead.';
+                        } else {
+                          errorMessage += 'Video format not supported by your browser. Try using a different browser.';
+                        }
+                      } else if (video.error?.code === 2) {
+                        // MEDIA_ERR_NETWORK
+                        errorMessage += 'Network error loading video. Please check your internet connection and try refreshing the page.';
+                      } else {
+                        errorMessage += video.error?.message || 'Unknown error. Please contact support.';
+                      }
+
+                      alert(errorMessage);
                     }}
                     onLoadedMetadata={(e) => {
                       const video = e.currentTarget as HTMLVideoElement;

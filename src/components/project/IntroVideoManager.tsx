@@ -680,6 +680,18 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
 
           {videoType === 'record' && (
             <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-yellow-600 mt-0.5">⚠️</div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-yellow-900 mb-1">Browser Recording Compatibility Warning</h4>
+                    <p className="text-sm text-yellow-800">
+                      Browser-recorded videos create WebM files which <strong>do not work in Safari or iOS browsers</strong>.
+                      For maximum compatibility, use the "Upload" option and upload an MP4 file instead.
+                    </p>
+                  </div>
+                </div>
+              </div>
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                 {!recordedUrl ? (
                   <video
