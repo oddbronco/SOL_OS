@@ -2,13 +2,17 @@ export interface DocumentStructure {
   title: string;
   metadata?: {
     project?: string;
+    client?: string;
     date?: string;
     version?: string;
     author?: string;
+    status?: string;
     [key: string]: any;
   };
   summary?: string;
   sections: DocumentSection[];
+  appendix?: DocumentAppendix[];
+  references?: string[];
 }
 
 export interface DocumentSection {
@@ -17,6 +21,11 @@ export interface DocumentSection {
   content?: string;
   items?: DocumentItem[];
   subsections?: DocumentSubsection[];
+  table?: DocumentTable;
+  callout?: {
+    type: 'info' | 'warning' | 'tip' | 'note';
+    content: string;
+  };
 }
 
 export interface DocumentItem {
@@ -25,12 +34,26 @@ export interface DocumentItem {
   content?: string;
   details?: string[];
   value?: string;
+  priority?: string;
+  status?: string;
+  tags?: string[];
 }
 
 export interface DocumentSubsection {
   title: string;
   content?: string;
   items?: string[] | DocumentItem[];
+  table?: DocumentTable;
+}
+
+export interface DocumentTable {
+  headers: string[];
+  rows: string[][];
+}
+
+export interface DocumentAppendix {
+  title: string;
+  content: string;
 }
 
 export const formatToMarkdown = (data: DocumentStructure): string => {
@@ -55,8 +78,25 @@ export const formatToMarkdown = (data: DocumentStructure): string => {
       md += `${section.summary}\n\n`;
     }
 
+    if (section.callout) {
+      const emoji = section.callout.type === 'warning' ? '⚠️'
+        : section.callout.type === 'tip' ? '💡'
+        : section.callout.type === 'note' ? '📝'
+        : 'ℹ️';
+      md += `> ${emoji} **${section.callout.type.toUpperCase()}**: ${section.callout.content}\n\n`;
+    }
+
     if (section.content) {
       md += `${section.content}\n\n`;
+    }
+
+    if (section.table) {
+      md += `| ${section.table.headers.join(' | ')} |\n`;
+      md += `| ${section.table.headers.map(() => '---').join(' | ')} |\n`;
+      section.table.rows.forEach(row => {
+        md += `| ${row.join(' | ')} |\n`;
+      });
+      md += '\n';
     }
 
     if (section.items && Array.isArray(section.items)) {
@@ -64,9 +104,15 @@ export const formatToMarkdown = (data: DocumentStructure): string => {
         if (typeof item === 'string') {
           md += `- ${item}\n`;
         } else if (item.title) {
-          md += `### ${item.title}\n\n`;
+          md += `### ${item.title}`;
+          if (item.priority) md += ` \`[${item.priority}]\``;
+          if (item.status) md += ` \`${item.status}\``;
+          md += '\n\n';
           if (item.description) md += `${item.description}\n\n`;
           if (item.content) md += `${item.content}\n\n`;
+          if (item.tags && item.tags.length > 0) {
+            md += `**Tags:** ${item.tags.map(t => `\`${t}\``).join(', ')}\n\n`;
+          }
           if (item.details && Array.isArray(item.details)) {
             item.details.forEach((detail) => md += `- ${detail}\n`);
             md += '\n';
@@ -79,6 +125,14 @@ export const formatToMarkdown = (data: DocumentStructure): string => {
       section.subsections.forEach((sub) => {
         md += `### ${sub.title}\n\n`;
         if (sub.content) md += `${sub.content}\n\n`;
+        if (sub.table) {
+          md += `| ${sub.table.headers.join(' | ')} |\n`;
+          md += `| ${sub.table.headers.map(() => '---').join(' | ')} |\n`;
+          sub.table.rows.forEach(row => {
+            md += `| ${row.join(' | ')} |\n`;
+          });
+          md += '\n';
+        }
         if (sub.items && Array.isArray(sub.items)) {
           sub.items.forEach((item) => {
             const itemText = typeof item === 'string'
@@ -91,6 +145,22 @@ export const formatToMarkdown = (data: DocumentStructure): string => {
       });
     }
   });
+
+  if (data.appendix && data.appendix.length > 0) {
+    md += '\n---\n\n## Appendix\n\n';
+    data.appendix.forEach((app, idx) => {
+      md += `### Appendix ${String.fromCharCode(65 + idx)}: ${app.title}\n\n`;
+      md += `${app.content}\n\n`;
+    });
+  }
+
+  if (data.references && data.references.length > 0) {
+    md += '\n## References\n\n';
+    data.references.forEach((ref, idx) => {
+      md += `${idx + 1}. ${ref}\n`;
+    });
+    md += '\n';
+  }
 
   return md;
 };
@@ -223,30 +293,50 @@ export const formatToJson = (data: DocumentStructure): string => {
 };
 
 export const formatToCsv = (data: DocumentStructure): string => {
-  const rows: string[][] = [['Section', 'Heading', 'Content', 'Type']];
+  const rows: string[][] = [['Section', 'Heading', 'Content', 'Type', 'Priority', 'Status', 'Tags']];
 
   data.sections.forEach((section) => {
     rows.push([
       section.heading,
       section.heading,
       section.summary || section.content || '',
-      'section'
+      'section',
+      '',
+      '',
+      ''
     ]);
+
+    if (section.table) {
+      section.table.rows.forEach((row) => {
+        rows.push([
+          section.heading,
+          section.table!.headers.join(' | '),
+          row.join(' | '),
+          'table_row',
+          '',
+          '',
+          ''
+        ]);
+      });
+    }
 
     if (section.items) {
       section.items.forEach((item) => {
         if (typeof item === 'string') {
-          rows.push([section.heading, '', item, 'item']);
+          rows.push([section.heading, '', item, 'item', '', '', '']);
         } else {
           rows.push([
             section.heading,
             item.title || '',
             item.description || item.content || '',
-            'item'
+            'item',
+            item.priority || '',
+            item.status || '',
+            item.tags?.join('; ') || ''
           ]);
           if (item.details) {
             item.details.forEach((detail) => {
-              rows.push([section.heading, item.title || '', detail, 'detail']);
+              rows.push([section.heading, item.title || '', detail, 'detail', '', '', '']);
             });
           }
         }
@@ -259,22 +349,47 @@ export const formatToCsv = (data: DocumentStructure): string => {
           section.heading,
           sub.title,
           sub.content || '',
-          'subsection'
+          'subsection',
+          '',
+          '',
+          ''
         ]);
+        if (sub.table) {
+          sub.table.rows.forEach((row) => {
+            rows.push([
+              section.heading,
+              sub.title + ' | ' + sub.table!.headers.join(' | '),
+              row.join(' | '),
+              'table_row',
+              '',
+              '',
+              ''
+            ]);
+          });
+        }
         if (sub.items) {
           sub.items.forEach((item) => {
             const itemText = typeof item === 'string'
               ? item
               : item.title || item.description || item.content || '';
-            rows.push([section.heading, sub.title, itemText, 'subitem']);
+            const priority = typeof item === 'string' ? '' : item.priority || '';
+            const status = typeof item === 'string' ? '' : item.status || '';
+            const tags = typeof item === 'string' ? '' : item.tags?.join('; ') || '';
+            rows.push([section.heading, sub.title, itemText, 'subitem', priority, status, tags]);
           });
         }
       });
     }
   });
 
+  if (data.appendix) {
+    data.appendix.forEach((app) => {
+      rows.push(['Appendix', app.title, app.content, 'appendix', '', '', '']);
+    });
+  }
+
   return rows
-    .map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\n');
 };
 

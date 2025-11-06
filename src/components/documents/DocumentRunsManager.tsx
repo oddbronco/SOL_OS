@@ -282,13 +282,22 @@ END OF MANIFEST
         .select('*, stakeholders(*), questions(*)')
         .in('interview_session_id', generateForm.selectedInterviews);
 
+      const { data: client } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', project?.client_id)
+        .maybeSingle();
+
       const context = {
         projectName: project?.name,
         projectDescription: project?.description,
         transcript: project?.transcript,
         stakeholderResponses: responses || [],
         uploads: uploads.filter(u => generateForm.selectedUploads.includes(u.id)),
-        questions: questions
+        questions: questions,
+        project: project,
+        client: client,
+        stakeholders: stakeholders.filter(s => generateForm.selectedStakeholders.includes(s.id))
       };
 
       const filesToSave: any[] = [];
@@ -303,7 +312,10 @@ END OF MANIFEST
             transcript: context.transcript,
             stakeholderResponses: context.stakeholderResponses,
             uploads: context.uploads,
-            questions: context.questions
+            questions: context.questions,
+            project: context.project,
+            client: context.client,
+            stakeholders: context.stakeholders
           };
 
           const structuredPrompt = buildStructuredPrompt(
@@ -371,7 +383,10 @@ END OF MANIFEST
           transcript: context.transcript,
           stakeholderResponses: context.stakeholderResponses,
           uploads: context.uploads,
-          questions: context.questions
+          questions: context.questions,
+          project: context.project,
+          client: context.client,
+          stakeholders: context.stakeholders
         };
 
         const structuredPrompt = createCustomDocumentPrompt(

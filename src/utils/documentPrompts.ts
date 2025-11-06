@@ -1,3 +1,16 @@
+import {
+  prepareQuestionAnswerPairs,
+  prepareStakeholderProfiles,
+  prepareUploadedFiles,
+  prepareProjectSummary,
+  formatQuestionAnswersForPrompt,
+  formatStakeholdersForPrompt,
+  formatUploadsForPrompt,
+  formatProjectForPrompt,
+  groupResponsesByCategory,
+  groupResponsesByStakeholder
+} from './documentDataPrep';
+
 export interface PromptContext {
   projectName?: string;
   projectDescription?: string;
@@ -5,6 +18,9 @@ export interface PromptContext {
   stakeholderResponses?: any[];
   uploads?: any[];
   questions?: any[];
+  project?: any;
+  client?: any;
+  stakeholders?: any[];
 }
 
 export const buildStructuredPrompt = (
@@ -18,30 +34,58 @@ export const buildStructuredPrompt = (
     .replace(/\{\{transcript\}\}/g, context.transcript || '');
 
   if (context.stakeholderResponses && context.stakeholderResponses.length > 0) {
-    const formattedResponses = context.stakeholderResponses
-      .map(r => {
-        const stakeholderName = r.stakeholders?.name || 'Unknown Stakeholder';
-        const questionText = r.questions?.text || 'Unknown Question';
-        const category = r.questions?.category || 'General';
-        return `**${stakeholderName}** (${category})
-Question: ${questionText}
-Response: ${r.response || 'No response'}
----`;
-      })
-      .join('\n\n');
+    const qaPairs = prepareQuestionAnswerPairs(context.stakeholderResponses);
+    const formattedQA = formatQuestionAnswersForPrompt(qaPairs);
+    prompt = prompt.replace(/\{\{stakeholder_responses\}\}/g, formattedQA);
+    prompt = prompt.replace(/\{\{question_answers\}\}/g, formattedQA);
 
-    prompt = prompt.replace(/\{\{stakeholder_responses\}\}/g, formattedResponses);
+    const byCategory = groupResponsesByCategory(qaPairs);
+    const formattedByCategory = Object.entries(byCategory)
+      .map(([cat, pairs]) => `\n### ${cat}\n${formatQuestionAnswersForPrompt(pairs)}`)
+      .join('\n');
+    prompt = prompt.replace(/\{\{responses_by_category\}\}/g, formattedByCategory);
+
+    const byStakeholder = groupResponsesByStakeholder(context.stakeholderResponses);
+    const formattedByStakeholder = Object.entries(byStakeholder)
+      .map(([name, resps]) => {
+        const pairs = prepareQuestionAnswerPairs(resps);
+        return `\n### ${name}\n${formatQuestionAnswersForPrompt(pairs)}`;
+      })
+      .join('\n');
+    prompt = prompt.replace(/\{\{responses_by_stakeholder\}\}/g, formattedByStakeholder);
   } else {
     prompt = prompt.replace(/\{\{stakeholder_responses\}\}/g, 'No stakeholder responses available.');
+    prompt = prompt.replace(/\{\{question_answers\}\}/g, 'No interview responses available.');
+    prompt = prompt.replace(/\{\{responses_by_category\}\}/g, 'No responses available.');
+    prompt = prompt.replace(/\{\{responses_by_stakeholder\}\}/g, 'No responses available.');
   }
 
   if (context.uploads && context.uploads.length > 0) {
-    const formattedUploads = context.uploads
-      .map(u => `- ${u.file_name} (${u.upload_type}): ${u.description || 'No description'}`)
-      .join('\n');
+    const files = prepareUploadedFiles(context.uploads);
+    const formattedUploads = formatUploadsForPrompt(files);
     prompt = prompt.replace(/\{\{uploads\}\}/g, formattedUploads);
+    prompt = prompt.replace(/\{\{files\}\}/g, formattedUploads);
   } else {
     prompt = prompt.replace(/\{\{uploads\}\}/g, 'No supplemental files available.');
+    prompt = prompt.replace(/\{\{files\}\}/g, 'No files available.');
+  }
+
+  if (context.stakeholders && context.stakeholders.length > 0 && context.stakeholderResponses) {
+    const profiles = prepareStakeholderProfiles(context.stakeholders, context.stakeholderResponses);
+    const formattedProfiles = formatStakeholdersForPrompt(profiles);
+    prompt = prompt.replace(/\{\{stakeholder_profiles\}\}/g, formattedProfiles);
+    prompt = prompt.replace(/\{\{stakeholders\}\}/g, formattedProfiles);
+  } else {
+    prompt = prompt.replace(/\{\{stakeholder_profiles\}\}/g, 'No stakeholder information available.');
+    prompt = prompt.replace(/\{\{stakeholders\}\}/g, 'No stakeholders assigned.');
+  }
+
+  if (context.project) {
+    const projectSummary = prepareProjectSummary(context.project, context.client);
+    const formattedProject = formatProjectForPrompt(projectSummary);
+    prompt = prompt.replace(/\{\{project_summary\}\}/g, formattedProject);
+  } else {
+    prompt = prompt.replace(/\{\{project_summary\}\}/g, '');
   }
 
   if (context.questions && context.questions.length > 0) {
@@ -49,8 +93,10 @@ Response: ${r.response || 'No response'}
       .map(q => `- [${q.category}] ${q.text}`)
       .join('\n');
     prompt = prompt.replace(/\{\{questions\}\}/g, formattedQuestions);
+    prompt = prompt.replace(/\{\{question_list\}\}/g, formattedQuestions);
   } else {
     prompt = prompt.replace(/\{\{questions\}\}/g, 'No questions available.');
+    prompt = prompt.replace(/\{\{question_list\}\}/g, 'No questions available.');
   }
 
   const jsonStructureInstructions = `
@@ -65,9 +111,11 @@ Use this EXACT structure:
   "title": "${documentTitle}",
   "metadata": {
     "project": "${context.projectName || 'Untitled Project'}",
+    "client": "${context.client?.name || ''}",
     "date": "${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}",
     "version": "1.0",
-    "author": "AI Generated"
+    "author": "AI Generated",
+    "status": "Draft"
   },
   "summary": "Write a concise 2-4 sentence executive summary that captures the essence of this document",
   "sections": [
@@ -75,10 +123,24 @@ Use this EXACT structure:
       "heading": "Section Title Here",
       "summary": "Brief 1-2 sentence overview of this section",
       "content": "Optional: Main paragraph content for this section",
+      "callout": {
+        "type": "info",
+        "content": "Optional: Important note or warning for this section"
+      },
+      "table": {
+        "headers": ["Column 1", "Column 2", "Column 3"],
+        "rows": [
+          ["Data 1", "Data 2", "Data 3"],
+          ["Data 4", "Data 5", "Data 6"]
+        ]
+      },
       "items": [
         {
           "title": "Key Point or Finding Title",
           "description": "Detailed explanation of this point",
+          "priority": "High",
+          "status": "In Progress",
+          "tags": ["tag1", "tag2"],
           "details": [
             "Supporting detail 1",
             "Supporting detail 2",
@@ -90,6 +152,10 @@ Use this EXACT structure:
         {
           "title": "Subsection Name",
           "content": "Subsection content",
+          "table": {
+            "headers": ["Header 1", "Header 2"],
+            "rows": [["Value 1", "Value 2"]]
+          },
           "items": [
             "List item 1",
             "List item 2"
@@ -97,6 +163,16 @@ Use this EXACT structure:
         }
       ]
     }
+  ],
+  "appendix": [
+    {
+      "title": "Additional Information",
+      "content": "Detailed supplementary content"
+    }
+  ],
+  "references": [
+    "Reference 1",
+    "Reference 2"
   ]
 }
 
@@ -105,13 +181,17 @@ JSON STRUCTURE RULES:
 - "metadata": Object with project info (optional but recommended)
 - "summary": Executive summary (string, optional but recommended)
 - "sections": Array of section objects (required, minimum 3 sections)
-  - Each section should have:
+  - Each section can have:
     - "heading": Section name (string, required)
     - "summary": Brief section overview (string, optional)
     - "content": Main text content (string, optional)
+    - "callout": Warning, tip, or note (object, optional) with type: "info"|"warning"|"tip"|"note"
+    - "table": Data table (object, optional) with headers and rows arrays
     - "items": Array of detailed items (array, optional)
-      - Each item can have: title, description, details array
-    - "subsections": Nested sections (array, optional)
+      - Each item can have: title, description, priority, status, tags, details array
+    - "subsections": Nested sections (array, optional) with title, content, table, items
+- "appendix": Additional sections (array, optional)
+- "references": List of references (array, optional)
 
 CONTENT QUALITY REQUIREMENTS:
 - Be comprehensive and detailed
@@ -119,6 +199,9 @@ CONTENT QUALITY REQUIREMENTS:
 - Provide specific, actionable insights
 - Include concrete examples where applicable
 - Structure content logically with clear hierarchy
+- Use tables for comparative data or structured information
+- Add priority/status fields to requirements or user stories
+- Use callouts to highlight important information
 - Ensure all JSON is properly formatted and valid
 - Use proper quotation marks and escape special characters
 

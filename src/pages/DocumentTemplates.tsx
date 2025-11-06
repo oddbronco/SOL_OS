@@ -276,10 +276,11 @@ export const DocumentTemplates: React.FC = () => {
                 <h4 className="font-semibold text-gray-900 mb-2">✍️ Writing Effective Prompts</h4>
                 <ul className="space-y-1 text-xs">
                   <li>• Be specific about the document structure and sections you want</li>
-                  <li>• Available variables: <code className="bg-gray-100 px-1 rounded">{'{{project_name}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{project_description}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{transcript}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{stakeholder_responses}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{uploads}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{questions}}'}</code></li>
-                  <li>• The AI generates structured JSON automatically - the app converts it to your selected formats</li>
-                  <li>• Focus on <strong>content goals</strong>, not formatting - the system handles all format conversions</li>
-                  <li>• Request clear sections, hierarchical organization, and specific insights</li>
+                  <li>• Use <code className="bg-gray-100 px-1 rounded">{'{{question_answers}}'}</code> for detailed Q&A pairs where each question shows all stakeholder responses</li>
+                  <li>• Use <code className="bg-gray-100 px-1 rounded">{'{{responses_by_category}}'}</code> or <code className="bg-gray-100 px-1 rounded">{'{{responses_by_stakeholder}}'}</code> to organize interviews differently</li>
+                  <li>• The AI generates structured JSON with tables, priorities, statuses, tags, and callouts automatically</li>
+                  <li>• Focus on <strong>content goals</strong> and request specific data structures like tables or categorized lists</li>
+                  <li>• The system converts JSON to all selected formats - specify what data to include, not how to format it</li>
                 </ul>
               </div>
 
@@ -492,19 +493,42 @@ export const DocumentTemplates: React.FC = () => {
             <label className="block text-sm font-medium text-gray-900">
               Prompt Template
             </label>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2 text-xs">
-              <p className="font-semibold text-gray-900 mb-2">📋 Available Variables:</p>
-              <div className="grid grid-cols-2 gap-2 font-mono text-gray-700">
-                <div><code className="bg-white px-2 py-0.5 rounded">{'{{project_name}}'}</code> - Project name</div>
-                <div><code className="bg-white px-2 py-0.5 rounded">{'{{project_description}}'}</code> - Description</div>
-                <div><code className="bg-white px-2 py-0.5 rounded">{'{{transcript}}'}</code> - Project transcript</div>
-                <div><code className="bg-white px-2 py-0.5 rounded">{'{{stakeholder_responses}}'}</code> - Interview data</div>
-                <div><code className="bg-white px-2 py-0.5 rounded">{'{{uploads}}'}</code> - Uploaded files</div>
-                <div><code className="bg-white px-2 py-0.5 rounded">{'{{questions}}'}</code> - Question list</div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2 text-xs space-y-3">
+              <div>
+                <p className="font-semibold text-gray-900 mb-2">📋 Basic Variables:</p>
+                <div className="grid grid-cols-2 gap-2 font-mono text-gray-700">
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{project_name}}'}</code> - Project name</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{project_description}}'}</code> - Description</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{transcript}}'}</code> - Project transcript</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{project_summary}}'}</code> - Full project info</div>
+                </div>
               </div>
-              <p className="mt-2 text-gray-600">
-                <strong>💡 Tip:</strong> The AI will return structured JSON automatically.
-                Focus your prompt on <em>what content</em> to generate, not the format.
+
+              <div>
+                <p className="font-semibold text-gray-900 mb-2">👥 Interview & Stakeholder Variables:</p>
+                <div className="grid grid-cols-2 gap-2 font-mono text-gray-700">
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{question_answers}}'}</code> - Q&A pairs with all responses</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{stakeholder_responses}}'}</code> - Same as question_answers</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{responses_by_category}}'}</code> - Q&A grouped by category</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{responses_by_stakeholder}}'}</code> - Q&A grouped by person</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{stakeholder_profiles}}'}</code> - Stakeholder details</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{stakeholders}}'}</code> - Same as profiles</div>
+                </div>
+              </div>
+
+              <div>
+                <p className="font-semibold text-gray-900 mb-2">📁 Files & Questions:</p>
+                <div className="grid grid-cols-2 gap-2 font-mono text-gray-700">
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{uploads}}'}</code> - Uploaded files list</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{files}}'}</code> - Same as uploads</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{questions}}'}</code> - All questions</div>
+                  <div><code className="bg-white px-2 py-0.5 rounded">{'{{question_list}}'}</code> - Same as questions</div>
+                </div>
+              </div>
+
+              <p className="text-gray-600 pt-2 border-t border-blue-200">
+                <strong>💡 Tip:</strong> The AI generates structured JSON with tables, callouts, priorities, and tags.
+                Focus on <em>what content</em> to include, not formatting details.
               </p>
             </div>
             <textarea
