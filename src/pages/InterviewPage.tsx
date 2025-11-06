@@ -262,11 +262,26 @@ export const InterviewPage: React.FC = () => {
 
         // Load intro video if available using priority system (session > stakeholder > project)
         if (sessionData?.id) {
+          console.log('🎬 Loading intro video for session:', sessionData.id);
           const { data: videoData, error: videoError } = await supabase
             .rpc('get_intro_video_for_session', { session_id: sessionData.id });
 
+          console.log('🎬 Intro video result:', {
+            success: !videoError,
+            videoCount: videoData?.length || 0,
+            video: videoData?.[0],
+            error: videoError
+          });
+
+          if (videoError) {
+            console.error('❌ Error loading intro video:', videoError);
+          }
+
           if (!videoError && videoData && videoData.length > 0) {
+            console.log('✅ Setting intro video:', videoData[0]);
             setIntroVideo(videoData[0]);
+          } else {
+            console.log('ℹ️ No intro video found for this session');
           }
         }
 
@@ -346,11 +361,26 @@ export const InterviewPage: React.FC = () => {
 
         // Load intro video if available using priority system (session > stakeholder > project)
         if (sessionData?.id) {
+          console.log('🎬 Loading intro video for session:', sessionData.id);
           const { data: videoData, error: videoError } = await supabase
             .rpc('get_intro_video_for_session', { session_id: sessionData.id });
 
+          console.log('🎬 Intro video result:', {
+            success: !videoError,
+            videoCount: videoData?.length || 0,
+            video: videoData?.[0],
+            error: videoError
+          });
+
+          if (videoError) {
+            console.error('❌ Error loading intro video:', videoError);
+          }
+
           if (!videoError && videoData && videoData.length > 0) {
+            console.log('✅ Setting intro video:', videoData[0]);
             setIntroVideo(videoData[0]);
+          } else {
+            console.log('ℹ️ No intro video found for this session');
           }
         }
       } else {
@@ -960,7 +990,22 @@ export const InterviewPage: React.FC = () => {
                     className="absolute inset-0 w-full h-full object-contain bg-black"
                     onPlay={() => markVideoAsWatched()}
                     onCanPlay={() => console.log('✅ Video can play')}
-                    onLoadStart={() => console.log('📥 Video load started')}
+                    onLoadStart={() => {
+                      console.log('📥 Video load started');
+                      console.log('🔗 Video URL:', introVideo.video_url);
+
+                      // Test if URL is accessible
+                      fetch(introVideo.video_url, { method: 'HEAD' })
+                        .then(response => {
+                          console.log('🌐 URL check:', {
+                            status: response.status,
+                            ok: response.ok,
+                            contentType: response.headers.get('content-type'),
+                            accessControl: response.headers.get('access-control-allow-origin')
+                          });
+                        })
+                        .catch(err => console.error('❌ URL check failed:', err));
+                    }}
                     onLoadedData={() => console.log('✅ Video data loaded')}
                     onError={(e) => {
                       const video = e.currentTarget as HTMLVideoElement;
@@ -977,6 +1022,9 @@ export const InterviewPage: React.FC = () => {
                         } : 'No error object',
                         currentSrc: video.currentSrc
                       });
+
+                      // Show user-friendly error message
+                      alert(`Video failed to load. Error: ${video.error?.message || 'Unknown'}. Please check console for details.`);
                     }}
                     onLoadedMetadata={(e) => {
                       const video = e.currentTarget as HTMLVideoElement;
