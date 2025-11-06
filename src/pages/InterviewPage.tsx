@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { Lock, MessageSquare, CheckCircle, User, Calendar, Clock, XCircle, AlertCircle, Ban, Video, Play } from 'lucide-react';
-import Hls from 'hls.js';
+import Hls from 'hls.js/dist/hls.js';
 
 type SessionState = 'active' | 'expired' | 'locked' | 'closed' | 'not_found';
 
