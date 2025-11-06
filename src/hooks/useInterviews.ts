@@ -189,8 +189,7 @@ export const useInterviews = () => {
         .from('question_assignments')
         .select(`
           *,
-          question:questions(text, category, target_roles),
-          interview_responses(*)
+          question:questions(text, category, target_roles)
         `)
         .eq('stakeholder_id', stakeholderId);
 
@@ -202,11 +201,11 @@ export const useInterviews = () => {
         console.warn('⚠️ No session ID provided - loading ALL assignments for stakeholder');
       }
 
-      const { data, error: fetchError } = await query.order('order_index', { ascending: true });
+      const { data: assignments, error: fetchError } = await query.order('order_index', { ascending: true });
 
       console.log('📊 Query result:', {
         success: !fetchError,
-        count: data?.length || 0,
+        count: assignments?.length || 0,
         error: fetchError
       });
 
@@ -215,13 +214,38 @@ export const useInterviews = () => {
         throw fetchError;
       }
 
-      const mappedData = data?.map(assignment => ({
-        ...assignment,
-        question: assignment.question,
-        response: assignment.interview_responses?.[0] // Take first response if exists
-      })) || [];
+      // Now fetch responses separately for each assignment
+      const assignmentIds = assignments?.map(a => a.id) || [];
 
-      console.log('✅ Returning assignments:', mappedData.length);
+      let responsesData: any[] = [];
+      if (assignmentIds.length > 0) {
+        const { data: responses, error: responsesError } = await supabase
+          .from('interview_responses')
+          .select('*')
+          .in('question_assignment_id', assignmentIds);
+
+        if (responsesError) {
+          console.error('❌ Error fetching responses:', responsesError);
+        } else {
+          responsesData = responses || [];
+          console.log('✅ Fetched responses:', responsesData.length);
+        }
+      }
+
+      // Map responses to assignments
+      const mappedData = assignments?.map(assignment => {
+        const response = responsesData.find(r => r.question_assignment_id === assignment.id);
+        return {
+          ...assignment,
+          question: assignment.question,
+          response: response || null
+        };
+      }) || [];
+
+      console.log('✅ Returning assignments with responses:', {
+        total: mappedData.length,
+        withResponses: mappedData.filter(a => a.response).length
+      });
       return mappedData;
 
     } catch (err) {
@@ -382,23 +406,52 @@ export const useInterviews = () => {
         responseType: response.response_type
       });
 
-      const { data, error: submitError } = await supabase
-        .from('interview_responses')
-        .upsert({
-          project_id: projectId,
-          stakeholder_id: stakeholderId,
-          question_id: questionId,
-          interview_session_id: sessionId,
-          question_assignment_id: assignmentId,
-          ...response
-        }, {
-          onConflict: 'stakeholder_id,question_id',
-          ignoreDuplicates: false
-        })
-        .select()
-        .single();
+      // Check if response already exists for this assignment
+      let existingResponse = null;
+      if (assignmentId) {
+        const { data: existing } = await supabase
+          .from('interview_responses')
+          .select('id')
+          .eq('question_assignment_id', assignmentId)
+          .maybeSingle();
+        existingResponse = existing;
+      }
 
-      if (submitError) throw submitError;
+      let data;
+      if (existingResponse) {
+        // Update existing response
+        console.log('🔄 Updating existing response:', existingResponse.id);
+        const { data: updated, error: updateError } = await supabase
+          .from('interview_responses')
+          .update({
+            ...response,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingResponse.id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        data = updated;
+      } else {
+        // Insert new response
+        console.log('➕ Inserting new response');
+        const { data: inserted, error: insertError } = await supabase
+          .from('interview_responses')
+          .insert({
+            project_id: projectId,
+            stakeholder_id: stakeholderId,
+            question_id: questionId,
+            interview_session_id: sessionId,
+            question_assignment_id: assignmentId,
+            ...response
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        data = inserted;
+      }
 
       console.log('✅ Response saved successfully:', data);
       
