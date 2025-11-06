@@ -6,6 +6,7 @@ import { Input } from '../ui/Input';
 import { useTheme } from '../../contexts/ThemeContext';
 import { openAIService } from '../../services/openai';
 import { supabase } from '../../lib/supabase';
+import { buildAIContext, type AIContextData } from '../../utils/aiContextBuilder';
 
 interface AIInterviewRoundCreatorProps {
   project: any;
@@ -41,21 +42,43 @@ async function processQuestionChunk(
   interviewType: string,
   assignAllQuestions: boolean,
   chunkNum: number,
-  totalChunks: number
+  totalChunks: number,
+  contextData: AIContextData
 ): Promise<AIAssignmentResult[]> {
   const assignmentMode = assignAllQuestions
     ? `MANDATORY: Assign EVERY question in this chunk to at least one stakeholder. All ${questions.length} questions must appear in the output.`
     : 'Assign questions strategically based on relevance.';
 
+  const aiContext = buildAIContext(contextData);
+
   const prompt = `Assign questions to stakeholders for ${project?.name || 'Project'}.
 
-STAKEHOLDERS (use EXACT IDs):
-${stakeholders.map(s => `ID:"${s.id}"|${s.name}|${s.role}`).join('\n')}
+PROJECT CONTEXT:
+${aiContext.projectSummary}
 
-QUESTIONS (use EXACT IDs):
-${questions.map((q, idx) => `${idx + 1}. ID:"${q.id}"|${q.text.substring(0, 60)}`).join('\n')}
+STAKEHOLDER PROFILES:
+${aiContext.stakeholderProfiles}
+
+EXISTING INTERVIEW DATA (use this to avoid redundant questions):
+${aiContext.interviewData || 'No prior responses yet.'}
+
+UPLOADED DOCUMENTS & FILES:
+${aiContext.uploadedFiles}
+
+STAKEHOLDERS TO ASSIGN (use EXACT IDs):
+${stakeholders.map(s => `ID:"${s.id}"|${s.name}|${s.role}|${s.department}`).join('\n')}
+
+QUESTIONS TO ASSIGN (use EXACT IDs):
+${questions.map((q, idx) => `${idx + 1}. ID:"${q.id}"|[${q.category}]|${q.text.substring(0, 80)}`).join('\n')}
 
 ${assignmentMode}
+
+Consider:
+- Stakeholder expertise and role
+- Question relevance to their department
+- Avoid asking questions already answered by this person
+- Balance workload across team members
+- Questions about uploaded documents should go to relevant stakeholders
 
 Return valid JSON object with "assignments" array. NO explanations. CRITICAL: "reasoning" must be single line.
 
@@ -259,6 +282,33 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
       console.log('📊 Total questions:', questionsToAnalyze.length);
       console.log('📊 Assign all questions mode:', assignAllQuestions);
 
+      // Load comprehensive context data
+      const { data: responses } = await supabase
+        .from('interview_responses')
+        .select('*, stakeholders(*), questions(*)')
+        .eq('project_id', project.id);
+
+      const { data: uploads } = await supabase
+        .from('project_uploads')
+        .select('*')
+        .eq('project_id', project.id)
+        .eq('include_in_generation', true);
+
+      const { data: client } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', project.client_id)
+        .maybeSingle();
+
+      const contextData: AIContextData = {
+        project,
+        client,
+        stakeholders,
+        responses: responses || [],
+        uploads: uploads || [],
+        questions: questions || []
+      };
+
       // Process in chunks of 30 questions to avoid token limits and malformed JSON
       const CHUNK_SIZE = 30;
       const shouldChunk = questionsToAnalyze.length > CHUNK_SIZE;
@@ -289,7 +339,8 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
             interviewType,
             assignAllQuestions,
             chunkIndex + 1,
-            questionChunks.length
+            questionChunks.length,
+            contextData
           );
 
           // Merge assignments by stakeholder
@@ -323,7 +374,8 @@ export const AIInterviewRoundCreator: React.FC<AIInterviewRoundCreatorProps> = (
           interviewType,
           assignAllQuestions,
           1,
-          1
+          1,
+          contextData
         );
       }
 

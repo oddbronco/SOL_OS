@@ -91,11 +91,61 @@ export const prepareStakeholderProfiles = (stakeholders: any[], responses: any[]
   });
 };
 
+const parseCSVContent = (content: string): string => {
+  try {
+    const lines = content.trim().split('\n');
+    if (lines.length === 0) return content;
+
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const rows = lines.slice(1).map(line =>
+      line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''))
+    );
+
+    let formatted = `CSV Data (${rows.length} rows):\n\n`;
+    formatted += `| ${headers.join(' | ')} |\n`;
+    formatted += `| ${headers.map(() => '---').join(' | ')} |\n`;
+    rows.slice(0, 50).forEach(row => {
+      formatted += `| ${row.join(' | ')} |\n`;
+    });
+
+    if (rows.length > 50) {
+      formatted += `\n... and ${rows.length - 50} more rows\n`;
+    }
+
+    return formatted;
+  } catch (e) {
+    return content;
+  }
+};
+
+const parseJSONContent = (content: string): string => {
+  try {
+    const parsed = JSON.parse(content);
+    return `JSON Data:\n\n${JSON.stringify(parsed, null, 2)}`;
+  } catch (e) {
+    return content;
+  }
+};
+
 const extractTextContent = (upload: any): { content?: string; preview?: string; hasContent: boolean } => {
-  // For now, we'll use the description or file content if available
-  // In production, you'd fetch and parse actual file content from storage
   if (upload.extracted_content || upload.content) {
-    const fullContent = upload.extracted_content || upload.content;
+    let fullContent = upload.extracted_content || upload.content;
+    const fileName = upload.file_name?.toLowerCase() || '';
+    const mimeType = upload.mime_type?.toLowerCase() || '';
+
+    // Parse CSV files
+    if (fileName.endsWith('.csv') || mimeType.includes('csv')) {
+      fullContent = parseCSVContent(fullContent);
+    }
+    // Parse JSON files
+    else if (fileName.endsWith('.json') || mimeType.includes('json')) {
+      fullContent = parseJSONContent(fullContent);
+    }
+    // Parse XML/HTML with basic formatting
+    else if (fileName.endsWith('.xml') || fileName.endsWith('.html') || mimeType.includes('xml') || mimeType.includes('html')) {
+      fullContent = `Markup Content:\n\n${fullContent}`;
+    }
+
     return {
       content: fullContent,
       preview: fullContent.substring(0, 500) + (fullContent.length > 500 ? '...' : ''),
@@ -103,7 +153,6 @@ const extractTextContent = (upload: any): { content?: string; preview?: string; 
     };
   }
 
-  // Return metadata-only representation
   return {
     content: undefined,
     preview: upload.description || `File: ${upload.file_name}`,
