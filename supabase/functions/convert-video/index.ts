@@ -10,7 +10,7 @@ const corsHeaders = {
 interface ConversionRequest {
   videoId: string;
   sourceUrl: string;
-  sourceFormat: string; // webm, mov, etc.
+  sourceFormat: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
             engine: 'ffmpeg',
             video_codec: 'h264',
             audio_codec: 'aac',
-            preset: 'web' // Optimized for web playback
+            preset: 'web'
           },
           'export-mp4': {
             operation: 'export/url',
@@ -111,12 +111,12 @@ Deno.serve(async (req: Request) => {
     // Step 2: Poll for job completion (max 5 minutes)
     console.log('⏳ Waiting for conversion to complete...');
     let attempts = 0;
-    const maxAttempts = 60; // 5 minutes (5 second intervals)
+    const maxAttempts = 60;
     let jobStatus = 'processing';
     let convertedFileUrl: string | null = null;
 
     while (attempts < maxAttempts && jobStatus !== 'finished' && jobStatus !== 'error') {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       const statusResponse = await fetch(`https://api.cloudconvert.com/v2/jobs/${jobId}`, {
         headers: {
@@ -130,7 +130,6 @@ Deno.serve(async (req: Request) => {
       console.log(`📊 Job status: ${jobStatus} (attempt ${attempts + 1}/${maxAttempts})`);
 
       if (jobStatus === 'finished') {
-        // Get the export task to find the converted file URL
         const exportTask = statusData.data.tasks.find((t: any) => t.operation === 'export/url');
         if (exportTask?.result?.files?.[0]?.url) {
           convertedFileUrl = exportTask.result.files[0].url;
@@ -222,25 +221,6 @@ Deno.serve(async (req: Request) => {
 
   } catch (error: any) {
     console.error('❌ Conversion error:', error);
-
-    // Try to update video status to failed
-    if (error.videoId) {
-      try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
-
-        await supabase
-          .from('project_intro_videos')
-          .update({
-            conversion_status: 'failed',
-            conversion_error: error.message
-          })
-          .eq('id', error.videoId);
-      } catch (e) {
-        console.error('Failed to update error status:', e);
-      }
-    }
 
     return new Response(
       JSON.stringify({
