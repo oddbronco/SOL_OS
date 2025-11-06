@@ -129,6 +129,8 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const [recordingTime, setRecordingTime] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
+  const [conversionProgress, setConversionProgress] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -363,7 +365,8 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
 
-      let finalVideoUrl = videoUrl.trim();
+      // For external videos, convert to embed URL
+      let finalVideoUrl = videoType === 'external' ? getEmbedUrl(videoUrl.trim()) : videoUrl.trim();
 
       if (videoType === 'record' && recordedBlob) {
         console.log('🎬 Uploading recorded video...');

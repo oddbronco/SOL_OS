@@ -73,6 +73,23 @@ export const InterviewPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
 
+  // Convert YouTube/Vimeo URLs to embed format
+  const getEmbedUrl = (url: string): string => {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      const videoId = url.includes('youtu.be')
+        ? url.split('/').pop()?.split('?')[0]
+        : new URL(url).searchParams.get('v');
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+
+    if (url.includes('vimeo.com')) {
+      const videoId = url.split('/').pop();
+      return `https://player.vimeo.com/video/${videoId}`;
+    }
+
+    return url;
+  };
+
   // Initialize video player when intro video is shown
   useEffect(() => {
     if (!showIntroVideo || !introVideo || !videoRef.current || introVideo.video_type !== 'upload') {
@@ -1033,10 +1050,11 @@ export const InterviewPage: React.FC = () => {
                       />
                     ) : (
                       <iframe
-                        src={introVideo.video_url}
+                        src={getEmbedUrl(introVideo.video_url)}
                         className="absolute inset-0 w-full h-full"
                         allow="autoplay; fullscreen; picture-in-picture"
                         allowFullScreen
+                        title={introVideo.title}
                       />
                     )}
                   </div>
