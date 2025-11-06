@@ -276,9 +276,10 @@ export const DocumentTemplates: React.FC = () => {
                 <h4 className="font-semibold text-gray-900 mb-2">✍️ Writing Effective Prompts</h4>
                 <ul className="space-y-1 text-xs">
                   <li>• Be specific about the document structure and sections you want</li>
-                  <li>• Use available variables: <code className="bg-gray-100 px-1 rounded">{'{{project_name}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{stakeholder_responses}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{uploads}}'}</code></li>
-                  <li>• The LLM will return structured JSON - it's automatically formatted for each output type</li>
-                  <li>• Request clear sections, bullet points, and hierarchical organization</li>
+                  <li>• Available variables: <code className="bg-gray-100 px-1 rounded">{'{{project_name}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{project_description}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{transcript}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{stakeholder_responses}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{uploads}}'}</code>, <code className="bg-gray-100 px-1 rounded">{'{{questions}}'}</code></li>
+                  <li>• The AI generates structured JSON automatically - the app converts it to your selected formats</li>
+                  <li>• Focus on <strong>content goals</strong>, not formatting - the system handles all format conversions</li>
+                  <li>• Request clear sections, hierarchical organization, and specific insights</li>
                 </ul>
               </div>
 
@@ -488,18 +489,49 @@ export const DocumentTemplates: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-900">
               Prompt Template
-              <span className="text-xs text-gray-500 ml-2">
-                Use variables: {'{{'} project_name {'}}'},  {'{{'} stakeholder_responses {'}}'},  {'{{'} uploads {'}}'}
-              </span>
             </label>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2 text-xs">
+              <p className="font-semibold text-gray-900 mb-2">📋 Available Variables:</p>
+              <div className="grid grid-cols-2 gap-2 font-mono text-gray-700">
+                <div><code className="bg-white px-2 py-0.5 rounded">{'{{project_name}}'}</code> - Project name</div>
+                <div><code className="bg-white px-2 py-0.5 rounded">{'{{project_description}}'}</code> - Description</div>
+                <div><code className="bg-white px-2 py-0.5 rounded">{'{{transcript}}'}</code> - Project transcript</div>
+                <div><code className="bg-white px-2 py-0.5 rounded">{'{{stakeholder_responses}}'}</code> - Interview data</div>
+                <div><code className="bg-white px-2 py-0.5 rounded">{'{{uploads}}'}</code> - Uploaded files</div>
+                <div><code className="bg-white px-2 py-0.5 rounded">{'{{questions}}'}</code> - Question list</div>
+              </div>
+              <p className="mt-2 text-gray-600">
+                <strong>💡 Tip:</strong> The AI will return structured JSON automatically.
+                Focus your prompt on <em>what content</em> to generate, not the format.
+              </p>
+            </div>
             <textarea
               className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm"
-              rows={8}
+              rows={10}
               value={formData.prompt_template}
               onChange={(e) => setFormData({ ...formData, prompt_template: e.target.value })}
-              placeholder="Generate a comprehensive document..."
+              placeholder="Example:
+
+Generate a comprehensive Sprint 0 Summary document. Include:
+
+1. Executive Summary - High-level project overview
+2. Project Objectives - Clear, measurable goals
+3. Stakeholder Insights - Key findings from interviews
+4. Requirements Overview - Categorized by priority
+5. Technical Considerations - Architecture and constraints
+6. Risks & Assumptions - What needs validation
+7. Next Steps - Recommended priorities
+
+Project: {{project_name}}
+Description: {{project_description}}
+
+Stakeholder Input:
+{{stakeholder_responses}}
+
+Files:
+{{uploads}}"
               required
             />
           </div>
