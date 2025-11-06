@@ -3,7 +3,7 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
-import { Stakeholder } from '../../hooks/useSupabaseData'
+import type { Stakeholder } from '../../hooks/useSupabaseData'
 
 interface EditStakeholderModalProps {
   isOpen: boolean

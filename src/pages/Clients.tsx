@@ -5,11 +5,11 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useData } from '../contexts/DataContext';
 import { ClientCSVUploadManager } from '../components/csv/ClientCSVUploadManager';
 
 export const Clients: React.FC = () => {
-  const { clients, addClient, updateClient, deleteClient, loadData } = useSupabaseData();
+  const { clients, addClient, updateClient, deleteClient } = useData();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
@@ -110,7 +110,6 @@ export const Clients: React.FC = () => {
             <Card>
               <ClientCSVUploadManager
                 onSuccess={() => {
-                  loadData();
                   setShowCSVImport(false);
                 }}
               />

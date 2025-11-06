@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { StatsCard } from '../components/dashboard/StatsCard';
 import { ActivityFeed } from '../components/dashboard/ActivityFeed';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useData } from '../contexts/DataContext';
 
 interface DashboardProps {
   onSelectProject: (projectId: string) => void;
@@ -21,7 +21,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onNavigate, metrics }) => {
-  const { projects } = useSupabaseData();
+  const { projects } = useData();
   const [showQuickActions, setShowQuickActions] = useState(false);
 
   // Get recent projects (last 5)

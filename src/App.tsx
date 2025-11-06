@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
-import { useSupabaseData } from './hooks/useSupabaseData';
+import { DataProvider, useData } from './contexts/DataContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useTheme } from './contexts/ThemeContext';
 import { Sidebar } from './components/layout/Sidebar';
@@ -19,9 +19,9 @@ import { Input } from './components/ui/Input';
 import { Card } from './components/ui/Card';
 import { Mail, Lock, Eye, EyeOff, MessageSquare } from 'lucide-react';
 
-function App() {
+function AppContent() {
   const { user, loading, signIn, signUp } = useAuth();
-  const { metrics } = useSupabaseData();
+  const { metrics } = useData();
   const [currentPath, setCurrentPath] = useState('/dashboard');
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   
@@ -225,7 +225,6 @@ function App() {
 
   if (!user) {
     return (
-      <ThemeProvider>
         <div className="min-h-screen flex items-center justify-center animated-gradient">
           <div className="max-w-md w-full mx-4">
             <Card className="shadow-xl">
@@ -458,7 +457,6 @@ function App() {
             </Card>
           </div>
         </div>
-      </ThemeProvider>
     );
   }
 
@@ -505,6 +503,16 @@ function App() {
         {renderPage()}
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <DataProvider>
+        <AppContent />
+      </DataProvider>
+    </ThemeProvider>
   );
 }
 

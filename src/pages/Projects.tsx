@@ -6,14 +6,14 @@ import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
-import { useSupabaseData } from '../hooks/useSupabaseData';
+import { useData } from '../contexts/DataContext';
 
 interface ProjectsProps {
   onSelectProject: (projectId: string) => void;
 }
 
 export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
-  const { projects, clients, addProject, addClient } = useSupabaseData();
+  const { projects, clients, addProject, addClient } = useData();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);

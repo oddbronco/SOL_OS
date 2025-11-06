@@ -19,7 +19,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
-import { Project } from '../../hooks/useSupabaseData';
+import type { Project } from '../../hooks/useSupabaseData';
 import { InterviewSession } from '../../hooks/useInterviews';
 import { useTheme } from '../../contexts/ThemeContext';
 import { StakeholderInterviewList } from './StakeholderInterviewList';

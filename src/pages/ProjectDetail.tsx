@@ -6,7 +6,8 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { useSupabaseData, Project, Stakeholder, Question, Document } from '../hooks/useSupabaseData';
+import { useData } from '../contexts/DataContext';
+import type { Project, Stakeholder, Question, Document } from '../hooks/useSupabaseData';
 import { useInterviews, InterviewSession, QuestionAssignment } from '../hooks/useInterviews';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../contexts/ThemeContext';
@@ -48,7 +49,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     addQuestion,
     updateQuestion,
     deleteQuestion
-  } = useSupabaseData();
+  } = useData();
   
   const {
     getProjectInterviewSessions,

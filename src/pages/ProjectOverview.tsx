@@ -5,7 +5,8 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { useSupabaseData, Project, Stakeholder, Question, Document } from '../hooks/useSupabaseData';
+import { useData } from '../contexts/DataContext';
+import type { Project, Stakeholder, Question, Document } from '../hooks/useSupabaseData';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface ProjectOverviewProps {
@@ -21,7 +22,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectId, onB
     getProjectQuestions, 
     getProjectDocuments,
     updateProject 
-  } = useSupabaseData();
+  } = useData();
   
   const [project, setProject] = useState<Project | null>(null);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
