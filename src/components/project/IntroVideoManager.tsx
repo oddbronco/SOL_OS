@@ -117,6 +117,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
   const [conversionProgress, setConversionProgress] = useState(0);
+  const [convertingVideoId, setConvertingVideoId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -486,6 +487,85 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
     }
   };
 
+  const convertExistingVideo = async (video: IntroVideo) => {
+    if (!video.video_url.includes('.webm')) {
+      alert('This video is not in WebM format and does not need conversion.');
+      return;
+    }
+
+    if (!confirm('Convert this WebM video to MP4 for Safari compatibility? This will replace the existing video.')) {
+      return;
+    }
+
+    setConvertingVideoId(video.id);
+    setConverting(true);
+    setConversionProgress(0);
+
+    try {
+      console.log('🔄 Downloading existing WebM video...');
+
+      // Download the existing WebM video
+      const response = await fetch(video.video_url);
+      if (!response.ok) throw new Error('Failed to download video');
+
+      const webmBlob = await response.blob();
+      console.log('✅ Downloaded:', webmBlob.size, 'bytes');
+
+      // Convert to MP4
+      const mp4Blob = await convertWebMToMP4(webmBlob, (progress) => {
+        setConversionProgress(progress);
+      });
+
+      console.log('✅ Converted to MP4');
+
+      // Upload new MP4 version
+      const fileName = `${projectId}/${Date.now()}-intro-video.mp4`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('project-intro-videos')
+        .upload(fileName, mp4Blob, {
+          contentType: 'video/mp4',
+          cacheControl: '3600'
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('project-intro-videos')
+        .getPublicUrl(fileName);
+
+      // Update video record with new MP4 URL
+      const { error: updateError } = await supabase
+        .from('project_intro_videos')
+        .update({
+          video_url: publicUrl,
+        })
+        .eq('id', video.id);
+
+      if (updateError) throw updateError;
+
+      // Delete old WebM file from storage
+      const oldPath = video.video_url.split('/project-intro-videos/')[1];
+      if (oldPath) {
+        await supabase.storage
+          .from('project-intro-videos')
+          .remove([oldPath]);
+      }
+
+      console.log('✅ Video converted and updated successfully');
+      alert('Video successfully converted to MP4! It will now work in all browsers including Safari.');
+
+      loadVideos();
+    } catch (err) {
+      console.error('❌ Conversion error:', err);
+      alert(`Failed to convert video: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setConverting(false);
+      setConversionProgress(0);
+      setConvertingVideoId(null);
+    }
+  };
+
   const deleteVideo = async (videoId: string) => {
     if (!confirm('Are you sure you want to delete this video?')) return;
 
@@ -609,6 +689,11 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                               {video.video_type === 'external' ? 'External Video' : 'Uploaded'}
                             </span>
                             <span>Added {new Date(video.created_at).toLocaleDateString()}</span>
+                            {video.video_url.includes('.webm') && (
+                              <span className="flex items-center gap-1 text-orange-600 font-semibold">
+                                ⚠️ WebM - Safari incompatible
+                              </span>
+                            )}
                           </div>
                           {videoAssignments.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
@@ -632,6 +717,19 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {video.video_url.includes('.webm') && (
+                            <Button
+                              onClick={() => convertExistingVideo(video)}
+                              variant="primary"
+                              size="sm"
+                              disabled={converting && convertingVideoId === video.id}
+                              className="bg-orange-600 hover:bg-orange-700"
+                            >
+                              {converting && convertingVideoId === video.id
+                                ? `Converting ${conversionProgress}%`
+                                : '🔄 Convert to MP4'}
+                            </Button>
+                          )}
                           <Button
                             onClick={() => {
                               setSelectedVideo(video);
@@ -640,6 +738,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                             variant="secondary"
                             size="sm"
                             icon={UserPlus}
+                            disabled={converting}
                           >
                             Assign
                           </Button>
@@ -648,6 +747,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                             variant={video.is_active ? 'secondary' : 'primary'}
                             size="sm"
                             icon={video.is_active ? X : Check}
+                            disabled={converting}
                           >
                             {video.is_active ? 'Remove Default' : 'Make Default'}
                           </Button>
@@ -656,6 +756,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                             variant="secondary"
                             size="sm"
                             icon={Trash2}
+                            disabled={converting}
                           >
                             Delete
                           </Button>
