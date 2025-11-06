@@ -529,6 +529,8 @@ export const DocumentTemplates: React.FC = () => {
               <p className="text-gray-600 pt-2 border-t border-blue-200">
                 <strong>💡 Tip:</strong> The AI generates structured JSON with tables, callouts, priorities, and tags.
                 Focus on <em>what content</em> to include, not formatting details.
+                <br /><br />
+                <strong>📖 See DOCUMENT_TEMPLATE_VARIABLES.md</strong> in the project root for detailed examples of exactly what data each variable provides (including full Q&A formats and file content).
               </p>
             </div>
             <textarea

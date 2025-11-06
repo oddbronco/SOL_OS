@@ -27,6 +27,9 @@ export interface UploadedFile {
   size: string;
   description?: string;
   uploadedDate: string;
+  content?: string;
+  contentPreview?: string;
+  hasContent: boolean;
 }
 
 export interface ProjectSummary {
@@ -88,14 +91,40 @@ export const prepareStakeholderProfiles = (stakeholders: any[], responses: any[]
   });
 };
 
+const extractTextContent = (upload: any): { content?: string; preview?: string; hasContent: boolean } => {
+  // For now, we'll use the description or file content if available
+  // In production, you'd fetch and parse actual file content from storage
+  if (upload.extracted_content || upload.content) {
+    const fullContent = upload.extracted_content || upload.content;
+    return {
+      content: fullContent,
+      preview: fullContent.substring(0, 500) + (fullContent.length > 500 ? '...' : ''),
+      hasContent: true
+    };
+  }
+
+  // Return metadata-only representation
+  return {
+    content: undefined,
+    preview: upload.description || `File: ${upload.file_name}`,
+    hasContent: false
+  };
+};
+
 export const prepareUploadedFiles = (uploads: any[]): UploadedFile[] => {
-  return uploads.map(upload => ({
-    name: upload.file_name,
-    type: upload.upload_type || 'Unknown',
-    size: upload.file_size ? `${(upload.file_size / 1024).toFixed(2)} KB` : 'Unknown',
-    description: upload.description,
-    uploadedDate: new Date(upload.created_at).toLocaleDateString()
-  }));
+  return uploads.map(upload => {
+    const { content, preview, hasContent } = extractTextContent(upload);
+    return {
+      name: upload.file_name,
+      type: upload.upload_type || 'Unknown',
+      size: upload.file_size ? `${(upload.file_size / 1024).toFixed(2)} KB` : 'Unknown',
+      description: upload.description,
+      uploadedDate: new Date(upload.created_at).toLocaleDateString(),
+      content,
+      contentPreview: preview,
+      hasContent
+    };
+  });
 };
 
 export const prepareProjectSummary = (project: any, client?: any): ProjectSummary => {
@@ -145,13 +174,31 @@ export const formatStakeholdersForPrompt = (profiles: StakeholderProfile[]): str
 export const formatUploadsForPrompt = (files: UploadedFile[]): string => {
   if (files.length === 0) return 'No files uploaded.';
 
-  return files.map((file, idx) =>
-    `${idx + 1}. ${file.name}
-   Type: ${file.type}
-   Size: ${file.size}
-   ${file.description ? `Description: ${file.description}` : ''}
-   Uploaded: ${file.uploadedDate}`
-  ).join('\n\n');
+  return files.map((file, idx) => {
+    let output = `${idx + 1}. ${file.name}
+`;
+    output += `   Type: ${file.type}
+`;
+    output += `   Size: ${file.size}
+`;
+    if (file.description) {
+      output += `   Description: ${file.description}
+`;
+    }
+    output += `   Uploaded: ${file.uploadedDate}
+`;
+
+    // Include content if available
+    if (file.hasContent && file.content) {
+      output += `\n   === FILE CONTENT ===\n`;
+      output += `${file.content}\n`;
+      output += `   === END FILE CONTENT ===\n`;
+    } else if (file.contentPreview) {
+      output += `\n   Preview: ${file.contentPreview}\n`;
+    }
+
+    return output;
+  }).join('\n\n');
 };
 
 export const formatProjectForPrompt = (project: ProjectSummary): string => {
