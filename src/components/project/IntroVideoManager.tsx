@@ -7,21 +7,72 @@ import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { VideoAssignmentModal } from './VideoAssignmentModal';
 import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users } from 'lucide-react';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
-const fixWebMDuration = async (blob: Blob): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    try {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const buffer = reader.result as ArrayBuffer;
-        resolve(new Blob([buffer], { type: blob.type }));
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsArrayBuffer(blob);
-    } catch (err) {
-      reject(err);
-    }
+const convertWebMToMP4 = async (
+  webmBlob: Blob,
+  onProgress?: (progress: number) => void
+): Promise<Blob> => {
+  console.log('🔄 Starting WebM to MP4 conversion...');
+
+  const ffmpeg = new FFmpeg();
+
+  ffmpeg.on('log', ({ message }) => {
+    console.log('FFmpeg:', message);
   });
+
+  ffmpeg.on('progress', ({ progress }) => {
+    const percent = Math.round(progress * 100);
+    console.log(`⏳ Conversion progress: ${percent}%`);
+    onProgress?.(percent);
+  });
+
+  try {
+    // Load FFmpeg WASM from CDN
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+
+    console.log('✅ FFmpeg loaded');
+
+    // Write input file
+    const inputData = await fetchFile(webmBlob);
+    await ffmpeg.writeFile('input.webm', inputData);
+
+    console.log('📝 Input file written');
+
+    // Convert WebM to MP4 with H.264 codec for maximum compatibility
+    await ffmpeg.exec([
+      '-i', 'input.webm',
+      '-c:v', 'libx264',        // H.264 video codec (universally supported)
+      '-preset', 'medium',       // Balance between speed and quality
+      '-crf', '23',              // Quality (lower = better, 23 is good default)
+      '-c:a', 'aac',            // AAC audio codec (universally supported)
+      '-b:a', '128k',           // Audio bitrate
+      '-movflags', '+faststart', // Optimize for web streaming
+      'output.mp4'
+    ]);
+
+    console.log('✅ Conversion complete');
+
+    // Read output file
+    const data = await ffmpeg.readFile('output.mp4');
+    const mp4Blob = new Blob([data], { type: 'video/mp4' });
+
+    console.log('📦 Output file size:', mp4Blob.size, 'bytes');
+
+    // Cleanup
+    await ffmpeg.deleteFile('input.webm');
+    await ffmpeg.deleteFile('output.mp4');
+
+    return mp4Blob;
+  } catch (error) {
+    console.error('❌ Conversion error:', error);
+    throw new Error(`Video conversion failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
 };
 
 interface IntroVideo {
@@ -64,6 +115,8 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const [recordingTime, setRecordingTime] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
+  const [conversionProgress, setConversionProgress] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -303,32 +356,71 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       let finalVideoUrl = videoUrl.trim();
 
       if (videoType === 'record' && recordedBlob) {
-        const fileName = `${projectId}/${Date.now()}-intro-video.webm`;
+        console.log('🎬 Processing recorded video...');
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('project-intro-videos')
-          .upload(fileName, recordedBlob, {
-            contentType: 'video/webm',
-            cacheControl: '3600'
+        // Convert WebM to MP4 for browser compatibility
+        setConverting(true);
+        setConversionProgress(0);
+
+        try {
+          const mp4Blob = await convertWebMToMP4(recordedBlob, (progress) => {
+            setConversionProgress(progress);
           });
 
-        if (uploadError) throw uploadError;
+          console.log('✅ Video converted to MP4');
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('project-intro-videos')
-          .getPublicUrl(fileName);
+          const fileName = `${projectId}/${Date.now()}-intro-video.mp4`;
 
-        finalVideoUrl = publicUrl;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('project-intro-videos')
+            .upload(fileName, mp4Blob, {
+              contentType: 'video/mp4',
+              cacheControl: '3600'
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('project-intro-videos')
+            .getPublicUrl(fileName);
+
+          finalVideoUrl = publicUrl;
+        } finally {
+          setConverting(false);
+          setConversionProgress(0);
+        }
       }
 
       if (videoType === 'upload' && uploadedFile) {
-        const fileExt = uploadedFile.name.split('.').pop();
-        const fileName = `${projectId}/${Date.now()}-intro-video.${fileExt}`;
+        const isWebM = uploadedFile.name.toLowerCase().endsWith('.webm');
+
+        let blobToUpload: Blob = uploadedFile;
+        let fileExtension = uploadedFile.name.split('.').pop() || 'mp4';
+
+        // Convert WebM uploads to MP4
+        if (isWebM) {
+          console.log('🎬 Converting uploaded WebM file to MP4...');
+          setConverting(true);
+          setConversionProgress(0);
+
+          try {
+            blobToUpload = await convertWebMToMP4(uploadedFile, (progress) => {
+              setConversionProgress(progress);
+            });
+            fileExtension = 'mp4';
+            console.log('✅ Uploaded video converted to MP4');
+          } finally {
+            setConverting(false);
+            setConversionProgress(0);
+          }
+        }
+
+        const fileName = `${projectId}/${Date.now()}-intro-video.${fileExtension}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('project-intro-videos')
-          .upload(fileName, uploadedFile, {
-            contentType: uploadedFile.type,
+          .upload(fileName, blobToUpload, {
+            contentType: blobToUpload.type,
             cacheControl: '3600'
           });
 
@@ -680,14 +772,14 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
 
           {videoType === 'record' && (
             <div className="space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <div className="flex items-start gap-3">
-                  <div className="text-yellow-600 mt-0.5">⚠️</div>
+                  <div className="text-blue-600 mt-0.5">ℹ️</div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-yellow-900 mb-1">Browser Recording Compatibility Warning</h4>
-                    <p className="text-sm text-yellow-800">
-                      Browser-recorded videos create WebM files which <strong>do not work in Safari or iOS browsers</strong>.
-                      For maximum compatibility, use the "Upload" option and upload an MP4 file instead.
+                    <h4 className="font-semibold text-blue-900 mb-1">Automatic Video Conversion</h4>
+                    <p className="text-sm text-blue-800">
+                      Recorded videos will be automatically converted from WebM to MP4 format for maximum browser compatibility (Safari, Chrome, Firefox, Edge).
+                      This may take a moment depending on video length.
                     </p>
                   </div>
                 </div>
@@ -845,19 +937,42 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             </div>
           )}
 
+          {converting && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-900">Converting video to MP4...</span>
+                <span className="text-sm font-semibold text-blue-900">{conversionProgress}%</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${conversionProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-blue-700 mt-2">
+                This may take a minute. Please don't close this window.
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-4">
             <Button
               type="button"
               variant="secondary"
               onClick={() => setShowAddModal(false)}
+              disabled={converting}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={submitting || isRecording || (videoType === 'record' && !recordedBlob) || (videoType === 'upload' && !uploadedFile)}
+              disabled={submitting || converting || isRecording || (videoType === 'record' && !recordedBlob) || (videoType === 'upload' && !uploadedFile)}
             >
-              {submitting ? 'Uploading...' : 'Add Video'}
+              {converting
+                ? `Converting... ${conversionProgress}%`
+                : submitting
+                ? 'Uploading...'
+                : 'Add Video'}
             </Button>
           </div>
         </form>

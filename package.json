@@ -11,6 +11,8 @@
     "deploy": "npm run build && echo 'Built successfully! Push to GitHub to deploy.'"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@supabase/supabase-js": "^2.52.0",
     "@types/react-router-dom": "^5.3.3",
     "jszip": "^3.10.1",
