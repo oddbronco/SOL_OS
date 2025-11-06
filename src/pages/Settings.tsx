@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { ApiKeySetup } from '../components/ui/ApiKeySetup';
-import { CloudConvertKeySetup } from '../components/ui/CloudConvertKeySetup';
+import { MuxKeySetup } from '../components/ui/MuxKeySetup';
 import { SubscriptionManager } from '../components/subscription/SubscriptionManager';
 import { useAuth } from '../hooks/useAuth';
 import { useOpenAI } from '../hooks/useOpenAI';
@@ -18,15 +18,16 @@ export const Settings: React.FC = () => {
   const { hasApiKey, loading: apiKeyLoading } = useOpenAI();
   const [activeTab, setActiveTab] = useState('profile');
   const [showApiKeySetup, setShowApiKeySetup] = useState(false);
-  const [showCloudConvertSetup, setShowCloudConvertSetup] = useState(false);
+  const [showMuxSetup, setShowMuxSetup] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [cloudConvertKey, setCloudConvertKey] = useState('');
-  const [hasCloudConvertKey, setHasCloudConvertKey] = useState(false);
-  const [loadingCloudConvert, setLoadingCloudConvert] = useState(true);
+  const [muxTokenId, setMuxTokenId] = useState('');
+  const [muxTokenSecret, setMuxTokenSecret] = useState('');
+  const [hasMuxKey, setHasMuxKey] = useState(false);
+  const [loadingMux, setLoadingMux] = useState(true);
   const isDark = false; // Always light mode
   const [profileData, setProfileData] = useState({
     fullName: user?.fullName || '',
@@ -58,41 +59,42 @@ export const Settings: React.FC = () => {
         website: '',
         description: ''
       });
-      loadCloudConvertKey();
+      loadMuxCredentials();
     }
   }, [user]);
 
-  // Load CloudConvert API key
-  const loadCloudConvertKey = async () => {
+  // Load Mux credentials
+  const loadMuxCredentials = async () => {
     if (!user) return;
 
-    setLoadingCloudConvert(true);
+    setLoadingMux(true);
     try {
       const { data, error } = await supabase
         .from('user_settings')
-        .select('cloudconvert_api_key')
+        .select('mux_token_id, mux_token_secret')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
-        console.error('Error loading CloudConvert key:', error);
+        console.error('Error loading Mux credentials:', error);
       }
 
-      if (data?.cloudconvert_api_key) {
-        setCloudConvertKey(data.cloudconvert_api_key);
-        setHasCloudConvertKey(true);
+      if (data?.mux_token_id && data?.mux_token_secret) {
+        setMuxTokenId(data.mux_token_id);
+        setMuxTokenSecret(data.mux_token_secret);
+        setHasMuxKey(true);
       } else {
-        setHasCloudConvertKey(false);
+        setHasMuxKey(false);
       }
     } catch (err) {
-      console.error('Error loading CloudConvert key:', err);
+      console.error('Error loading Mux credentials:', err);
     } finally {
-      setLoadingCloudConvert(false);
+      setLoadingMux(false);
     }
   };
 
-  // Save CloudConvert API key
-  const saveCloudConvertKey = async (key: string) => {
+  // Save Mux credentials
+  const saveMuxCredentials = async (tokenId: string, tokenSecret: string) => {
     if (!user) return false;
 
     try {
@@ -100,7 +102,8 @@ export const Settings: React.FC = () => {
         .from('user_settings')
         .upsert({
           user_id: user.id,
-          cloudconvert_api_key: key || null,
+          mux_token_id: tokenId || null,
+          mux_token_secret: tokenSecret || null,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_id'
@@ -108,12 +111,13 @@ export const Settings: React.FC = () => {
 
       if (error) throw error;
 
-      setCloudConvertKey(key);
-      setHasCloudConvertKey(!!key);
+      setMuxTokenId(tokenId);
+      setMuxTokenSecret(tokenSecret);
+      setHasMuxKey(!!(tokenId && tokenSecret));
       return true;
     } catch (err: any) {
-      console.error('Error saving CloudConvert key:', err);
-      alert(err.message || 'Failed to save CloudConvert API key');
+      console.error('Error saving Mux credentials:', err);
+      alert(err.message || 'Failed to save Mux credentials');
       return false;
     }
   };
@@ -374,26 +378,26 @@ export const Settings: React.FC = () => {
               </Button>
             </div>
 
-            {/* CloudConvert Section */}
+            {/* Mux Section */}
             <div className="border-t border-gray-200 pt-6">
-              <Card className={hasCloudConvertKey
+              <Card className={hasMuxKey
                 ? isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
                 : isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'
               }>
                 <div className="flex items-center">
                   <Key className={`h-5 w-5 mr-2 ${
-                    hasCloudConvertKey
+                    hasMuxKey
                       ? isDark ? 'text-primary-400' : 'text-primary-600'
                       : isDark ? 'text-blue-400' : 'text-blue-600'
                   }`} />
                   <p className={`text-sm ${
-                    hasCloudConvertKey
+                    hasMuxKey
                       ? isDark ? 'text-primary-300' : 'text-primary-800'
                       : isDark ? 'text-blue-300' : 'text-blue-800'
                   }`}>
-                    {hasCloudConvertKey
-                      ? 'CloudConvert API key is configured. Automatic video conversion is enabled.'
-                      : 'CloudConvert API key enables automatic video format conversion (WebM → MP4).'
+                    {hasMuxKey
+                      ? 'Mux is configured. Professional video hosting with automatic transcoding is enabled.'
+                      : 'Mux provides professional video hosting, automatic transcoding, and global CDN delivery.'
                     }
                   </p>
                 </div>
@@ -404,20 +408,20 @@ export const Settings: React.FC = () => {
                   <h4 className={`font-medium ${
                     isDark ? 'text-white' : 'text-gray-900'
                   }`}>
-                    CloudConvert API Key
+                    Mux Video API
                   </h4>
                   <p className={`text-sm ${
                     isDark ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    {hasCloudConvertKey ? 'API key is configured - 25 free conversions/day' : 'Optional - enables universal video compatibility'}
+                    {hasMuxKey ? 'Credentials configured - $20 free credits included' : 'Upload videos in any format, works everywhere'}
                   </p>
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => setShowCloudConvertSetup(true)}
-                  loading={loadingCloudConvert}
+                  onClick={() => setShowMuxSetup(true)}
+                  loading={loadingMux}
                 >
-                  {hasCloudConvertKey ? 'Update API Key' : 'Set Up API Key'}
+                  {hasMuxKey ? 'Update Credentials' : 'Set Up Mux'}
                 </Button>
               </div>
             </div>
@@ -570,18 +574,19 @@ export const Settings: React.FC = () => {
         }}
       />
 
-      {/* CloudConvert API Key Setup Modal */}
+      {/* Mux Setup Modal */}
       <Modal
-        isOpen={showCloudConvertSetup}
-        onClose={() => setShowCloudConvertSetup(false)}
-        title="CloudConvert API Key Setup"
+        isOpen={showMuxSetup}
+        onClose={() => setShowMuxSetup(false)}
+        title="Mux Video API Setup"
         size="lg"
       >
-        <CloudConvertKeySetup
-          cloudConvertKey={cloudConvertKey}
-          hasCloudConvertKey={hasCloudConvertKey}
-          onSave={saveCloudConvertKey}
-          onClose={() => setShowCloudConvertSetup(false)}
+        <MuxKeySetup
+          muxTokenId={muxTokenId}
+          muxTokenSecret={muxTokenSecret}
+          hasMuxKey={hasMuxKey}
+          onSave={saveMuxCredentials}
+          onClose={() => setShowMuxSetup(false)}
         />
       </Modal>
 
