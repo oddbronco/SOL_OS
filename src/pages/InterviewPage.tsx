@@ -484,19 +484,6 @@ export const InterviewPage: React.FC = () => {
     return url;
   };
 
-  const getProxiedVideoUrl = (storageUrl: string): string => {
-    // Extract the path after /storage/v1/object/public/
-    const match = storageUrl.match(/\/storage\/v1\/object\/public\/(.+)/);
-    if (!match) return storageUrl;
-
-    const path = match[1];
-
-    // Get Supabase URL from the client instance
-    const supabaseUrl = (supabase as any).supabaseUrl || 'https://bfjyaloyehlwmtqtqnpt.supabase.co';
-
-    return `${supabaseUrl}/functions/v1/proxy-video?path=${encodeURIComponent(path)}`;
-  };
-
   const markVideoAsWatched = async () => {
     if (!session?.id || videoWatched) return;
 
@@ -996,7 +983,7 @@ export const InterviewPage: React.FC = () => {
                 {introVideo.video_type === 'upload' ? (
                   <video
                     key={introVideo.video_url}
-                    src={getProxiedVideoUrl(introVideo.video_url)}
+                    src={introVideo.video_url}
                     controls
                     preload="metadata"
                     playsInline
@@ -1008,27 +995,6 @@ export const InterviewPage: React.FC = () => {
                       const video = document.querySelector('video');
                       if (video) video.muted = false;
                     }}
-                    onCanPlay={() => console.log('✅ Video can play')}
-                    onLoadStart={() => {
-                      console.log('📥 Video load started');
-                      console.log('🔗 Original URL:', introVideo.video_url);
-                      console.log('🔗 Proxied URL:', getProxiedVideoUrl(introVideo.video_url));
-
-                      // Test if proxied URL is accessible
-                      const proxiedUrl = getProxiedVideoUrl(introVideo.video_url);
-                      fetch(proxiedUrl, { method: 'HEAD' })
-                        .then(response => {
-                          console.log('🌐 Proxied URL check:', {
-                            status: response.status,
-                            ok: response.ok,
-                            contentType: response.headers.get('content-type'),
-                            accessControl: response.headers.get('access-control-allow-origin'),
-                            acceptRanges: response.headers.get('accept-ranges')
-                          });
-                        })
-                        .catch(err => console.error('❌ Proxied URL check failed:', err));
-                    }}
-                    onLoadedData={() => console.log('✅ Video data loaded')}
                     onError={(e) => {
                       const video = e.currentTarget as HTMLVideoElement;
                       console.error('❌ Video load error:', {
