@@ -983,12 +983,18 @@ export const InterviewPage: React.FC = () => {
                 {introVideo.video_type === 'upload' ? (
                   <video
                     key={introVideo.video_url}
+                    src={introVideo.video_url}
                     controls
-                    preload="auto"
+                    preload="metadata"
                     playsInline
-                    crossOrigin="anonymous"
+                    muted
                     className="absolute inset-0 w-full h-full object-contain bg-black"
-                    onPlay={() => markVideoAsWatched()}
+                    onPlay={() => {
+                      markVideoAsWatched();
+                      // Unmute after user interaction
+                      const video = document.querySelector('video');
+                      if (video) video.muted = false;
+                    }}
                     onCanPlay={() => console.log('✅ Video can play')}
                     onLoadStart={() => {
                       console.log('📥 Video load started');
@@ -1001,7 +1007,8 @@ export const InterviewPage: React.FC = () => {
                             status: response.status,
                             ok: response.ok,
                             contentType: response.headers.get('content-type'),
-                            accessControl: response.headers.get('access-control-allow-origin')
+                            accessControl: response.headers.get('access-control-allow-origin'),
+                            acceptRanges: response.headers.get('accept-ranges')
                           });
                         })
                         .catch(err => console.error('❌ URL check failed:', err));
@@ -1057,15 +1064,6 @@ export const InterviewPage: React.FC = () => {
                       });
                     }}
                   >
-                    <source
-                      src={introVideo.video_url}
-                      type={
-                        introVideo.video_url.includes('.webm') ? 'video/webm' :
-                        introVideo.video_url.includes('.mp4') ? 'video/mp4' :
-                        introVideo.video_url.includes('.mov') ? 'video/quicktime' :
-                        'video/mp4'
-                      }
-                    />
                     Your browser does not support the video format. Try opening this page in Chrome or Safari.
                   </video>
                 ) : (
