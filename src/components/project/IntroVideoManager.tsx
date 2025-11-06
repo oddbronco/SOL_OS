@@ -692,12 +692,10 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                               onClick={() => convertExistingVideo(video)}
                               variant="primary"
                               size="sm"
-                              disabled={converting && convertingVideoId === video.id}
+                              disabled={false}
                               className="bg-orange-600 hover:bg-orange-700"
                             >
-                              {converting && convertingVideoId === video.id
-                                ? `Converting ${conversionProgress}%`
-                                : '🔄 Convert to MP4'}
+                              🔄 Process with Mux
                             </Button>
                           )}
                           <Button
@@ -708,7 +706,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                             variant="secondary"
                             size="sm"
                             icon={UserPlus}
-                            disabled={converting}
+                            disabled={false}
                           >
                             Assign
                           </Button>
@@ -717,7 +715,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                             variant={video.is_active ? 'secondary' : 'primary'}
                             size="sm"
                             icon={video.is_active ? X : Check}
-                            disabled={converting}
+                            disabled={false}
                           >
                             {video.is_active ? 'Remove Default' : 'Make Default'}
                           </Button>
@@ -726,7 +724,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                             variant="secondary"
                             size="sm"
                             icon={Trash2}
-                            disabled={converting}
+                            disabled={false}
                           >
                             Delete
                           </Button>
@@ -1037,28 +1035,6 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             </div>
           )}
 
-          {converting && (
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-900">
-                  {conversionProgress <= 10 ? 'Loading FFmpeg (first time may take 30 sec)...' : 'Converting video to MP4...'}
-                </span>
-                <span className="text-sm font-semibold text-blue-900">{conversionProgress}%</span>
-              </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${conversionProgress}%` }}
-                />
-              </div>
-              <p className="text-xs text-blue-700 mt-2">
-                {conversionProgress <= 10
-                  ? 'Downloading FFmpeg WebAssembly files (~32MB, cached for future use)...'
-                  : 'Converting video... Please don\'t close this window.'}
-              </p>
-            </div>
-          )}
-
           <div className="flex justify-end gap-3 pt-4">
             <Button
               type="button"
@@ -1070,13 +1046,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             </Button>
             <Button
               type="submit"
-              disabled={submitting || converting || isRecording || (videoType === 'record' && !recordedBlob) || (videoType === 'upload' && !uploadedFile)}
+              disabled={submitting || isRecording || (videoType === 'record' && !recordedBlob) || (videoType === 'upload' && !uploadedFile)}
             >
-              {converting
-                ? `Converting... ${conversionProgress}%`
-                : submitting
-                ? 'Uploading...'
-                : 'Add Video'}
+              {submitting ? 'Saving...' : 'Add Video'}
             </Button>
           </div>
         </form>
