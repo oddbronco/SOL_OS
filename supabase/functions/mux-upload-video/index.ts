@@ -69,19 +69,65 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         input: video.video_url,
         playback_policy: ['public'],
-        mp4_support: 'standard',
       }),
     });
 
     if (!muxResponse.ok) {
       const errorText = await muxResponse.text();
       console.error('Mux API error:', errorText);
+
+      // Update video status to error
+      await supabase
+        .from('project_intro_videos')
+        .update({
+          mux_status: 'error',
+          processing_error: `Mux API error: ${errorText}`
+        })
+        .eq('id', videoId);
+
       throw new Error(`Mux upload failed: ${errorText}`);
     }
 
     const muxData = await muxResponse.json();
     const assetId = muxData.data.id;
     const playbackId = muxData.data.playback_ids?.[0]?.id;
+
+    // Poll for asset status since we don't have webhooks set up
+    const pollAssetStatus = async () => {
+      for (let i = 0; i < 60; i++) {
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+
+        const statusResponse = await fetch(`https://api.mux.com/video/v1/assets/${assetId}`, {
+          headers: {
+            'Authorization': `Basic ${basicAuth}`,
+          },
+        });
+
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          const status = statusData.data.status;
+
+          if (status === 'ready') {
+            await supabase
+              .from('project_intro_videos')
+              .update({
+                mux_status: 'ready',
+              })
+              .eq('id', videoId);
+            break;
+          } else if (status === 'errored') {
+            await supabase
+              .from('project_intro_videos')
+              .update({
+                mux_status: 'error',
+                processing_error: 'Mux processing failed',
+              })
+              .eq('id', videoId);
+            break;
+          }
+        }
+      }
+    };
 
     await supabase
       .from('project_intro_videos')
@@ -91,6 +137,9 @@ Deno.serve(async (req: Request) => {
         mux_status: 'processing',
       })
       .eq('id', videoId);
+
+    // Start polling in background
+    pollAssetStatus().catch(console.error);
 
     return new Response(
       JSON.stringify({
