@@ -557,8 +557,8 @@ export const InterviewPage: React.FC = () => {
     loadStakeholder();
   }, [stakeholderId, stakeholder]);
 
-  // Render error states based on session state
-  if (sessionState === 'not_found' || error) {
+  // Render error states based on session state (but only if we don't have a session - otherwise it's an auth error)
+  if (sessionState === 'not_found' && !session) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center shadow-xl">
