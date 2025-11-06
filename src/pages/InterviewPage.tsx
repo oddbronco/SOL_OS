@@ -113,7 +113,7 @@ export const InterviewPage: React.FC = () => {
       setAutoAuthAttempted(true);
 
       // Inline authentication logic to avoid circular dependency
-      if (passwordFromUrl === stakeholder.access_password) {
+      if (passwordFromUrl === stakeholder.interview_password) {
         console.log('✅ Auto-authentication successful');
         setAuthenticated(true);
         setError(null);
@@ -447,7 +447,7 @@ export const InterviewPage: React.FC = () => {
       }
 
       // Verify password
-      if (inputPassword === stakeholder.access_password) {
+      if (inputPassword === stakeholder.interview_password) {
         console.log('✅ Authentication successful - setting authenticated to true');
         setAuthenticated(true);
         setError(null);
