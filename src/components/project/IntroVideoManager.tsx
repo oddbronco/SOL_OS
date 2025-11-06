@@ -185,6 +185,8 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
     try {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/convert-video`;
 
+      console.log(`🎬 Triggering conversion: ${videoId} (${sourceFormat} → MP4)`);
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -198,17 +200,64 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
         })
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        console.error('Conversion trigger failed:', error);
+        console.error('❌ Conversion trigger failed:', result);
+
+        // Update status to failed in database
+        await supabase
+          .from('project_intro_videos')
+          .update({
+            conversion_status: 'failed',
+            conversion_error: result.error || 'Failed to trigger conversion'
+          })
+          .eq('id', videoId);
+
+        throw new Error(result.error || 'Conversion failed');
       } else {
         console.log('✅ Conversion triggered successfully');
         // Refresh video list after a delay to show updated status
         setTimeout(() => loadVideos(), 2000);
+
+        // Poll for completion
+        pollConversionStatus(videoId);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error triggering conversion:', error);
+      alert(`Conversion failed: ${error.message}\n\nPlease set up your CloudConvert API key in Settings → Integrations`);
     }
+  };
+
+  const pollConversionStatus = async (videoId: string) => {
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes max
+
+    const poll = setInterval(async () => {
+      attempts++;
+
+      const { data, error } = await supabase
+        .from('project_intro_videos')
+        .select('conversion_status, video_url')
+        .eq('id', videoId)
+        .single();
+
+      if (error || attempts >= maxAttempts) {
+        clearInterval(poll);
+        loadVideos();
+        return;
+      }
+
+      if (data.conversion_status === 'completed' && !data.video_url.includes('.webm')) {
+        clearInterval(poll);
+        console.log('✅ Conversion completed!');
+        loadVideos();
+      } else if (data.conversion_status === 'failed') {
+        clearInterval(poll);
+        console.log('❌ Conversion failed');
+        loadVideos();
+      }
+    }, 5000); // Check every 5 seconds
   };
 
   const loadVideos = async () => {
@@ -438,12 +487,18 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   };
 
   const convertExistingVideo = async (video: IntroVideo) => {
-    if (!video.video_url.includes('.webm')) {
-      alert('This video is not in WebM format and does not need conversion.');
+    const isWebM = video.video_url.includes('.webm');
+    const isMOV = video.video_url.includes('.mov') || video.video_url.includes('.MOV');
+
+    if (!isWebM && !isMOV) {
+      alert('This video is already in MP4 format.');
       return;
     }
 
-    if (!confirm('Convert this WebM video to MP4 for Safari compatibility? This will replace the existing video.')) {
+    const format = isWebM ? 'WebM' : 'MOV';
+    const sourceFormat = isWebM ? 'webm' : 'mov';
+
+    if (!confirm(`Convert this ${format} video to MP4 for universal browser compatibility?\n\nThis uses your CloudConvert API key (1 conversion credit).`)) {
       return;
     }
 
@@ -452,63 +507,13 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
     setConversionProgress(0);
 
     try {
-      console.log('🔄 Downloading existing WebM video...');
+      // Trigger CloudConvert conversion via edge function
+      await triggerVideoConversion(video.id, video.video_url, sourceFormat);
 
-      // Download the existing WebM video
-      const response = await fetch(video.video_url);
-      if (!response.ok) throw new Error('Failed to download video');
-
-      const webmBlob = await response.blob();
-      console.log('✅ Downloaded:', webmBlob.size, 'bytes');
-
-      // Convert to MP4
-      const mp4Blob = await convertWebMToMP4(webmBlob, (progress) => {
-        setConversionProgress(progress);
-      });
-
-      console.log('✅ Converted to MP4');
-
-      // Upload new MP4 version
-      const fileName = `${projectId}/${Date.now()}-intro-video.mp4`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('project-intro-videos')
-        .upload(fileName, mp4Blob, {
-          contentType: 'video/mp4',
-          cacheControl: '3600'
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('project-intro-videos')
-        .getPublicUrl(fileName);
-
-      // Update video record with new MP4 URL
-      const { error: updateError } = await supabase
-        .from('project_intro_videos')
-        .update({
-          video_url: publicUrl,
-        })
-        .eq('id', video.id);
-
-      if (updateError) throw updateError;
-
-      // Delete old WebM file from storage
-      const oldPath = video.video_url.split('/project-intro-videos/')[1];
-      if (oldPath) {
-        await supabase.storage
-          .from('project-intro-videos')
-          .remove([oldPath]);
-      }
-
-      console.log('✅ Video converted and updated successfully');
-      alert('Video successfully converted to MP4! It will now work in all browsers including Safari.');
-
-      loadVideos();
-    } catch (err) {
+      alert(`Video conversion started! This typically takes 10-30 seconds.\n\nThe page will refresh automatically when complete.`);
+    } catch (err: any) {
       console.error('❌ Conversion error:', err);
-      alert(`Failed to convert video: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      alert(`Failed to start conversion: ${err.message}\n\nPlease ensure your CloudConvert API key is configured in Settings → Integrations.`);
     } finally {
       setConverting(false);
       setConversionProgress(0);
