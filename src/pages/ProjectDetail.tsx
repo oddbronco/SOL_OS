@@ -578,6 +578,100 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     }
   };
 
+  const handleExportQuestionsWithResponses = async () => {
+    try {
+      console.log('📥 Exporting questions with responses...');
+
+      // Build CSV data
+      const csvRows: string[] = [];
+
+      // Header row
+      csvRows.push([
+        'Question ID',
+        'Question Text',
+        'Category',
+        'Target Roles',
+        'Stakeholder Name',
+        'Stakeholder Email',
+        'Stakeholder Role',
+        'Stakeholder Department',
+        'Response Type',
+        'Response Text',
+        'Response Timestamp',
+        'Duration (seconds)',
+        'AI Summary',
+        'Sentiment'
+      ].map(h => `"${h}"`).join(','));
+
+      // For each question, get all responses
+      for (const question of questions) {
+        // Get all assignments for this question
+        const assignments = questionAssignments.filter(qa => qa.question_id === question.id);
+
+        if (assignments.length === 0) {
+          // No assignments - show question with empty stakeholder fields
+          csvRows.push([
+            question.id,
+            `"${(question.text || '').replace(/"/g, '""')}"`,
+            `"${question.category || ''}"`,
+            `"${(question.target_roles || []).join('; ')}"`,
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            ''
+          ].join(','));
+        } else {
+          for (const assignment of assignments) {
+            const stakeholder = stakeholders.find(s => s.id === assignment.stakeholder_id);
+            const response = stakeholderResponses.find(r =>
+              r.question_id === question.id && r.stakeholder_id === assignment.stakeholder_id
+            );
+
+            csvRows.push([
+              question.id,
+              `"${(question.text || '').replace(/"/g, '""')}"`,
+              `"${question.category || ''}"`,
+              `"${(question.target_roles || []).join('; ')}"`,
+              `"${stakeholder?.name || 'Unknown'}"`,
+              `"${stakeholder?.email || ''}"`,
+              `"${stakeholder?.role || ''}"`,
+              `"${stakeholder?.department || ''}"`,
+              response ? `"${response.response_type || 'text'}"` : '',
+              response ? `"${(response.response_text || response.transcription || '').replace(/"/g, '""')}"` : '"No response yet"',
+              response ? `"${new Date(response.created_at).toLocaleString()}"` : '',
+              response ? (response.duration_seconds || '') : '',
+              response ? `"${(response.ai_summary || '').replace(/"/g, '""')}"` : '',
+              response ? `"${response.sentiment || ''}"` : ''
+            ].join(','));
+          }
+        }
+      }
+
+      // Create CSV file and download
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${project.name.replace(/[^a-z0-9]/gi, '_')}_questions_responses_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log('✅ CSV exported successfully');
+    } catch (error) {
+      console.error('❌ Error exporting CSV:', error);
+      alert('Failed to export CSV. Please try again.');
+    }
+  };
+
   const handleViewStakeholderInterview = (stakeholder: Stakeholder) => {
     setSelectedStakeholder(stakeholder);
     setShowStakeholderInterview(true);
@@ -1064,13 +1158,23 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 Questions ({questions.length})
               </h3>
-              <Button
-                icon={Sparkles}
-                onClick={handleGenerateQuestions}
-                loading={generatingQuestions}
-              >
-                {generatingQuestions ? 'Generating...' : 'Generate Questions'}
-              </Button>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  icon={Download}
+                  onClick={handleExportQuestionsWithResponses}
+                  disabled={questions.length === 0}
+                >
+                  Export with Responses
+                </Button>
+                <Button
+                  icon={Sparkles}
+                  onClick={handleGenerateQuestions}
+                  loading={generatingQuestions}
+                >
+                  {generatingQuestions ? 'Generating...' : 'Generate Questions'}
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-4">

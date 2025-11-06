@@ -953,10 +953,10 @@ export const InterviewPage: React.FC = () => {
                 {introVideo.video_type === 'upload' ? (
                   <video
                     key={introVideo.video_url}
-                    src={introVideo.video_url}
                     controls
                     preload="auto"
                     playsInline
+                    crossOrigin="anonymous"
                     className="absolute inset-0 w-full h-full object-contain bg-black"
                     onPlay={() => markVideoAsWatched()}
                     onCanPlay={() => console.log('✅ Video can play')}
@@ -987,7 +987,18 @@ export const InterviewPage: React.FC = () => {
                         videoHeight: video.videoHeight
                       });
                     }}
-                  />
+                  >
+                    <source
+                      src={introVideo.video_url}
+                      type={
+                        introVideo.video_url.includes('.webm') ? 'video/webm' :
+                        introVideo.video_url.includes('.mp4') ? 'video/mp4' :
+                        introVideo.video_url.includes('.mov') ? 'video/quicktime' :
+                        'video/mp4'
+                      }
+                    />
+                    Your browser does not support the video format. Try opening this page in Chrome or Safari.
+                  </video>
                 ) : (
                   <iframe
                     src={getEmbedUrl(introVideo.video_url)}

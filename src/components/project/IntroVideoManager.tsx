@@ -890,21 +890,37 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                   />
                 ) : (
                   <video
-                    src={selectedVideo.video_url}
                     controls
                     autoPlay
+                    playsInline
                     crossOrigin="anonymous"
                     preload="metadata"
                     className="absolute inset-0 w-full h-full"
-                    onError={(e) => {
-                      console.error('❌ Video preview error:', {
+                    onError={(e: any) => {
+                      console.error('❌ Video playback error:', {
                         url: selectedVideo.video_url,
-                        error: e
+                        error: e.target.error,
+                        code: e.target.error?.code,
+                        message: e.target.error?.message
                       });
+                      setError(`Video playback failed: ${e.target.error?.message || 'Unknown error'}. ${
+                        selectedVideo.video_url.includes('.webm')
+                          ? 'WebM format may not be supported in your browser. Try Safari for better compatibility or use MP4 format.'
+                          : 'Check that the video URL is accessible and has proper CORS headers.'
+                      }`);
                     }}
-                    onLoadedMetadata={() => console.log('✅ Video preview loaded')}
+                    onLoadedMetadata={() => {
+                      console.log('✅ Video loaded successfully');
+                      setError(null);
+                    }}
                   >
-                    Your browser does not support the video tag.
+                    <source src={selectedVideo.video_url} type={
+                      selectedVideo.video_url.includes('.webm') ? 'video/webm' :
+                      selectedVideo.video_url.includes('.mp4') ? 'video/mp4' :
+                      selectedVideo.video_url.includes('.mov') ? 'video/quicktime' :
+                      'video/mp4'
+                    } />
+                    Your browser does not support the video tag. Try a different browser or contact support.
                   </video>
                 )}
               </div>

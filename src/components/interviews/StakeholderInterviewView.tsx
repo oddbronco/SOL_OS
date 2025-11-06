@@ -45,10 +45,21 @@ export const StakeholderInterviewView: React.FC<StakeholderInterviewViewProps> =
 
   const loadAssignments = async () => {
     if (!stakeholder) return;
-    
+
     try {
       setLoading(true);
+      console.log('📋 Loading assignments for stakeholder:', stakeholder.id, stakeholder.name);
       const data = await getStakeholderQuestionAssignments(stakeholder.id);
+      console.log('✅ Loaded assignments:', {
+        total: data.length,
+        withResponses: data.filter(a => a.response).length,
+        assignments: data.map(a => ({
+          id: a.id,
+          question: a.question?.text?.substring(0, 50),
+          hasResponse: !!a.response,
+          responseType: a.response?.response_type
+        }))
+      });
       setAssignments(data);
     } catch (error) {
       console.error('Failed to load assignments:', error);
