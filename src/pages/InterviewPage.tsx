@@ -731,7 +731,16 @@ export const InterviewPage: React.FC = () => {
   }
 
   // Show loading state
+  console.log('🔍 Loading check:', { loading, hasSession: !!session, hasStakeholder: !!stakeholder, hasProject: !!project });
+
   if (loading || !session || !stakeholder || !project) {
+    console.log('⏳ Showing loading state because:', {
+      loading,
+      noSession: !session,
+      noStakeholder: !stakeholder,
+      noProject: !project
+    });
+
     return (
       <div
         className="min-h-screen flex items-center justify-center"
