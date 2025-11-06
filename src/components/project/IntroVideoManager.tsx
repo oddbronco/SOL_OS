@@ -6,6 +6,7 @@ import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { VideoAssignmentModal } from './VideoAssignmentModal';
+import { triggerMuxUpload } from '../../utils/muxUpload';
 import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users, AlertCircle } from 'lucide-react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
@@ -128,9 +129,6 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const [recordingTime, setRecordingTime] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
-  const [converting, setConverting] = useState(false);
-  const [conversionProgress, setConversionProgress] = useState(0);
-  const [convertingVideoId, setConvertingVideoId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -261,84 +259,6 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const triggerVideoConversion = async (videoId: string, sourceUrl: string, sourceFormat: string) => {
-    try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/convert-video`;
-
-      console.log(`🎬 Triggering conversion: ${videoId} (${sourceFormat} → MP4)`);
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          videoId,
-          sourceUrl,
-          sourceFormat
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ Conversion trigger failed:', result);
-
-        // Update status to failed in database
-        await supabase
-          .from('project_intro_videos')
-          .update({
-            conversion_status: 'failed',
-            conversion_error: result.error || 'Failed to trigger conversion'
-          })
-          .eq('id', videoId);
-
-        throw new Error(result.error || 'Conversion failed');
-      } else {
-        console.log('✅ Conversion triggered successfully');
-        // Refresh video list after a delay to show updated status
-        setTimeout(() => loadVideos(), 2000);
-
-        // Poll for completion
-        pollConversionStatus(videoId);
-      }
-    } catch (error: any) {
-      console.error('Error triggering conversion:', error);
-      alert(`Conversion failed: ${error.message}\n\nPlease set up your CloudConvert API key in Settings → Integrations`);
-    }
-  };
-
-  const pollConversionStatus = async (videoId: string) => {
-    let attempts = 0;
-    const maxAttempts = 60; // 5 minutes max
-
-    const poll = setInterval(async () => {
-      attempts++;
-
-      const { data, error } = await supabase
-        .from('project_intro_videos')
-        .select('conversion_status, video_url')
-        .eq('id', videoId)
-        .single();
-
-      if (error || attempts >= maxAttempts) {
-        clearInterval(poll);
-        loadVideos();
-        return;
-      }
-
-      if (data.conversion_status === 'completed' && !data.video_url.includes('.webm')) {
-        clearInterval(poll);
-        console.log('✅ Conversion completed!');
-        loadVideos();
-      } else if (data.conversion_status === 'failed') {
-        clearInterval(poll);
-        console.log('❌ Conversion failed');
-        loadVideos();
-      }
-    }, 5000); // Check every 5 seconds
-  };
 
   const loadVideos = async () => {
     try {
@@ -514,9 +434,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
         }
       }
 
-      // All uploaded videos are now pre-converted, no background conversion needed
-      const needsConversion = false;
-      const originalFormat = null;
+      const isUploadType = videoType === 'upload' || videoType === 'record';
 
       const { data: insertData, error } = await supabase
         .from('project_intro_videos')
@@ -529,18 +447,17 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           duration_seconds: videoType === 'record' ? recordingTime : null,
           created_by: userData.user.id,
           is_active: videos.length === 0,
-          conversion_status: needsConversion ? 'pending' : 'completed',
-          original_format: originalFormat
+          mux_status: isUploadType ? 'pending' : 'ready'
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Trigger conversion in background if needed
-      if (needsConversion && insertData) {
-        console.log(`🎬 Triggering conversion for ${originalFormat} → MP4`);
-        triggerVideoConversion(insertData.id, finalVideoUrl, originalFormat!);
+      // Trigger Mux upload for uploaded/recorded videos
+      if (isUploadType && insertData) {
+        console.log('🎬 Triggering Mux transcode...');
+        triggerMuxUpload(insertData.id, projectId);
       }
 
       setTitle('');
@@ -582,37 +499,23 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   };
 
   const convertExistingVideo = async (video: IntroVideo) => {
-    const isWebM = video.video_url.includes('.webm');
-    const isMOV = video.video_url.includes('.mov') || video.video_url.includes('.MOV');
-
-    if (!isWebM && !isMOV) {
-      alert('This video is already in MP4 format.');
+    if (!confirm('Process this video with Mux for universal compatibility?\n\nMux will transcode it to all formats automatically.')) {
       return;
     }
-
-    const format = isWebM ? 'WebM' : 'MOV';
-    const sourceFormat = isWebM ? 'webm' : 'mov';
-
-    if (!confirm(`Convert this ${format} video to MP4 for universal browser compatibility?\n\nThis uses your CloudConvert API key (1 conversion credit).`)) {
-      return;
-    }
-
-    setConvertingVideoId(video.id);
-    setConverting(true);
-    setConversionProgress(0);
 
     try {
-      // Trigger CloudConvert conversion via edge function
-      await triggerVideoConversion(video.id, video.video_url, sourceFormat);
+      await supabase
+        .from('project_intro_videos')
+        .update({ mux_status: 'pending' })
+        .eq('id', video.id);
 
-      alert(`Video conversion started! This typically takes 10-30 seconds.\n\nThe page will refresh automatically when complete.`);
+      await triggerMuxUpload(video.id, projectId);
+
+      alert('Mux processing started! This typically takes 30-60 seconds.\n\nThe page will refresh automatically when complete.');
+      loadVideos();
     } catch (err: any) {
-      console.error('❌ Conversion error:', err);
-      alert(`Failed to start conversion: ${err.message}\n\nPlease ensure your CloudConvert API key is configured in Settings → Integrations.`);
-    } finally {
-      setConverting(false);
-      setConversionProgress(0);
-      setConvertingVideoId(null);
+      console.error('❌ Mux error:', err);
+      alert(`Failed to start processing: ${err.message}\n\nPlease ensure your Mux credentials are configured in Settings → Integrations.`);
     }
   };
 
@@ -741,24 +644,24 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                             <span>Added {new Date(video.created_at).toLocaleDateString()}</span>
 
                             {/* Show conversion status */}
-                            {video.conversion_status === 'pending' && (
-                              <span className="flex items-center gap-1 text-blue-600 font-semibold">
-                                ⏳ Queued for conversion
-                              </span>
-                            )}
-                            {video.conversion_status === 'converting' && (
+                            {(video as any).mux_status === 'pending' && (
                               <span className="flex items-center gap-1 text-blue-600 font-semibold animate-pulse">
-                                🔄 Converting to MP4...
+                                🔄 Processing with Mux...
                               </span>
                             )}
-                            {video.conversion_status === 'failed' && (
+                            {(video as any).mux_status === 'processing' && (
+                              <span className="flex items-center gap-1 text-blue-600 font-semibold animate-pulse">
+                                🔄 Transcoding...
+                              </span>
+                            )}
+                            {(video as any).mux_status === 'error' && (
                               <span className="flex items-center gap-1 text-red-600 font-semibold">
-                                ❌ Conversion failed
+                                ❌ Processing failed
                               </span>
                             )}
-                            {video.conversion_status === 'completed' && video.video_url.includes('.webm') && (
-                              <span className="flex items-center gap-1 text-orange-600 font-semibold">
-                                ⚠️ WebM - Safari incompatible
+                            {(video as any).mux_status === 'ready' && (video as any).mux_playback_id && (
+                              <span className="flex items-center gap-1 text-green-600 font-semibold">
+                                ✅ Ready (Mux)
                               </span>
                             )}
                           </div>

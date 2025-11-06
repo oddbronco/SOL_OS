@@ -16,6 +16,8 @@ interface IntroVideo {
   description: string | null;
   video_url: string;
   video_type: 'upload' | 'external';
+  mux_playback_id?: string;
+  mux_status?: string;
 }
 
 export const InterviewPage: React.FC = () => {
@@ -982,8 +984,10 @@ export const InterviewPage: React.FC = () => {
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                 {introVideo.video_type === 'upload' ? (
                   <video
-                    key={introVideo.video_url}
-                    src={introVideo.video_url}
+                    key={introVideo.mux_playback_id || introVideo.video_url}
+                    src={introVideo.mux_playback_id
+                      ? `https://stream.mux.com/${introVideo.mux_playback_id}.m3u8`
+                      : introVideo.video_url}
                     controls
                     preload="metadata"
                     playsInline
