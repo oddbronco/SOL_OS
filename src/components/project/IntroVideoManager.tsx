@@ -6,127 +6,7 @@ import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { VideoAssignmentModal } from './VideoAssignmentModal';
-import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users } from 'lucide-react';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
-
-const convertWebMToMP4 = async (
-  webmBlob: Blob,
-  onProgress?: (progress: number) => void
-): Promise<Blob> => {
-  console.log('🔄 Starting WebM to MP4 conversion...');
-  console.log('📦 Input video size:', webmBlob.size, 'bytes');
-
-  const ffmpeg = new FFmpeg();
-  let lastProgress = 0;
-
-  ffmpeg.on('log', ({ message }) => {
-    console.log('FFmpeg:', message);
-  });
-
-  ffmpeg.on('progress', ({ progress, time }) => {
-    const percent = Math.round(progress * 100);
-    if (percent !== lastProgress) {
-      console.log(`⏳ Conversion progress: ${percent}% (time: ${time})`);
-      lastProgress = percent;
-      onProgress?.(percent);
-    }
-  });
-
-  try {
-    console.log('📥 Loading FFmpeg WASM (this may take 30 seconds on first load)...');
-    onProgress?.(5);
-
-    // Try multiple CDN sources for reliability
-    const cdnSources = [
-      'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm',
-      'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm',
-    ];
-
-    let loaded = false;
-    let lastError: Error | null = null;
-
-    for (const baseURL of cdnSources) {
-      if (loaded) break;
-
-      try {
-        console.log(`🔄 Trying CDN: ${baseURL}`);
-        await Promise.race([
-          ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          }),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('CDN timeout after 45 seconds')), 45000)
-          )
-        ]);
-        loaded = true;
-        console.log(`✅ Successfully loaded from: ${baseURL}`);
-      } catch (err) {
-        console.warn(`❌ Failed to load from ${baseURL}:`, err);
-        lastError = err instanceof Error ? err : new Error(String(err));
-        continue;
-      }
-    }
-
-    if (!loaded) {
-      console.error('All CDN sources failed');
-      throw new Error(`Could not load FFmpeg from any CDN. Last error: ${lastError?.message || 'Unknown'}. Please check your internet connection and try again.`);
-    }
-
-    console.log('✅ FFmpeg loaded successfully');
-    onProgress?.(10);
-
-    // Write input file
-    console.log('📝 Writing input file to FFmpeg...');
-    const inputData = await fetchFile(webmBlob);
-    await ffmpeg.writeFile('input.webm', inputData);
-    console.log('✅ Input file written');
-    onProgress?.(15);
-
-    // Convert WebM to MP4 with H.264 codec for maximum compatibility
-    console.log('🎬 Starting video conversion...');
-    await ffmpeg.exec([
-      '-i', 'input.webm',
-      '-c:v', 'libx264',        // H.264 video codec (universally supported)
-      '-preset', 'ultrafast',    // Faster conversion (was: medium)
-      '-crf', '23',              // Quality (lower = better, 23 is good default)
-      '-c:a', 'aac',            // AAC audio codec (universally supported)
-      '-b:a', '128k',           // Audio bitrate
-      '-movflags', '+faststart', // Optimize for web streaming
-      'output.mp4'
-    ]);
-
-    console.log('✅ Conversion complete');
-    onProgress?.(95);
-
-    // Read output file
-    console.log('📤 Reading converted file...');
-    const data = await ffmpeg.readFile('output.mp4');
-    const mp4Blob = new Blob([data], { type: 'video/mp4' });
-
-    console.log('✅ Output file size:', mp4Blob.size, 'bytes');
-    console.log('📊 Size change:', ((mp4Blob.size - webmBlob.size) / webmBlob.size * 100).toFixed(1) + '%');
-
-    // Cleanup
-    await ffmpeg.deleteFile('input.webm');
-    await ffmpeg.deleteFile('output.mp4');
-
-    onProgress?.(100);
-    return mp4Blob;
-  } catch (error) {
-    console.error('❌ Conversion error:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    if (errorMessage.includes('timeout') || errorMessage.includes('load')) {
-      throw new Error('Video conversion timed out. This might be due to slow internet or browser limitations. Try a shorter video or refresh and try again.');
-    }
-
-    throw new Error(`Video conversion failed: ${errorMessage}`);
-  }
-};
+import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users, AlertCircle } from 'lucide-react';
 
 interface IntroVideo {
   id: string;
@@ -238,18 +118,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
 
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
-
-        try {
-          const fixedBlob = await fixWebMDuration(blob);
-          setRecordedBlob(fixedBlob || blob);
-          const url = URL.createObjectURL(fixedBlob || blob);
-          setRecordedUrl(url);
-        } catch (err) {
-          console.error('Error fixing WebM:', err);
-          setRecordedBlob(blob);
-          const url = URL.createObjectURL(blob);
-          setRecordedUrl(url);
-        }
+        setRecordedBlob(blob);
+        const url = URL.createObjectURL(blob);
+        setRecordedUrl(url);
 
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
@@ -410,71 +281,34 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       let finalVideoUrl = videoUrl.trim();
 
       if (videoType === 'record' && recordedBlob) {
-        console.log('🎬 Processing recorded video...');
+        console.log('🎬 Uploading recorded video...');
 
-        // Convert WebM to MP4 for browser compatibility
-        setConverting(true);
-        setConversionProgress(0);
+        const fileName = `${projectId}/${Date.now()}-intro-video.webm`;
 
-        try {
-          const mp4Blob = await convertWebMToMP4(recordedBlob, (progress) => {
-            setConversionProgress(progress);
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('project-intro-videos')
+          .upload(fileName, recordedBlob, {
+            contentType: recordedBlob.type,
+            cacheControl: '3600'
           });
 
-          console.log('✅ Video converted to MP4');
+        if (uploadError) throw uploadError;
 
-          const fileName = `${projectId}/${Date.now()}-intro-video.mp4`;
+        const { data: { publicUrl } } = supabase.storage
+          .from('project-intro-videos')
+          .getPublicUrl(fileName);
 
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('project-intro-videos')
-            .upload(fileName, mp4Blob, {
-              contentType: 'video/mp4',
-              cacheControl: '3600'
-            });
-
-          if (uploadError) throw uploadError;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('project-intro-videos')
-            .getPublicUrl(fileName);
-
-          finalVideoUrl = publicUrl;
-        } finally {
-          setConverting(false);
-          setConversionProgress(0);
-        }
+        finalVideoUrl = publicUrl;
       }
 
       if (videoType === 'upload' && uploadedFile) {
-        const isWebM = uploadedFile.name.toLowerCase().endsWith('.webm');
-
-        let blobToUpload: Blob = uploadedFile;
-        let fileExtension = uploadedFile.name.split('.').pop() || 'mp4';
-
-        // Convert WebM uploads to MP4
-        if (isWebM) {
-          console.log('🎬 Converting uploaded WebM file to MP4...');
-          setConverting(true);
-          setConversionProgress(0);
-
-          try {
-            blobToUpload = await convertWebMToMP4(uploadedFile, (progress) => {
-              setConversionProgress(progress);
-            });
-            fileExtension = 'mp4';
-            console.log('✅ Uploaded video converted to MP4');
-          } finally {
-            setConverting(false);
-            setConversionProgress(0);
-          }
-        }
-
+        const fileExtension = uploadedFile.name.split('.').pop() || 'mp4';
         const fileName = `${projectId}/${Date.now()}-intro-video.${fileExtension}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('project-intro-videos')
-          .upload(fileName, blobToUpload, {
-            contentType: blobToUpload.type,
+          .upload(fileName, uploadedFile, {
+            contentType: uploadedFile.type,
             cacheControl: '3600'
           });
 
