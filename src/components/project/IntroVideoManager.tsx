@@ -15,40 +15,62 @@ const convertWebMToMP4 = async (
   onProgress?: (progress: number) => void
 ): Promise<Blob> => {
   console.log('🔄 Starting WebM to MP4 conversion...');
+  console.log('📦 Input video size:', webmBlob.size, 'bytes');
 
   const ffmpeg = new FFmpeg();
+  let lastProgress = 0;
 
   ffmpeg.on('log', ({ message }) => {
     console.log('FFmpeg:', message);
   });
 
-  ffmpeg.on('progress', ({ progress }) => {
+  ffmpeg.on('progress', ({ progress, time }) => {
     const percent = Math.round(progress * 100);
-    console.log(`⏳ Conversion progress: ${percent}%`);
-    onProgress?.(percent);
+    if (percent !== lastProgress) {
+      console.log(`⏳ Conversion progress: ${percent}% (time: ${time})`);
+      lastProgress = percent;
+      onProgress?.(percent);
+    }
   });
 
   try {
-    // Load FFmpeg WASM from CDN
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
+    console.log('📥 Loading FFmpeg WASM (this may take 30 seconds on first load)...');
+    onProgress?.(5);
 
-    console.log('✅ FFmpeg loaded');
+    // Load FFmpeg WASM - try multiple CDN sources for reliability
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+
+    try {
+      await Promise.race([
+        ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('FFmpeg load timeout after 60 seconds')), 60000)
+        )
+      ]);
+    } catch (loadError) {
+      console.error('Failed to load FFmpeg:', loadError);
+      throw new Error('Could not load FFmpeg. Please check your internet connection and try again.');
+    }
+
+    console.log('✅ FFmpeg loaded successfully');
+    onProgress?.(10);
 
     // Write input file
+    console.log('📝 Writing input file to FFmpeg...');
     const inputData = await fetchFile(webmBlob);
     await ffmpeg.writeFile('input.webm', inputData);
-
-    console.log('📝 Input file written');
+    console.log('✅ Input file written');
+    onProgress?.(15);
 
     // Convert WebM to MP4 with H.264 codec for maximum compatibility
+    console.log('🎬 Starting video conversion...');
     await ffmpeg.exec([
       '-i', 'input.webm',
       '-c:v', 'libx264',        // H.264 video codec (universally supported)
-      '-preset', 'medium',       // Balance between speed and quality
+      '-preset', 'ultrafast',    // Faster conversion (was: medium)
       '-crf', '23',              // Quality (lower = better, 23 is good default)
       '-c:a', 'aac',            // AAC audio codec (universally supported)
       '-b:a', '128k',           // Audio bitrate
@@ -57,21 +79,33 @@ const convertWebMToMP4 = async (
     ]);
 
     console.log('✅ Conversion complete');
+    onProgress?.(95);
 
     // Read output file
+    console.log('📤 Reading converted file...');
     const data = await ffmpeg.readFile('output.mp4');
     const mp4Blob = new Blob([data], { type: 'video/mp4' });
 
-    console.log('📦 Output file size:', mp4Blob.size, 'bytes');
+    console.log('✅ Output file size:', mp4Blob.size, 'bytes');
+    console.log('📊 Size change:', ((mp4Blob.size - webmBlob.size) / webmBlob.size * 100).toFixed(1) + '%');
 
     // Cleanup
     await ffmpeg.deleteFile('input.webm');
     await ffmpeg.deleteFile('output.mp4');
 
+    onProgress?.(100);
     return mp4Blob;
   } catch (error) {
     console.error('❌ Conversion error:', error);
-    throw new Error(`Video conversion failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    if (errorMessage.includes('timeout') || errorMessage.includes('load')) {
+      throw new Error('Video conversion timed out. This might be due to slow internet or browser limitations. Try a shorter video or refresh and try again.');
+    }
+
+    throw new Error(`Video conversion failed: ${errorMessage}`);
   }
 };
 
@@ -1041,7 +1075,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           {converting && (
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-900">Converting video to MP4...</span>
+                <span className="text-sm font-medium text-blue-900">
+                  {conversionProgress <= 10 ? 'Loading FFmpeg (first time may take 30 sec)...' : 'Converting video to MP4...'}
+                </span>
                 <span className="text-sm font-semibold text-blue-900">{conversionProgress}%</span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-2">
@@ -1051,7 +1087,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                 />
               </div>
               <p className="text-xs text-blue-700 mt-2">
-                This may take a minute. Please don't close this window.
+                {conversionProgress <= 10
+                  ? 'Downloading FFmpeg WebAssembly files (~32MB, cached for future use)...'
+                  : 'Converting video... Please don\'t close this window.'}
               </p>
             </div>
           )}

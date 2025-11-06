@@ -11,25 +11,44 @@ const convertWebMToMP4 = async (
   onProgress?: (progress: number) => void
 ): Promise<Blob> => {
   const ffmpeg = new FFmpeg();
+  let lastProgress = 0;
+
+  ffmpeg.on('log', ({ message }) => {
+    console.log('FFmpeg:', message);
+  });
 
   ffmpeg.on('progress', ({ progress }) => {
     const percent = Math.round(progress * 100);
-    onProgress?.(percent);
+    if (percent !== lastProgress) {
+      lastProgress = percent;
+      onProgress?.(percent);
+    }
   });
 
+  onProgress?.(5);
   const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-  await ffmpeg.load({
-    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-  });
+
+  await Promise.race([
+    ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    }),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('FFmpeg load timeout after 60 seconds')), 60000)
+    )
+  ]);
+
+  onProgress?.(10);
 
   const inputData = await fetchFile(webmBlob);
   await ffmpeg.writeFile('input.webm', inputData);
 
+  onProgress?.(15);
+
   await ffmpeg.exec([
     '-i', 'input.webm',
     '-c:v', 'libx264',
-    '-preset', 'medium',
+    '-preset', 'ultrafast',
     '-crf', '23',
     '-c:a', 'aac',
     '-b:a', '128k',
@@ -37,12 +56,15 @@ const convertWebMToMP4 = async (
     'output.mp4'
   ]);
 
+  onProgress?.(95);
+
   const data = await ffmpeg.readFile('output.mp4');
   const mp4Blob = new Blob([data], { type: 'video/mp4' });
 
   await ffmpeg.deleteFile('input.webm');
   await ffmpeg.deleteFile('output.mp4');
 
+  onProgress?.(100);
   return mp4Blob;
 };
 
