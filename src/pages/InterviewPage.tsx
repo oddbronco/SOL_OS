@@ -484,6 +484,15 @@ export const InterviewPage: React.FC = () => {
     return url;
   };
 
+  const getProxiedVideoUrl = (storageUrl: string): string => {
+    // Extract the path after /storage/v1/object/public/
+    const match = storageUrl.match(/\/storage\/v1\/object\/public\/(.+)/);
+    if (!match) return storageUrl;
+
+    const path = match[1];
+    return `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proxy-video?path=${encodeURIComponent(path)}`;
+  };
+
   const markVideoAsWatched = async () => {
     if (!session?.id || videoWatched) return;
 
@@ -983,7 +992,7 @@ export const InterviewPage: React.FC = () => {
                 {introVideo.video_type === 'upload' ? (
                   <video
                     key={introVideo.video_url}
-                    src={introVideo.video_url}
+                    src={getProxiedVideoUrl(introVideo.video_url)}
                     controls
                     preload="metadata"
                     playsInline
@@ -998,12 +1007,14 @@ export const InterviewPage: React.FC = () => {
                     onCanPlay={() => console.log('✅ Video can play')}
                     onLoadStart={() => {
                       console.log('📥 Video load started');
-                      console.log('🔗 Video URL:', introVideo.video_url);
+                      console.log('🔗 Original URL:', introVideo.video_url);
+                      console.log('🔗 Proxied URL:', getProxiedVideoUrl(introVideo.video_url));
 
-                      // Test if URL is accessible
-                      fetch(introVideo.video_url, { method: 'HEAD' })
+                      // Test if proxied URL is accessible
+                      const proxiedUrl = getProxiedVideoUrl(introVideo.video_url);
+                      fetch(proxiedUrl, { method: 'HEAD' })
                         .then(response => {
-                          console.log('🌐 URL check:', {
+                          console.log('🌐 Proxied URL check:', {
                             status: response.status,
                             ok: response.ok,
                             contentType: response.headers.get('content-type'),
@@ -1011,7 +1022,7 @@ export const InterviewPage: React.FC = () => {
                             acceptRanges: response.headers.get('accept-ranges')
                           });
                         })
-                        .catch(err => console.error('❌ URL check failed:', err));
+                        .catch(err => console.error('❌ Proxied URL check failed:', err));
                     }}
                     onLoadedData={() => console.log('✅ Video data loaded')}
                     onError={(e) => {
