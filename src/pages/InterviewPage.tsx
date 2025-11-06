@@ -407,8 +407,8 @@ export const InterviewPage: React.FC = () => {
 
   // Initialize HLS.js for Mux video playback
   useEffect(() => {
-    if (!introVideo || !videoRef.current) {
-      console.log('⏭️ Skipping HLS init - missing video or ref');
+    if (!introVideo || !videoRef.current || !showIntroVideo) {
+      console.log('⏭️ Skipping HLS init - missing video or ref or not showing');
       return;
     }
 
@@ -489,7 +489,7 @@ export const InterviewPage: React.FC = () => {
         hlsRef.current = null;
       }
     };
-  }, [introVideo]);
+  }, [introVideo, showIntroVideo]);
 
   const handleAuthentication = useCallback(async (inputPassword: string) => {
     if (!stakeholder || !inputPassword || !session) return;
