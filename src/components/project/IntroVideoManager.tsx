@@ -95,13 +95,19 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
         videoRef.current.srcObject = stream;
       }
 
-      let mimeType = 'video/webm;codecs=vp9';
+      // Try MP4 first (Safari), then WebM (Chrome/Firefox)
+      let mimeType = 'video/mp4';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm;codecs=vp8';
+        mimeType = 'video/webm;codecs=vp9';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'video/webm';
+          mimeType = 'video/webm;codecs=vp8';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'video/webm';
+          }
         }
       }
+
+      console.log('📹 Recording with format:', mimeType);
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: mimeType
@@ -283,7 +289,11 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       if (videoType === 'record' && recordedBlob) {
         console.log('🎬 Uploading recorded video...');
 
-        const fileName = `${projectId}/${Date.now()}-intro-video.webm`;
+        // Determine file extension from MIME type
+        const fileExtension = recordedBlob.type.includes('mp4') ? 'mp4' : 'webm';
+        const fileName = `${projectId}/${Date.now()}-intro-video.${fileExtension}`;
+
+        console.log(`📦 Uploading as ${fileExtension} (${recordedBlob.type})`);
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('project-intro-videos')
@@ -299,6 +309,13 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
           .getPublicUrl(fileName);
 
         finalVideoUrl = publicUrl;
+
+        // Show format info
+        if (fileExtension === 'webm') {
+          console.warn('⚠️ Uploaded as WebM - may not work in Safari');
+        } else {
+          console.log('✅ Uploaded as MP4 - compatible with all browsers');
+        }
       }
 
       if (videoType === 'upload' && uploadedFile) {
@@ -735,6 +752,38 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                 <div className="text-xs text-gray-600 mt-1">Upload video file</div>
               </button>
             </div>
+
+            {videoType === 'record' && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-900">
+                    <p className="font-medium">Browser Compatibility</p>
+                    <p className="mt-1 text-blue-700">
+                      <strong>Safari:</strong> Records as MP4 (works everywhere) ✓<br />
+                      <strong>Chrome/Firefox:</strong> Records as WebM (won't work in Safari) ⚠️
+                    </p>
+                    <p className="mt-2 text-xs text-blue-600">
+                      For universal compatibility, record in Safari or convert WebM files to MP4 before uploading.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {videoType === 'upload' && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-900">
+                    <p className="font-medium">Recommended Format: MP4</p>
+                    <p className="mt-1 text-blue-700">
+                      MP4 videos work on all browsers and devices. WebM files won't play in Safari.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <Input
