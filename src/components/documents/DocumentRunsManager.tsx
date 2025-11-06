@@ -8,6 +8,8 @@ import { Input } from '../ui/Input';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { openAIService } from '../../services/openai';
+import { formatDocument, parseStructuredResponse, type DocumentStructure } from '../../utils/documentFormatters';
+import { buildStructuredPrompt, createCustomDocumentPrompt, type PromptContext } from '../../utils/documentPrompts';
 
 interface DocumentRun {
   id: string;
@@ -132,209 +134,6 @@ export const DocumentRunsManager: React.FC<DocumentRunsManagerProps> = ({ projec
     }
   };
 
-  const formatStructuredData = (structuredData: any, targetFormat: string): string => {
-    switch (targetFormat) {
-      case 'json':
-        return JSON.stringify(structuredData, null, 2);
-
-      case 'csv': {
-        let csv = 'Section,Subsection,Type,Content\n';
-
-        structuredData.sections?.forEach((section: any) => {
-          const sectionName = section.heading || section.title || 'General';
-
-          if (section.summary) {
-            csv += `"${sectionName}","Summary","Text","${section.summary.replace(/"/g, '""')}"\n`;
-          }
-
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              if (typeof item === 'string') {
-                csv += `"${sectionName}","","Item","${item.replace(/"/g, '""')}"\n`;
-              } else if (item.title) {
-                csv += `"${sectionName}","${item.title}","Item","${(item.description || item.content || '').replace(/"/g, '""')}"\n`;
-              }
-            });
-          }
-
-          if (section.content) {
-            const content = typeof section.content === 'string' ? section.content : JSON.stringify(section.content);
-            csv += `"${sectionName}","","Content","${content.replace(/"/g, '""')}"\n`;
-          }
-
-          if (section.subsections && Array.isArray(section.subsections)) {
-            section.subsections.forEach((sub: any) => {
-              csv += `"${sectionName}","${sub.title || sub.heading}","Subsection","${(sub.content || sub.description || '').replace(/"/g, '""')}"\n`;
-              if (sub.items) {
-                sub.items.forEach((item: any) => {
-                  const itemText = typeof item === 'string' ? item : (item.description || item.title || '');
-                  csv += `"${sectionName}","${sub.title || sub.heading}","Item","${itemText.replace(/"/g, '""')}"\n`;
-                });
-              }
-            });
-          }
-        });
-
-        return csv;
-      }
-
-      case 'markdown': {
-        let md = `# ${structuredData.title || 'Document'}\n\n`;
-
-        if (structuredData.metadata) {
-          md += '---\n';
-          Object.entries(structuredData.metadata).forEach(([key, value]) => {
-            md += `**${key}:** ${value}\n`;
-          });
-          md += '---\n\n';
-        }
-
-        if (structuredData.summary) {
-          md += `## Executive Summary\n\n${structuredData.summary}\n\n`;
-        }
-
-        structuredData.sections?.forEach((section: any) => {
-          md += `## ${section.heading || section.title}\n\n`;
-
-          if (section.summary) {
-            md += `${section.summary}\n\n`;
-          }
-
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              if (typeof item === 'string') {
-                md += `- ${item}\n`;
-              } else if (item.title) {
-                md += `### ${item.title}\n\n`;
-                if (item.description) md += `${item.description}\n\n`;
-                if (item.content) md += `${item.content}\n\n`;
-                if (item.details && Array.isArray(item.details)) {
-                  item.details.forEach((detail: string) => md += `- ${detail}\n`);
-                  md += '\n';
-                }
-              }
-            });
-          }
-
-          if (section.subsections && Array.isArray(section.subsections)) {
-            section.subsections.forEach((sub: any) => {
-              md += `### ${sub.title || sub.heading}\n\n`;
-              if (sub.content) md += `${sub.content}\n\n`;
-              if (sub.items && Array.isArray(sub.items)) {
-                sub.items.forEach((item: any) => {
-                  const itemText = typeof item === 'string' ? item : item.title || item.description;
-                  md += `- ${itemText}\n`;
-                });
-                md += '\n';
-              }
-            });
-          }
-
-          if (section.content && typeof section.content === 'string') {
-            md += `${section.content}\n\n`;
-          }
-        });
-
-        return md;
-      }
-
-      case 'txt': {
-        let txt = `${structuredData.title || 'DOCUMENT'}\n`;
-        txt += '='.repeat((structuredData.title || 'DOCUMENT').length) + '\n\n';
-
-        if (structuredData.summary) {
-          txt += `EXECUTIVE SUMMARY\n\n${structuredData.summary}\n\n`;
-        }
-
-        structuredData.sections?.forEach((section: any) => {
-          txt += `\n${(section.heading || section.title).toUpperCase()}\n`;
-          txt += '-'.repeat((section.heading || section.title).length) + '\n\n';
-
-          if (section.summary) txt += `${section.summary}\n\n`;
-
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any) => {
-              if (typeof item === 'string') {
-                txt += `• ${item}\n`;
-              } else if (item.title) {
-                txt += `\n  ${item.title}\n`;
-                if (item.description) txt += `  ${item.description}\n`;
-                if (item.details) {
-                  item.details.forEach((d: string) => txt += `    - ${d}\n`);
-                }
-              }
-            });
-            txt += '\n';
-          }
-
-          if (section.content) txt += `${section.content}\n\n`;
-        });
-
-        return txt;
-      }
-
-      case 'docx':
-      case 'pdf': {
-        // Professional document format
-        let doc = `${structuredData.title || 'Document'}\n`;
-        doc += '═'.repeat(80) + '\n\n';
-
-        if (structuredData.metadata) {
-          Object.entries(structuredData.metadata).forEach(([key, value]) => {
-            doc += `${key}: ${value}\n`;
-          });
-          doc += '\n' + '─'.repeat(80) + '\n\n';
-        }
-
-        if (structuredData.summary) {
-          doc += `EXECUTIVE SUMMARY\n\n${structuredData.summary}\n\n`;
-          doc += '─'.repeat(80) + '\n\n';
-        }
-
-        structuredData.sections?.forEach((section: any, idx: number) => {
-          doc += `${idx + 1}. ${section.heading || section.title}\n\n`;
-
-          if (section.summary) doc += `   ${section.summary}\n\n`;
-
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach((item: any, itemIdx: number) => {
-              if (typeof item === 'string') {
-                doc += `   • ${item}\n`;
-              } else if (item.title) {
-                doc += `   ${idx + 1}.${itemIdx + 1} ${item.title}\n`;
-                if (item.description) doc += `       ${item.description}\n`;
-                if (item.details && Array.isArray(item.details)) {
-                  item.details.forEach((d: string) => doc += `       ○ ${d}\n`);
-                }
-                doc += '\n';
-              }
-            });
-          }
-
-          if (section.subsections) {
-            section.subsections.forEach((sub: any, subIdx: number) => {
-              doc += `   ${idx + 1}.${subIdx + 1} ${sub.title || sub.heading}\n`;
-              if (sub.content) doc += `       ${sub.content}\n`;
-              if (sub.items) {
-                sub.items.forEach((item: any) => {
-                  const text = typeof item === 'string' ? item : item.title || item.description;
-                  doc += `       • ${text}\n`;
-                });
-              }
-              doc += '\n';
-            });
-          }
-
-          doc += '\n';
-        });
-
-        return doc;
-      }
-
-      default:
-        return JSON.stringify(structuredData, null, 2);
-    }
-  };
 
   const generateDetailedManifest = async (run: any, responses: any[]) => {
     const timestamp = new Date().toLocaleString();
@@ -498,68 +297,52 @@ END OF MANIFEST
       for (const templateId of generateForm.selectedTemplates) {
         const template = templates.find(t => t.id === templateId);
         if (template) {
-          // Create enhanced prompt that requests structured JSON
-          let basePrompt = template.prompt_template
-            .replace('{{project_name}}', context.projectName || '')
-            .replace('{{project_description}}', context.projectDescription || '')
-            .replace('{{transcript}}', context.transcript || '')
-            .replace('{{stakeholder_responses}}', JSON.stringify(context.stakeholderResponses, null, 2))
-            .replace('{{uploads}}', JSON.stringify(context.uploads, null, 2))
-            .replace('{{questions}}', JSON.stringify(context.questions, null, 2));
+          const promptContext: PromptContext = {
+            projectName: context.projectName,
+            projectDescription: context.projectDescription,
+            transcript: context.transcript,
+            stakeholderResponses: context.stakeholderResponses,
+            uploads: context.uploads,
+            questions: context.questions
+          };
 
-          // Request structured JSON output
-          const structuredPrompt = `${basePrompt}
-
-IMPORTANT: Return your response as a valid JSON object with this structure:
-{
-  "title": "Document Title",
-  "metadata": {
-    "project": "${context.projectName}",
-    "date": "${new Date().toLocaleDateString()}",
-    "version": "1.0"
-  },
-  "summary": "2-3 sentence executive summary",
-  "sections": [
-    {
-      "heading": "Section Name",
-      "summary": "Brief section overview",
-      "items": [
-        {
-          "title": "Item Title",
-          "description": "Detailed description",
-          "details": ["detail 1", "detail 2"]
-        }
-      ],
-      "subsections": [
-        {
-          "title": "Subsection Name",
-          "content": "Subsection content",
-          "items": ["item 1", "item 2"]
-        }
-      ]
-    }
-  ]
-}
-
-Make the content comprehensive, professional, and well-organized. Use clear headings and detailed descriptions.`;
+          const structuredPrompt = buildStructuredPrompt(
+            template.prompt_template,
+            promptContext,
+            template.name
+          );
 
           const jsonResponse = await openAIService.generateText(structuredPrompt);
 
-          // Parse JSON response
-          let structuredData;
-          try {
-            // Try to extract JSON if wrapped in markdown code blocks
-            const jsonMatch = jsonResponse.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-            const jsonString = jsonMatch ? jsonMatch[1] : jsonResponse;
-            structuredData = JSON.parse(jsonString);
-          } catch (e) {
-            console.error('Failed to parse JSON, using fallback structure:', e);
-            structuredData = {
+          const structuredData = parseStructuredResponse(jsonResponse);
+
+          if (!structuredData) {
+            console.error('Failed to parse structured response, using fallback');
+            const fallbackData: DocumentStructure = {
               title: template.name,
-              metadata: { project: context.projectName, date: new Date().toLocaleDateString() },
+              metadata: {
+                project: context.projectName || 'Untitled',
+                date: new Date().toLocaleDateString()
+              },
               summary: jsonResponse.substring(0, 200),
               sections: [{ heading: "Content", content: jsonResponse }]
             };
+
+            const selectedFormats = generateForm.templateFormats[templateId] || [template.output_format];
+            for (const format of selectedFormats) {
+              const extension = format === 'markdown' ? 'md' : format;
+              const fileName = `${template.name}.${extension}`;
+              const formattedContent = formatDocument(fallbackData, format);
+
+              filesToSave.push({
+                document_run_id: run.id,
+                file_name: fileName,
+                file_path: `${folderPath}/${fileName}`,
+                file_type: format,
+                content: formattedContent
+              });
+            }
+            continue;
           }
 
           // Generate file for each selected format
@@ -567,7 +350,7 @@ Make the content comprehensive, professional, and well-organized. Use clear head
           for (const format of selectedFormats) {
             const extension = format === 'markdown' ? 'md' : format;
             const fileName = `${template.name}.${extension}`;
-            const formattedContent = formatStructuredData(structuredData, format);
+            const formattedContent = formatDocument(structuredData, format);
 
             filesToSave.push({
               document_run_id: run.id,
@@ -582,61 +365,41 @@ Make the content comprehensive, professional, and well-organized. Use clear head
 
       // Generate custom document if requested
       if (generateForm.includeCustom && generateForm.customPrompt) {
-        const structuredPrompt = `${generateForm.customPrompt}
+        const promptContext: PromptContext = {
+          projectName: context.projectName,
+          projectDescription: context.projectDescription,
+          transcript: context.transcript,
+          stakeholderResponses: context.stakeholderResponses,
+          uploads: context.uploads,
+          questions: context.questions
+        };
 
-Context:
-${JSON.stringify(context, null, 2)}
-
-IMPORTANT: Return your response as a valid JSON object with this structure:
-{
-  "title": "${generateForm.customName || 'Custom Document'}",
-  "metadata": {
-    "project": "${context.projectName}",
-    "date": "${new Date().toLocaleDateString()}",
-    "version": "1.0"
-  },
-  "summary": "Brief overview of the document",
-  "sections": [
-    {
-      "heading": "Section Name",
-      "summary": "Section overview",
-      "items": [
-        {
-          "title": "Item Title",
-          "description": "Description",
-          "details": ["detail 1", "detail 2"]
-        }
-      ]
-    }
-  ]
-}
-
-Make it comprehensive, professional, and well-structured.`;
+        const structuredPrompt = createCustomDocumentPrompt(
+          generateForm.customPrompt,
+          promptContext,
+          generateForm.customName || 'Custom Document'
+        );
 
         const jsonResponse = await openAIService.generateText(structuredPrompt);
 
-        // Parse JSON response
-        let structuredData;
-        try {
-          const jsonMatch = jsonResponse.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
-          const jsonString = jsonMatch ? jsonMatch[1] : jsonResponse;
-          structuredData = JSON.parse(jsonString);
-        } catch (e) {
-          console.error('Failed to parse custom JSON, using fallback:', e);
-          structuredData = {
-            title: generateForm.customName || 'Custom Document',
-            metadata: { project: context.projectName, date: new Date().toLocaleDateString() },
-            summary: jsonResponse.substring(0, 200),
-            sections: [{ heading: "Content", content: jsonResponse }]
-          };
-        }
+        const structuredData = parseStructuredResponse(jsonResponse);
+
+        const dataToUse: DocumentStructure = structuredData || {
+          title: generateForm.customName || 'Custom Document',
+          metadata: {
+            project: context.projectName || 'Untitled',
+            date: new Date().toLocaleDateString()
+          },
+          summary: jsonResponse.substring(0, 200),
+          sections: [{ heading: "Content", content: jsonResponse }]
+        };
 
         // Generate file for each selected custom format
         const selectedFormats = generateForm.customFormats.length > 0 ? generateForm.customFormats : ['markdown'];
         for (const format of selectedFormats) {
           const extension = format === 'markdown' ? 'md' : format;
           const fileName = `${generateForm.customName || 'custom'}.${extension}`;
-          const formattedContent = formatStructuredData(structuredData, format);
+          const formattedContent = formatDocument(dataToUse, format);
 
           filesToSave.push({
             document_run_id: run.id,
