@@ -6,6 +6,7 @@ import { Badge } from '../ui/Badge';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { openAIService } from '../../services/openai';
+import { buildAIContext, buildSidekickPrompt, type AIContextData } from '../../utils/aiContextBuilder';
 
 interface Message {
   id: string;
@@ -588,566 +589,72 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
     };
 
     setMessages([...messages, userMessage]);
+    const userQuery = input;
     setInput('');
     setLoading(true);
 
     try {
-      // Intelligent query categorization
-      const lowerInput = input.toLowerCase();
-      const queryCategories = {
-        stakeholders: /stakeholder|who (are|is)|people|team member|participant/i.test(input),
-        overview: /overview|summary|about|describe|what is|project detail|status|goal|objective|purpose|description/i.test(input),
-        interviews: /interview|session|answered|responded|completion|progress/i.test(input),
-        questions: /question|ask|inquiry/i.test(input),
-        responses: /response|answer|said|mentioned|feedback|opinion/i.test(input),
-        documents: /document|file|upload|template|generated/i.test(input),
-        exports: /export|download|output/i.test(input),
-        timeline: /when|date|timeline|schedule|deadline|created|uploaded|added|completed/i.test(input),
-        client: /client|company|customer|how many project|other project/i.test(input)
+      // Load comprehensive project data
+      const { data: project } = await supabase
+        .from('projects')
+        .select('*, clients(*)')
+        .eq('id', projectId)
+        .single();
+
+      const { data: stakeholders } = await supabase
+        .from('stakeholders')
+        .select('*')
+        .eq('project_id', projectId);
+
+      const { data: responses } = await supabase
+        .from('interview_responses')
+        .select('*, stakeholders(*), questions(*)')
+        .eq('project_id', projectId);
+
+      const { data: uploads } = await supabase
+        .from('project_uploads')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('include_in_generation', true);
+
+      const { data: questions } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('project_id', projectId);
+
+      // Build unified AI context
+      const contextData: AIContextData = {
+        project,
+        client: project?.clients,
+        stakeholders: stakeholders || [],
+        responses: responses || [],
+        uploads: uploads || [],
+        questions: questions || []
       };
 
-      // Build comprehensive context using hybrid approach
-      let context: any[] = [];
-      let directDataFetched = false;
+      const aiContext = buildAIContext(contextData);
+      const prompt = buildSidekickPrompt(userQuery, aiContext);
 
-      // ALWAYS fetch project overview as baseline context
-      {
-        const { data: project } = await supabase
-          .from('projects')
-          .select('name, description, status, start_date, target_completion_date, created_at, updated_at, transcript')
-          .eq('id', projectId)
-          .single();
-
-        if (project) {
-          const startDate = project.start_date ? new Date(project.start_date).toLocaleDateString() : 'Not set';
-          const targetDate = project.target_completion_date ? new Date(project.target_completion_date).toLocaleDateString() : 'Not set';
-          const createdDate = new Date(project.created_at).toLocaleDateString();
-          const updatedDate = new Date(project.updated_at).toLocaleDateString();
-
-          context.push({
-            text: `Project: ${project.name}\nStatus: ${project.status}\nDescription: ${project.description || 'No description'}\nGoal/Objective: ${project.description || 'Not specified'}\nStart Date: ${startDate}\nDue Date / Target Completion: ${targetDate}\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`,
-            metadata: { project_name: project.name, status: project.status, target_completion_date: project.target_completion_date, description: project.description },
-            type: 'project_overview'
-          });
-
-          if (project.transcript) {
-            context.push({
-              text: `Kickoff Transcript:\n${project.transcript}`,
-              metadata: { source: 'Kickoff meeting' },
-              type: 'kickoff_transcript'
-            });
-          }
-        }
-      }
-
-      // Strategy 1: Direct data fetching for specific entity queries
-      if (queryCategories.stakeholders || queryCategories.timeline || queryCategories.interviews) {
-        directDataFetched = true;
-
-        // Get stakeholders with their interview response counts
-        const { data: stakeholders } = await supabase
-          .from('stakeholders')
-          .select(`
-            *,
-            interview_responses(count)
-          `)
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: true });
-
-        if (stakeholders && stakeholders.length > 0) {
-          // Create summary lists for quick answers
-          const respondedStakeholders: any[] = [];
-          const notRespondedStakeholders: any[] = [];
-
-          stakeholders.forEach(s => {
-            const addedDate = new Date(s.created_at).toLocaleString();
-            const updatedDate = new Date(s.updated_at).toLocaleString();
-            const responseCount = s.interview_responses?.[0]?.count || 0;
-            const hasResponded = responseCount > 0 || s.status === 'responded' || s.status === 'completed';
-
-            // Track responded vs not responded
-            if (hasResponded) {
-              respondedStakeholders.push({ name: s.name, role: s.role, count: responseCount });
-            } else {
-              notRespondedStakeholders.push({ name: s.name, role: s.role, status: s.status });
-            }
-
-            context.push({
-              text: `Stakeholder: ${s.name}\nRole: ${s.role}\nDepartment: ${s.department}\nEmail: ${s.email || 'Not provided'}\nPhone: ${s.phone || 'Not provided'}\nStatus: ${s.status}\nResponse Status: ${hasResponded ? `Has responded (${responseCount} responses)` : 'Has not responded yet'}\nSeniority: ${s.seniority || 'Not specified'}\nExperience: ${s.experience_years ? `${s.experience_years} years` : 'Not specified'}\nAdded to Project: ${addedDate}\nLast Updated: ${updatedDate}`,
-              metadata: {
-                stakeholder_id: s.id,
-                stakeholder_name: s.name,
-                role: s.role,
-                department: s.department,
-                status: s.status,
-                response_count: responseCount,
-                has_responded: hasResponded,
-                created_at: s.created_at,
-                updated_at: s.updated_at
-              },
-              type: 'stakeholder_info'
-            });
-          });
-
-          // Add summary context for response status queries
-          if (respondedStakeholders.length > 0) {
-            const respondedList = respondedStakeholders
-              .map(s => `  - ${s.name} (${s.role}): ${s.count} responses`)
-              .join('\n');
-
-            context.push({
-              text: `STAKEHOLDERS WHO HAVE RESPONDED (${respondedStakeholders.length}):\n${respondedList}`,
-              metadata: {
-                responded_count: respondedStakeholders.length,
-                responded_names: respondedStakeholders.map(s => s.name)
-              },
-              type: 'response_summary'
-            });
-          }
-
-          if (notRespondedStakeholders.length > 0) {
-            const notRespondedList = notRespondedStakeholders
-              .map(s => `  - ${s.name} (${s.role}): ${s.status}`)
-              .join('\n');
-
-            context.push({
-              text: `STAKEHOLDERS WHO HAVE NOT RESPONDED (${notRespondedStakeholders.length}):\n${notRespondedList}`,
-              metadata: {
-                not_responded_count: notRespondedStakeholders.length,
-                not_responded_names: notRespondedStakeholders.map(s => s.name)
-              },
-              type: 'response_summary'
-            });
-          }
-
-          // Add overall summary
-          context.push({
-            text: `RESPONSE STATUS SUMMARY:\nTotal Stakeholders: ${stakeholders.length}\nHave Responded: ${respondedStakeholders.length}\nNot Responded: ${notRespondedStakeholders.length}\nResponse Rate: ${Math.round((respondedStakeholders.length / stakeholders.length) * 100)}%`,
-            metadata: {
-              total: stakeholders.length,
-              responded: respondedStakeholders.length,
-              not_responded: notRespondedStakeholders.length,
-              response_rate: Math.round((respondedStakeholders.length / stakeholders.length) * 100)
-            },
-            type: 'response_summary'
-          });
-        }
-      }
-
-      if (queryCategories.overview || queryCategories.timeline) {
-        directDataFetched = true;
-        // Project overview already fetched above as baseline context
-      }
-
-      if (queryCategories.interviews || queryCategories.timeline) {
-        directDataFetched = true;
-        const { data: sessions } = await supabase
-          .from('interview_sessions')
-          .select(`*, stakeholders!inner(id, name, role, department)`)
-          .eq('project_id', projectId)
-          .order('updated_at', { ascending: false });
-
-        if (sessions && sessions.length > 0) {
-          // Group sessions by stakeholder for summary
-          const sessionsByStakeholder: Record<string, any[]> = {};
-          const completedSessions: any[] = [];
-          const incompleteSessions: any[] = [];
-
-          for (const s of sessions) {
-            const createdDate = new Date(s.created_at).toLocaleString();
-            const updatedDate = new Date(s.updated_at).toLocaleString();
-            const completionPct = s.total_questions > 0 ? Math.round((s.answered_questions / s.total_questions) * 100) : 0;
-            const isComplete = s.status === 'completed' || completionPct === 100;
-            const isPartial = s.answered_questions > 0 && !isComplete;
-            const isNotStarted = s.answered_questions === 0;
-            const completionDate = isComplete ? updatedDate : 'Not completed';
-
-            let sessionText = `Interview: ${s.interview_name}\nStakeholder: ${s.stakeholders.name} (${s.stakeholders.role}, ${s.stakeholders.department})\nQuestions: ${s.total_questions}\nAnswered: ${s.answered_questions}\nStatus: ${s.status}\nCompletion: ${completionPct}%`;
-
-            if (isComplete) {
-              sessionText += `\nCompleted: ${completionDate}`;
-            } else if (isPartial) {
-              sessionText += `\nProgress: Partially completed (${s.answered_questions}/${s.total_questions} questions answered)`;
-            } else if (isNotStarted) {
-              sessionText += `\nProgress: Not started yet`;
-            }
-
-            sessionText += `\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`;
-
-            context.push({
-              text: sessionText,
-              metadata: {
-                session_id: s.id,
-                interview_name: s.interview_name,
-                stakeholder_id: s.stakeholder_id,
-                stakeholder_name: s.stakeholders.name,
-                total_questions: s.total_questions,
-                answered_questions: s.answered_questions,
-                completion_percentage: completionPct,
-                status: s.status,
-                created_at: s.created_at,
-                updated_at: s.updated_at,
-                is_complete: isComplete,
-                is_partial: isPartial,
-                is_not_started: isNotStarted
-              },
-              type: 'interview_session'
-            });
-
-            // Group by stakeholder
-            if (!sessionsByStakeholder[s.stakeholder_id]) {
-              sessionsByStakeholder[s.stakeholder_id] = [];
-            }
-            sessionsByStakeholder[s.stakeholder_id].push({
-              name: s.interview_name,
-              answered: s.answered_questions,
-              total: s.total_questions,
-              percentage: completionPct,
-              isComplete,
-              isPartial,
-              isNotStarted
-            });
-
-            // Track completion status
-            if (isComplete) {
-              completedSessions.push({ stakeholder: s.stakeholders.name, interview: s.interview_name });
-            } else {
-              incompleteSessions.push({
-                stakeholder: s.stakeholders.name,
-                interview: s.interview_name,
-                answered: s.answered_questions,
-                total: s.total_questions,
-                percentage: completionPct,
-                isPartial,
-                isNotStarted
-              });
-            }
-
-            // If asking about completion or timeline, get the actual response timestamps
-            if (queryCategories.timeline && s.answered_questions > 0) {
-              const { data: responses } = await supabase
-                .from('interview_responses')
-                .select('response_text, created_at, updated_at')
-                .eq('interview_session_id', s.id)
-                .order('created_at', { ascending: true });
-
-              if (responses && responses.length > 0) {
-                const firstResponse = new Date(responses[0].created_at).toLocaleString();
-                const lastResponse = new Date(responses[responses.length - 1].created_at).toLocaleString();
-
-                context.push({
-                  text: `${s.stakeholders.name}'s Response Timeline for "${s.interview_name}":\nFirst Response: ${firstResponse}\nLast Response: ${lastResponse}\nTotal Responses: ${responses.length}\nTime Span: ${responses.length > 1 ? 'Multiple sessions' : 'Single session'}`,
-                  metadata: {
-                    session_id: s.id,
-                    interview_name: s.interview_name,
-                    stakeholder_name: s.stakeholders.name,
-                    first_response: responses[0].created_at,
-                    last_response: responses[responses.length - 1].created_at,
-                    response_count: responses.length
-                  },
-                  type: 'response_timeline'
-                });
-              }
-            }
-          }
-
-          // Add per-stakeholder interview summary
-          Object.entries(sessionsByStakeholder).forEach(([stakeholderId, interviews]) => {
-            const stakeholder = sessions.find(s => s.stakeholder_id === stakeholderId)?.stakeholders;
-            if (!stakeholder) return;
-
-            const completed = interviews.filter(i => i.isComplete).length;
-            const partial = interviews.filter(i => i.isPartial).length;
-            const notStarted = interviews.filter(i => i.isNotStarted).length;
-
-            let summaryText = `${stakeholder.name}'s Interview Summary:\nTotal Interviews: ${interviews.length}\nCompleted: ${completed}\nPartially Complete: ${partial}\nNot Started: ${notStarted}\n\nBreakdown by Interview:`;
-
-            interviews.forEach(i => {
-              let status = 'Not started';
-              if (i.isComplete) status = `Completed (100%)`;
-              else if (i.isPartial) status = `Partial (${i.percentage}% - ${i.answered}/${i.total} questions)`;
-
-              summaryText += `\n  - ${i.name}: ${status}`;
-            });
-
-            context.push({
-              text: summaryText,
-              metadata: {
-                stakeholder_id: stakeholderId,
-                stakeholder_name: stakeholder.name,
-                total_interviews: interviews.length,
-                completed_interviews: completed,
-                partial_interviews: partial,
-                not_started_interviews: notStarted
-              },
-              type: 'stakeholder_interview_summary'
-            });
-          });
-
-          // Add completion status summary
-          if (completedSessions.length > 0) {
-            const completedList = completedSessions
-              .map(s => `  - ${s.stakeholder}: "${s.interview}"`)
-              .join('\n');
-
-            context.push({
-              text: `COMPLETED INTERVIEWS (${completedSessions.length}):\n${completedList}`,
-              metadata: { completed_count: completedSessions.length },
-              type: 'interview_completion_summary'
-            });
-          }
-
-          if (incompleteSessions.length > 0) {
-            const incompleteList = incompleteSessions
-              .map(s => {
-                if (s.isNotStarted) {
-                  return `  - ${s.stakeholder}: "${s.interview}" - Not started (0%)`;
-                } else {
-                  return `  - ${s.stakeholder}: "${s.interview}" - ${s.percentage}% complete (${s.answered}/${s.total} questions)`;
-                }
-              })
-              .join('\n');
-
-            context.push({
-              text: `INCOMPLETE INTERVIEWS (${incompleteSessions.length}):\n${incompleteList}`,
-              metadata: { incomplete_count: incompleteSessions.length },
-              type: 'interview_completion_summary'
-            });
-          }
-        }
-      }
-
-      if (queryCategories.documents || queryCategories.timeline) {
-        directDataFetched = true;
-        const { data: docs } = await supabase
-          .from('documents')
-          .select('id, title, type, status, version, created_at, updated_at')
-          .eq('project_id', projectId)
-          .order('updated_at', { ascending: false })
-          .limit(10);
-
-        docs?.forEach(d => {
-          const createdDate = new Date(d.created_at).toLocaleString();
-          const updatedDate = new Date(d.updated_at).toLocaleString();
-          context.push({
-            text: `Document: ${d.title}\nType: ${d.type}\nStatus: ${d.status}\nVersion: ${d.version || 1}\nCreated: ${createdDate}\nLast Updated: ${updatedDate}`,
-            metadata: { document_id: d.id, title: d.title, type: d.type, created_at: d.created_at, updated_at: d.updated_at },
-            type: 'document'
-          });
-        });
-
-        const { data: uploads } = await supabase
-          .from('project_uploads')
-          .select('*')
-          .eq('project_id', projectId)
-          .eq('include_in_generation', true)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        uploads?.forEach(u => {
-          const uploadedDate = new Date(u.created_at).toLocaleString();
-          context.push({
-            text: `File Upload: ${u.file_name}\nType: ${u.upload_type}\nSize: ${(u.file_size / 1024).toFixed(2)} KB\nDescription: ${u.description || 'No description'}\nUploaded: ${uploadedDate}\nUploaded By User ID: ${u.uploaded_by}`,
-            metadata: { upload_id: u.id, file_name: u.file_name, upload_type: u.upload_type, created_at: u.created_at, uploaded_by: u.uploaded_by },
-            type: 'upload'
-          });
-        });
-      }
-
-      if (queryCategories.exports || queryCategories.timeline) {
-        directDataFetched = true;
-        const { data: exports } = await supabase
-          .from('project_exports')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        exports?.forEach(e => {
-          const createdDate = new Date(e.created_at).toLocaleString();
-          context.push({
-            text: `Export: ${e.file_name || 'Unnamed'}\nFormat: ${e.export_format}\nType: ${e.export_type}\nStatus: ${e.status}\nSize: ${e.file_size ? (e.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'N/A'}\nCreated: ${createdDate}`,
-            metadata: { export_id: e.id, export_format: e.export_format, status: e.status, created_at: e.created_at },
-            type: 'project_export'
-          });
-        });
-      }
-
-      if (queryCategories.client) {
-        directDataFetched = true;
-
-        // Get current project's client info
-        const { data: currentProject } = await supabase
-          .from('projects')
-          .select('client_company_id, companies(id, name)')
-          .eq('id', projectId)
-          .single();
-
-        if (currentProject?.companies) {
-          const clientName = currentProject.companies.name;
-          const clientId = currentProject.companies.id;
-
-          // Get all projects for this client
-          const { data: clientProjects } = await supabase
-            .from('projects')
-            .select('id, name, status, created_at, target_completion_date, updated_at')
-            .eq('client_company_id', clientId)
-            .order('created_at', { ascending: false });
-
-          if (clientProjects && clientProjects.length > 0) {
-            const projectsList = clientProjects.map(p => {
-              const created = new Date(p.created_at).toLocaleString();
-              const dueDate = p.target_completion_date ? new Date(p.target_completion_date).toLocaleDateString() : 'Not set';
-              return `  - ${p.name} (${p.status}) - Created: ${created}, Due: ${dueDate}`;
-            }).join('\n');
-
-            context.push({
-              text: `Client: ${clientName}\nTotal Projects: ${clientProjects.length}\n\nAll Projects for ${clientName}:\n${projectsList}`,
-              metadata: {
-                client_name: clientName,
-                client_id: clientId,
-                total_projects: clientProjects.length,
-                projects: clientProjects
-              },
-              type: 'client_history'
-            });
-
-            // Add time-based analysis
-            const now = new Date();
-            const lastYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-            const last6Months = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
-            const last3Months = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-
-            const projectsLastYear = clientProjects.filter(p => new Date(p.created_at) >= lastYear).length;
-            const projectsLast6Months = clientProjects.filter(p => new Date(p.created_at) >= last6Months).length;
-            const projectsLast3Months = clientProjects.filter(p => new Date(p.created_at) >= last3Months).length;
-
-            context.push({
-              text: `${clientName} Project Activity:\nLast 3 months: ${projectsLast3Months} project(s)\nLast 6 months: ${projectsLast6Months} project(s)\nLast 12 months: ${projectsLastYear} project(s)\nAll time: ${clientProjects.length} project(s)`,
-              metadata: {
-                client_name: clientName,
-                last_3_months: projectsLast3Months,
-                last_6_months: projectsLast6Months,
-                last_year: projectsLastYear,
-                all_time: clientProjects.length
-              },
-              type: 'client_activity'
-            });
-          }
-        }
-      }
-
-      // Strategy 2: Semantic search for responses and content-heavy queries
-      const needsSemanticSearch = queryCategories.responses || queryCategories.questions || !directDataFetched;
-
-      if (needsSemanticSearch) {
-        const queryEmbedding = await openAIService.generateEmbedding(input);
-        const matchCount = directDataFetched ? 5 : 10;
-        const matchThreshold = 0.65;
-
-        const { data: searchResults } = await supabase.rpc('search_project_vectors', {
-          search_project_id: projectId,
-          query_embedding: queryEmbedding,
-          match_threshold: matchThreshold,
-          match_count: matchCount
-        });
-
-        const vectorContext = searchResults?.map((result: any) => ({
-          text: result.chunk_text,
-          metadata: result.metadata,
-          type: result.source_type
-        })) || [];
-
-        // Merge with existing context, avoiding duplicates
-        const existingIds = new Set(context.map(c => c.metadata?.stakeholder_id || c.metadata?.session_id || c.metadata?.document_id).filter(Boolean));
-
-        vectorContext.forEach(vc => {
-          const id = vc.metadata?.stakeholder_id || vc.metadata?.session_id || vc.metadata?.document_id;
-          if (!id || !existingIds.has(id)) {
-            context.push(vc);
-          }
-        });
-      }
-
-      // Limit total context to prevent token overflow
-      if (context.length > 20) {
-        context = context.slice(0, 20);
-      }
-
-      // Build sources for display with better naming
-      const sources: Source[] = context.map((c: any, i: number) => {
-        let name = 'Project Info';
-
-        if (c.type === 'interview_response') {
-          name = `${c.metadata.stakeholder_name} - ${c.metadata.question_category || 'Response'}`;
-        } else if (c.type === 'stakeholder_info') {
-          name = `${c.metadata.stakeholder_name} (${c.metadata.role})`;
-        } else if (c.type === 'interview_session') {
-          name = `Session: ${c.metadata.interview_name}`;
-        } else if (c.type === 'question') {
-          name = `Question: ${c.metadata.category}`;
-        } else if (c.type === 'document') {
-          name = `Doc: ${c.metadata.title}`;
-        } else if (c.type === 'document_run') {
-          name = `Generated: ${c.metadata.template_name}`;
-        } else if (c.type === 'document_template') {
-          name = `Template: ${c.metadata.template_name}`;
-        } else if (c.type === 'project_export') {
-          name = `Export: ${c.metadata.export_format}`;
-        } else if (c.type === 'transcription') {
-          name = `Transcript: ${c.metadata.file_url?.split('/').pop() || 'Audio/Video'}`;
-        } else if (c.type === 'upload') {
-          name = `File: ${c.metadata.file_name}`;
-        } else if (c.type === 'project_overview') {
-          name = 'Project Overview';
-        } else if (c.type === 'kickoff_transcript') {
-          name = 'Kickoff Transcript';
-        }
-
-        return {
-          type: c.type,
-          name,
-          excerpt: c.text.slice(0, 150) + '...',
-          sourceId: `source-${i}`
-        };
-      });
-
-      // Generate response using GPT with context
-      const systemPrompt = `You are an accurate and helpful project assistant. Answer questions using ONLY the provided context below.
-
-CONTEXT PROVIDED (${context.length} items):
-${context.map((c: any, i: number) => `[${i + 1}] ${c.type}:\n${c.text}`).join('\n\n---\n\n')}
-
-INSTRUCTIONS:
-1. Answer accurately based on the context above
-2. Be specific: mention WHO (names, roles), WHAT (actions, responses), and WHEN (dates, times)
-3. If comparing or listing multiple items, be comprehensive - don't skip any
-4. If the context contains stakeholder lists, interview sessions, or documents, include ALL of them in your response
-5. When discussing completeness (e.g., "who hasn't responded"), use the complete lists in the context
-6. If information is not in the context, clearly state "I don't have information about [topic] in the current project data"
-7. Do NOT make assumptions or add information not in the context
-8. Format lists clearly with bullet points or numbers when appropriate`;
-
+      // Get AI response
       const assistantResponse = await openAIService.chat([
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: input }
+        { role: 'user', content: prompt }
       ]);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: assistantResponse,
-        sources: sources.length > 0 ? sources : undefined,
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error('Error getting response:', error);
+
+    } catch (err) {
+      console.error('Error in sidekick:', err);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request.',
+        content: 'Sorry, I encountered an error processing your request. Please make sure your OpenAI API key is configured in Settings.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

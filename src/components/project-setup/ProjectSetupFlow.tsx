@@ -53,7 +53,6 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     description: '',
     stakeholders: [] as Stakeholder[],
     questions: [] as Question[],
-    selectedDocumentTypes: [] as string[],
     status: 'Setup'
   });
 
@@ -190,22 +189,19 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
 
       if (documentsError) throw documentsError;
 
-      const selectedDocumentTypes = [...new Set(documents?.map(d => d.type) || [])];
-
       // Update state
       setProjectData({
         transcript: project?.transcript || '',
         description: project?.description || '',
         stakeholders: stakeholders || [],
         questions: questions || [],
-        selectedDocumentTypes,
         status: project?.status || 'Setup'
       });
 
       setTranscriptInput(project?.transcript || '');
 
       // Determine current step based on data
-      const step = determineCurrentStep(project, stakeholders, questions, selectedDocumentTypes);
+      const step = determineCurrentStep(project, stakeholders, questions);
       setCurrentStep(step);
 
       console.log('✅ Project data loaded, starting at step:', step);
@@ -218,21 +214,18 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     }
   };
 
-  const determineCurrentStep = (project: any, stakeholders: any[], questions: any[], documentTypes: string[]) => {
+  const determineCurrentStep = (project: any, stakeholders: any[], questions: any[]) => {
     // If no transcript, start at step 1
     if (!project?.transcript) return 1;
-    
+
     // If transcript but no stakeholders, go to step 2
     if (!stakeholders?.length) return 2;
-    
-    // If stakeholders but no document types selected, go to step 3
-    if (!documentTypes?.length) return 3;
-    
-    // If document types but no questions, go to step 4
-    if (!questions?.length) return 4;
-    
-    // Everything is complete, go to step 5 (review)
-    return 5;
+
+    // If stakeholders but no questions, go to step 3
+    if (!questions?.length) return 3;
+
+    // Everything is complete, go to step 4 (review)
+    return 4;
   };
 
   const saveProjectData = async (updates: Partial<typeof projectData>) => {
@@ -666,9 +659,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
   const steps = [
     { id: 1, title: 'Upload Transcript', icon: Upload },
     { id: 2, title: 'Project Overview', icon: FileText },
-    { id: 3, title: 'Document Types', icon: FileText },
-    { id: 4, title: 'Questions', icon: MessageSquare },
-    { id: 5, title: 'Review & Complete', icon: Check }
+    { id: 3, title: 'Questions', icon: MessageSquare },
+    { id: 4, title: 'Review & Complete', icon: Check }
   ];
 
   const documentTypes = [
@@ -1080,25 +1072,25 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                 <Button variant="outline" onClick={() => setCurrentStep(1)}>
                   Back
                 </Button>
-                <Button 
+                <Button
                   onClick={() => setCurrentStep(3)}
                   disabled={projectData.stakeholders.length === 0}
                 >
-                  Continue to Document Types
+                  Continue to Questions
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Step 3: Document Types */}
+          {/* Step 3: Questions */}
           {currentStep === 3 && (
             <div>
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FileText className="h-8 w-8 text-purple-600" />
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <MessageSquare className="h-8 w-8 text-yellow-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Document Types</h2>
-                <p className="text-gray-600">Select which documents you'd like to generate for this project</p>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Questions</h2>
+                <p className="text-gray-600">Generate or add questions for stakeholder interviews</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
