@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { ApiKeySetup } from '../components/ui/ApiKeySetup';
+import { CloudConvertKeySetup } from '../components/ui/CloudConvertKeySetup';
 import { SubscriptionManager } from '../components/subscription/SubscriptionManager';
 import { useAuth } from '../hooks/useAuth';
 import { useOpenAI } from '../hooks/useOpenAI';
@@ -17,11 +18,15 @@ export const Settings: React.FC = () => {
   const { hasApiKey, loading: apiKeyLoading } = useOpenAI();
   const [activeTab, setActiveTab] = useState('profile');
   const [showApiKeySetup, setShowApiKeySetup] = useState(false);
+  const [showCloudConvertSetup, setShowCloudConvertSetup] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cloudConvertKey, setCloudConvertKey] = useState('');
+  const [hasCloudConvertKey, setHasCloudConvertKey] = useState(false);
+  const [loadingCloudConvert, setLoadingCloudConvert] = useState(true);
   const isDark = false; // Always light mode
   const [profileData, setProfileData] = useState({
     fullName: user?.fullName || '',
@@ -53,8 +58,65 @@ export const Settings: React.FC = () => {
         website: '',
         description: ''
       });
+      loadCloudConvertKey();
     }
   }, [user]);
+
+  // Load CloudConvert API key
+  const loadCloudConvertKey = async () => {
+    if (!user) return;
+
+    setLoadingCloudConvert(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('cloudconvert_api_key')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading CloudConvert key:', error);
+      }
+
+      if (data?.cloudconvert_api_key) {
+        setCloudConvertKey(data.cloudconvert_api_key);
+        setHasCloudConvertKey(true);
+      } else {
+        setHasCloudConvertKey(false);
+      }
+    } catch (err) {
+      console.error('Error loading CloudConvert key:', err);
+    } finally {
+      setLoadingCloudConvert(false);
+    }
+  };
+
+  // Save CloudConvert API key
+  const saveCloudConvertKey = async (key: string) => {
+    if (!user) return false;
+
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: user.id,
+          cloudconvert_api_key: key || null,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      setCloudConvertKey(key);
+      setHasCloudConvertKey(!!key);
+      return true;
+    } catch (err: any) {
+      console.error('Error saving CloudConvert key:', err);
+      alert(err.message || 'Failed to save CloudConvert API key');
+      return false;
+    }
+  };
 
   const planOptions = [
     { value: 'pro', label: 'Pro Plan' },
@@ -266,29 +328,30 @@ export const Settings: React.FC = () => {
       case 'integrations':
         return (
           <div className="space-y-6">
-            <Card className={hasApiKey 
+            {/* OpenAI Section */}
+            <Card className={hasApiKey
               ? isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
               : isDark ? 'bg-yellow-900/20 border-yellow-500/30' : 'bg-yellow-50 border-yellow-200'
             }>
               <div className="flex items-center">
                 <Key className={`h-5 w-5 mr-2 ${
-                  hasApiKey 
+                  hasApiKey
                     ? isDark ? 'text-primary-400' : 'text-primary-600'
                     : isDark ? 'text-yellow-400' : 'text-yellow-600'
                 }`} />
                 <p className={`text-sm ${
-                  hasApiKey 
+                  hasApiKey
                     ? isDark ? 'text-primary-300' : 'text-primary-800'
                     : isDark ? 'text-yellow-300' : 'text-yellow-800'
                 }`}>
-                  {hasApiKey 
+                  {hasApiKey
                     ? 'OpenAI API key is configured. All AI features are available.'
                     : 'OpenAI API key is required for AI features like transcription and document generation.'
                   }
                 </p>
               </div>
             </Card>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <h4 className={`font-medium ${
@@ -309,6 +372,54 @@ export const Settings: React.FC = () => {
               >
                 {hasApiKey ? 'Update API Key' : 'Set Up API Key'}
               </Button>
+            </div>
+
+            {/* CloudConvert Section */}
+            <div className="border-t border-gray-200 pt-6">
+              <Card className={hasCloudConvertKey
+                ? isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
+                : isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'
+              }>
+                <div className="flex items-center">
+                  <Key className={`h-5 w-5 mr-2 ${
+                    hasCloudConvertKey
+                      ? isDark ? 'text-primary-400' : 'text-primary-600'
+                      : isDark ? 'text-blue-400' : 'text-blue-600'
+                  }`} />
+                  <p className={`text-sm ${
+                    hasCloudConvertKey
+                      ? isDark ? 'text-primary-300' : 'text-primary-800'
+                      : isDark ? 'text-blue-300' : 'text-blue-800'
+                  }`}>
+                    {hasCloudConvertKey
+                      ? 'CloudConvert API key is configured. Automatic video conversion is enabled.'
+                      : 'CloudConvert API key enables automatic video format conversion (WebM → MP4).'
+                    }
+                  </p>
+                </div>
+              </Card>
+
+              <div className="flex items-center justify-between mt-4">
+                <div>
+                  <h4 className={`font-medium ${
+                    isDark ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    CloudConvert API Key
+                  </h4>
+                  <p className={`text-sm ${
+                    isDark ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    {hasCloudConvertKey ? 'API key is configured - 25 free conversions/day' : 'Optional - enables universal video compatibility'}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCloudConvertSetup(true)}
+                  loading={loadingCloudConvert}
+                >
+                  {hasCloudConvertKey ? 'Update API Key' : 'Set Up API Key'}
+                </Button>
+              </div>
             </div>
             
             <div className="space-y-4">
@@ -458,6 +569,21 @@ export const Settings: React.FC = () => {
           // Optionally show a success message or refresh data
         }}
       />
+
+      {/* CloudConvert API Key Setup Modal */}
+      <Modal
+        isOpen={showCloudConvertSetup}
+        onClose={() => setShowCloudConvertSetup(false)}
+        title="CloudConvert API Key Setup"
+        size="lg"
+      >
+        <CloudConvertKeySetup
+          cloudConvertKey={cloudConvertKey}
+          hasCloudConvertKey={hasCloudConvertKey}
+          onSave={saveCloudConvertKey}
+          onClose={() => setShowCloudConvertSetup(false)}
+        />
+      </Modal>
 
       {/* Upgrade Plan Modal */}
       <Modal

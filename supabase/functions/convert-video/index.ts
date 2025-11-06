@@ -24,16 +24,38 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const cloudConvertApiKey = Deno.env.get('CLOUDCONVERT_API_KEY');
-
-    if (!cloudConvertApiKey) {
-      throw new Error('CLOUDCONVERT_API_KEY not configured');
-    }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { videoId, sourceUrl, sourceFormat }: ConversionRequest = await req.json();
 
     console.log(`🎬 Starting conversion for video ${videoId}: ${sourceFormat} → MP4`);
+
+    // Get the video to find the user who uploaded it
+    const { data: videoData, error: videoError } = await supabase
+      .from('project_intro_videos')
+      .select('created_by')
+      .eq('id', videoId)
+      .single();
+
+    if (videoError || !videoData) {
+      throw new Error('Video not found');
+    }
+
+    // Get user's CloudConvert API key
+    const { data: settingsData, error: settingsError } = await supabase
+      .from('user_settings')
+      .select('cloudconvert_api_key')
+      .eq('user_id', videoData.created_by)
+      .maybeSingle();
+
+    // Try user's key first, fallback to system key
+    let cloudConvertApiKey = settingsData?.cloudconvert_api_key || Deno.env.get('CLOUDCONVERT_API_KEY');
+
+    if (!cloudConvertApiKey) {
+      throw new Error('CloudConvert API key not configured. Please add your API key in Settings → Integrations.');
+    }
+
+    console.log(`🔑 Using ${settingsData?.cloudconvert_api_key ? 'user' : 'system'} CloudConvert API key`);
 
     // Update status to converting
     await supabase
