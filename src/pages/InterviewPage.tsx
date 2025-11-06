@@ -113,7 +113,8 @@ export const InterviewPage: React.FC = () => {
       setAutoAuthAttempted(true);
       handleAuthentication(passwordFromUrl);
     }
-  }, [passwordFromUrl, stakeholder, session, authenticated, autoAuthAttempted, sessionState, handleAuthentication]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passwordFromUrl, stakeholder, session, authenticated, autoAuthAttempted, sessionState]);
 
   const loadSession = useCallback(async () => {
     console.log('🚀 loadSession called');
@@ -406,7 +407,7 @@ export const InterviewPage: React.FC = () => {
     };
   }, [introVideo, showIntroVideo]);
 
-  const handleAuthentication = useCallback(async (inputPassword: string) => {
+  const handleAuthentication = async (inputPassword: string) => {
     if (!stakeholder || !inputPassword || !session) return;
 
     // Don't allow authentication if session is not active
@@ -418,9 +419,6 @@ export const InterviewPage: React.FC = () => {
     console.log('🔐 Authenticating with password...');
 
     try {
-      // Record access attempt
-      await recordAccess(session.id, false);
-
       // Check if we've exceeded max attempts
       if (failedAttempts >= 5) {
         setError('Too many failed attempts. Please contact support.');
@@ -434,9 +432,6 @@ export const InterviewPage: React.FC = () => {
         setAuthenticated(true);
         setError(null);
         setFailedAttempts(0);
-
-        // Record successful access
-        await recordAccess(session.id, true);
 
         // Update session if it's still pending
         if (session.status === 'pending') {
@@ -462,7 +457,7 @@ export const InterviewPage: React.FC = () => {
       console.error('❌ Authentication error:', err);
       setError('Authentication failed. Please try again.');
     }
-  }, [stakeholder, session, failedAttempts, sessionState, recordAccess]);
+  };
 
   // Hash IP for privacy
   const hashIp = async (ip: string): Promise<string> => {
