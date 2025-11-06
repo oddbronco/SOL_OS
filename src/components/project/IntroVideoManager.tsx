@@ -1040,7 +1040,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
               type="button"
               variant="secondary"
               onClick={() => setShowAddModal(false)}
-              disabled={converting}
+              disabled={submitting}
             >
               Cancel
             </Button>
