@@ -113,7 +113,7 @@ export const InterviewPage: React.FC = () => {
       setAutoAuthAttempted(true);
       handleAuthentication(passwordFromUrl);
     }
-  }, [passwordFromUrl, stakeholder, session, authenticated, autoAuthAttempted, sessionState]);
+  }, [passwordFromUrl, stakeholder, session, authenticated, autoAuthAttempted, sessionState, handleAuthentication]);
 
   const loadSession = useCallback(async () => {
     console.log('🚀 loadSession called');
@@ -462,7 +462,7 @@ export const InterviewPage: React.FC = () => {
       console.error('❌ Authentication error:', err);
       setError('Authentication failed. Please try again.');
     }
-  }, [stakeholder, session, failedAttempts, sessionState]);
+  }, [stakeholder, session, failedAttempts, sessionState, recordAccess]);
 
   // Hash IP for privacy
   const hashIp = async (ip: string): Promise<string> => {
