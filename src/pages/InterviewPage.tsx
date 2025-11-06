@@ -407,22 +407,34 @@ export const InterviewPage: React.FC = () => {
 
   // Initialize HLS.js for Mux video playback
   useEffect(() => {
-    if (!introVideo || !videoRef.current) return;
+    if (!introVideo || !videoRef.current) {
+      console.log('⏭️ Skipping HLS init - missing video or ref');
+      return;
+    }
 
     const video = videoRef.current;
     const videoUrl = introVideo.mux_playback_id
       ? `https://stream.mux.com/${introVideo.mux_playback_id}.m3u8`
       : introVideo.video_url;
 
+    console.log('🎬 Initializing video player:', {
+      videoUrl,
+      hasPlaybackId: !!introVideo.mux_playback_id,
+      isHLS: videoUrl.includes('.m3u8'),
+      hlsSupported: Hls.isSupported()
+    });
+
     // If it's an HLS stream (.m3u8) and browser doesn't support HLS natively
     if (videoUrl.includes('.m3u8')) {
       if (Hls.isSupported()) {
         // Clean up existing HLS instance
         if (hlsRef.current) {
+          console.log('🧹 Cleaning up existing HLS instance');
           hlsRef.current.destroy();
         }
 
         // Initialize HLS.js
+        console.log('🔧 Creating new HLS instance');
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
@@ -456,17 +468,23 @@ export const InterviewPage: React.FC = () => {
         });
 
         hlsRef.current = hls;
+        console.log('✅ HLS instance attached');
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native HLS support (Safari)
+        console.log('🍎 Using native HLS support (Safari)');
         video.src = videoUrl;
+      } else {
+        console.error('❌ No HLS support available');
       }
     } else {
       // Regular video file
+      console.log('📹 Using regular video file');
       video.src = videoUrl;
     }
 
     return () => {
       if (hlsRef.current) {
+        console.log('🧹 Cleanup: destroying HLS instance');
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
@@ -1058,7 +1076,7 @@ export const InterviewPage: React.FC = () => {
                     ref={videoRef}
                     key={introVideo.mux_playback_id || introVideo.video_url}
                     controls
-                    preload="metadata"
+                    preload="none"
                     playsInline
                     muted
                     className="absolute inset-0 w-full h-full object-contain bg-black"
