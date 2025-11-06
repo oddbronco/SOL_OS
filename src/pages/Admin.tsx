@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Settings, Key, Crown, Shield, Database, Building2, BarChart3, FileText, Bell, Lock } from 'lucide-react';
+import { Users, Settings, Key, Crown, Shield, Database, Building2, BarChart3, FileText, Bell, Lock, Video } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { SubscriptionPlanManager } from '../components/admin/SubscriptionPlanManager';
@@ -12,6 +12,7 @@ import { AllStakeholders } from '../components/admin/AllStakeholders';
 import { AllDocuments } from '../components/admin/AllDocuments';
 import { InterviewSessionManager } from '../components/admin/InterviewSessionManager';
 import { SystemSettings } from '../components/admin/SystemSettings';
+import { VideoConverter } from '../components/admin/VideoConverter';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -122,6 +123,13 @@ export const Admin: React.FC = () => {
       category: 'Security'
     },
     {
+      id: 'video-converter',
+      label: 'Video Converter',
+      icon: Video,
+      description: 'Convert WebM videos to MP4 for browser compatibility',
+      category: 'System'
+    },
+    {
       id: 'system',
       label: 'System',
       icon: Database,
@@ -150,6 +158,8 @@ export const Admin: React.FC = () => {
         return <AllDocuments />;
       case 'interview-sessions':
         return <InterviewSessionManager />;
+      case 'video-converter':
+        return <VideoConverter />;
       case 'system':
         return <SystemSettings />;
       default:
