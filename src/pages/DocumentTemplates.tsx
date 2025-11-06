@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, FileText, Edit, Trash2, Copy, Globe, Lock, HelpCircle, X } from 'lucide-react';
+import { Plus, Search, FileText, Edit, Trash2, Copy, Globe, Lock, HelpCircle, X, BookOpen } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -8,6 +8,7 @@ import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { VariableExamplesModal } from '../components/documents/VariableExamplesModal';
 
 interface DocumentTemplate {
   id: string;
@@ -35,6 +36,7 @@ export const DocumentTemplates: React.FC = () => {
   const [scopeFilter, setScopeFilter] = useState<'all' | 'org' | 'personal'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<DocumentTemplate | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -526,12 +528,20 @@ export const DocumentTemplates: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-gray-600 pt-2 border-t border-blue-200">
-                <strong>💡 Tip:</strong> The AI generates structured JSON with tables, callouts, priorities, and tags.
-                Focus on <em>what content</em> to include, not formatting details.
-                <br /><br />
-                <strong>📖 See DOCUMENT_TEMPLATE_VARIABLES.md</strong> in the project root for detailed examples of exactly what data each variable provides (including full Q&A formats and file content).
-              </p>
+              <div className="pt-3 border-t border-blue-200 flex items-start justify-between gap-4">
+                <p className="text-gray-600 flex-1">
+                  <strong>💡 Tip:</strong> The AI generates structured JSON with tables, callouts, priorities, and tags.
+                  Focus on <em>what content</em> to include, not formatting details.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowExamples(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  View Examples
+                </button>
+              </div>
             </div>
             <textarea
               className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm"
@@ -578,6 +588,11 @@ Files:
           </div>
         </div>
       </Modal>
+
+      <VariableExamplesModal
+        isOpen={showExamples}
+        onClose={() => setShowExamples(false)}
+      />
     </div>
   );
 };
