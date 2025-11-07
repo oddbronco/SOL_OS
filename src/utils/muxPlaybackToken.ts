@@ -1,19 +1,10 @@
-import { supabase } from '../lib/supabase';
-
 export const getMuxPlaybackToken = async (playbackId: string): Promise<string | null> => {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      console.warn('No session found for Mux playback token');
-      return null;
-    }
-
     const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-mux-playback-token`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ playbackId }),

@@ -78,33 +78,49 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      throw new Error('Unauthorized');
-    }
-
     const { playbackId } = await req.json();
 
     if (!playbackId) {
       throw new Error('Missing playbackId parameter');
     }
 
-    // Get user's Mux signing key
+    // Find the video and project owner by playback ID
+    const { data: video, error: videoError } = await supabase
+      .from('project_intro_videos')
+      .select('project_id, projects(customer_id)')
+      .eq('mux_playback_id', playbackId)
+      .maybeSingle();
+
+    if (videoError || !video) {
+      throw new Error('Video not found');
+    }
+
+    // Get the project owner's Mux signing key
+    const customerId = (video.projects as any)?.customer_id;
+    if (!customerId) {
+      throw new Error('Project owner not found');
+    }
+
     const { data: settings } = await supabase
       .from('user_settings')
       .select('mux_signing_key_id, mux_signing_key_private')
-      .eq('user_id', user.id)
+      .eq('user_id', customerId)
       .maybeSingle();
 
     if (!settings?.mux_signing_key_id || !settings?.mux_signing_key_private) {
-      throw new Error('Mux signing key not configured');
+      // No signing key configured, return null to use unsigned URL
+      return new Response(
+        JSON.stringify({
+          token: null,
+          message: 'No signing key configured',
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
     }
 
     // Decode the base64 private key
