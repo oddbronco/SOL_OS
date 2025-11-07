@@ -96,7 +96,9 @@ export const useSupabaseData = () => {
   const [clients, setClients] = useState<Client[]>(() => getCachedData('clients') || [])
   const [projects, setProjects] = useState<Project[]>(() => getCachedData('projects') || [])
   const [stakeholderCount, setStakeholderCount] = useState(() => getCachedData('stakeholderCount') || 0)
-  const [loading, setLoading] = useState(true)
+  // Start as not loading if we have cached data
+  const hasCachedData = getCachedData('clients') || getCachedData('projects')
+  const [loading, setLoading] = useState(!hasCachedData)
   const [error, setError] = useState<string | null>(null)
 
   // Load initial data when user is available
@@ -118,7 +120,11 @@ export const useSupabaseData = () => {
 
     try {
       console.log('📊 Starting data load...')
-      setLoading(true)
+      // Only set loading if we don't have cached data
+      const hasCache = getCachedData('clients') || getCachedData('projects')
+      if (!hasCache) {
+        setLoading(true)
+      }
       setError(null)
 
       // Set a timeout to prevent infinite loading

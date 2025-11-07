@@ -489,8 +489,8 @@ function AppContent() {
     }
   };
 
-  // Don't render sidebar until user data is fully loaded
-  if (!user || loading) {
+  // Only show loading screen during initial auth check when we don't have user yet
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#ffffff' }}>
         <div className="text-center">
@@ -501,6 +501,7 @@ function AppContent() {
     );
   }
 
+  // User is loaded, render UI immediately (even if dashboard data still loading, cached data will show)
   return (
     <div className="min-h-screen flex" style={{
       backgroundColor: '#ffffff'
