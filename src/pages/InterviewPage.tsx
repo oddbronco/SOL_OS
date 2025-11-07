@@ -128,6 +128,19 @@ export const InterviewPage: React.FC = () => {
           console.error('❌ HLS error:', data);
           if (data.fatal) {
             console.error('Fatal HLS error:', data.type, data.details);
+
+            // Fall back to direct video if HLS fails
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              console.log('🔄 Falling back to direct video playback');
+              hls.destroy();
+              if (introVideo.video_url && video) {
+                video.src = introVideo.video_url;
+                console.log('✅ Using fallback video URL:', introVideo.video_url);
+              }
+            } else {
+              // Try to recover from other errors
+              hls.startLoad();
+            }
           }
         });
 
