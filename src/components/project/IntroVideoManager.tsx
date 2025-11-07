@@ -8,86 +8,6 @@ import { Badge } from '../ui/Badge';
 import { VideoAssignmentModal } from './VideoAssignmentModal';
 import { triggerMuxUpload } from '../../utils/muxUpload';
 import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users, AlertCircle } from 'lucide-react';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
-
-const convertVideoToBrowserMP4 = async (
-  videoFile: File,
-  onProgress?: (progress: number) => void
-): Promise<Blob> => {
-  const ffmpeg = new FFmpeg();
-  let lastProgress = 0;
-
-  ffmpeg.on('progress', ({ progress }) => {
-    const percent = Math.round(progress * 100);
-    if (percent !== lastProgress) {
-      lastProgress = percent;
-      onProgress?.(percent);
-    }
-  });
-
-  onProgress?.(5);
-
-  const cdnSources = [
-    'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm',
-    'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm',
-  ];
-
-  let loaded = false;
-  for (const baseURL of cdnSources) {
-    if (loaded) break;
-    try {
-      await Promise.race([
-        ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('CDN timeout')), 45000)
-        )
-      ]);
-      loaded = true;
-    } catch (err) {
-      continue;
-    }
-  }
-
-  if (!loaded) {
-    throw new Error('Could not load video converter');
-  }
-
-  onProgress?.(10);
-
-  const inputData = await fetchFile(videoFile);
-  await ffmpeg.writeFile('input.video', inputData);
-
-  onProgress?.(15);
-
-  // Convert to browser-compatible MP4: H.264 baseline profile, AAC audio, faststart
-  await ffmpeg.exec([
-    '-i', 'input.video',
-    '-c:v', 'libx264',
-    '-profile:v', 'baseline',
-    '-level', '3.0',
-    '-preset', 'ultrafast',
-    '-crf', '23',
-    '-c:a', 'aac',
-    '-b:a', '128k',
-    '-movflags', '+faststart',
-    'output.mp4'
-  ]);
-
-  onProgress?.(95);
-
-  const data = await ffmpeg.readFile('output.mp4');
-  const mp4Blob = new Blob([data], { type: 'video/mp4' });
-
-  await ffmpeg.deleteFile('input.video');
-  await ffmpeg.deleteFile('output.mp4');
-
-  onProgress?.(100);
-  return mp4Blob;
-};
 
 interface IntroVideo {
   id: string;
@@ -401,23 +321,18 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       }
 
       if (videoType === 'upload' && uploadedFile) {
-        // ALWAYS convert uploaded videos to ensure browser compatibility
-        console.log('🔄 Converting uploaded video to browser-compatible MP4...');
+        // Upload original file directly - Mux will handle conversion
+        console.log('📤 Uploading video to storage (Mux will handle conversion)...');
         setConverting(true);
-        setConversionProgress(0);
+        setConversionProgress(50);
 
         try {
-          const convertedBlob = await convertVideoToBrowserMP4(
-            uploadedFile,
-            (progress) => setConversionProgress(progress)
-          );
-
-          const fileName = `${projectId}/${Date.now()}-intro-video.mp4`;
+          const fileName = `${projectId}/${Date.now()}-intro-video.${uploadedFile.name.split('.').pop()}`;
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('project-intro-videos')
-            .upload(fileName, convertedBlob, {
-              contentType: 'video/mp4',
+            .upload(fileName, uploadedFile, {
+              contentType: uploadedFile.type,
               cacheControl: '3600'
             });
 
@@ -428,9 +343,10 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             .getPublicUrl(fileName);
 
           finalVideoUrl = publicUrl;
-          console.log('✅ Video converted and uploaded successfully');
-        } catch (conversionError: any) {
-          throw new Error(`Video conversion failed: ${conversionError.message}`);
+          setConversionProgress(100);
+          console.log('✅ Video uploaded successfully - Mux will transcode');
+        } catch (uploadError: any) {
+          throw new Error(`Video upload failed: ${uploadError.message}`);
         } finally {
           setConverting(false);
           setConversionProgress(0);
