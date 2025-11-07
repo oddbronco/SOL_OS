@@ -9,8 +9,9 @@ interface MuxKeySetupProps {
   muxTokenSecret: string;
   muxSigningKeyId: string;
   muxSigningKeyPrivate: string;
+  appDomains: string[];
   hasMuxKey: boolean;
-  onSave: (tokenId: string, tokenSecret: string, signingKeyId: string, signingKeyPrivate: string) => Promise<boolean>;
+  onSave: (tokenId: string, tokenSecret: string, signingKeyId: string, signingKeyPrivate: string, appDomains: string[]) => Promise<boolean>;
   onClose: () => void;
 }
 
@@ -19,6 +20,7 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
   muxTokenSecret,
   muxSigningKeyId,
   muxSigningKeyPrivate,
+  appDomains,
   hasMuxKey,
   onSave,
   onClose
@@ -27,6 +29,7 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
   const [inputTokenSecret, setInputTokenSecret] = useState(muxTokenSecret);
   const [inputSigningKeyId, setInputSigningKeyId] = useState(muxSigningKeyId);
   const [inputSigningKeyPrivate, setInputSigningKeyPrivate] = useState(muxSigningKeyPrivate);
+  const [inputAppDomains, setInputAppDomains] = useState(appDomains.join(', '));
   const [showSecret, setShowSecret] = useState(false);
   const [showSigningKey, setShowSigningKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,6 +48,17 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
       return;
     }
 
+    // Parse domains from comma-separated input
+    const domains = inputAppDomains
+      .split(',')
+      .map(d => d.trim())
+      .filter(d => d.length > 0);
+
+    if (domains.length === 0) {
+      setError('At least one domain is required');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -52,7 +66,8 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
         inputTokenId.trim(),
         inputTokenSecret.trim(),
         inputSigningKeyId.trim(),
-        inputSigningKeyPrivate.trim()
+        inputSigningKeyPrivate.trim(),
+        domains
       );
       if (success) {
         onClose();
@@ -67,11 +82,12 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
   const handleClear = async () => {
     setSaving(true);
     try {
-      await onSave('', '', '', '');
+      await onSave('', '', '', '', []);
       setInputTokenId('');
       setInputTokenSecret('');
       setInputSigningKeyId('');
       setInputSigningKeyPrivate('');
+      setInputAppDomains('');
       onClose();
     } finally {
       setSaving(false);
@@ -231,6 +247,24 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
                 {showSigningKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Allowed Domains (comma-separated)
+            </label>
+            <Input
+              type="text"
+              value={inputAppDomains}
+              onChange={(e) => {
+                setInputAppDomains(e.target.value);
+                setError('');
+              }}
+              placeholder="interviews.solprojectos.com, solprojectos.com"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              These domains will be added to Mux playback restrictions automatically
+            </p>
           </div>
         </div>
 

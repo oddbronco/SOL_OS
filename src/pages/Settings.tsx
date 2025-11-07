@@ -28,6 +28,7 @@ export const Settings: React.FC = () => {
   const [muxTokenSecret, setMuxTokenSecret] = useState('');
   const [muxSigningKeyId, setMuxSigningKeyId] = useState('');
   const [muxSigningKeyPrivate, setMuxSigningKeyPrivate] = useState('');
+  const [appDomains, setAppDomains] = useState<string[]>(['interviews.solprojectos.com', 'solprojectos.com']);
   const [hasMuxKey, setHasMuxKey] = useState(false);
   const [loadingMux, setLoadingMux] = useState(true);
   const isDark = false; // Always light mode
@@ -73,7 +74,7 @@ export const Settings: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('user_settings')
-        .select('mux_token_id, mux_token_secret, mux_signing_key_id, mux_signing_key_private')
+        .select('mux_token_id, mux_token_secret, mux_signing_key_id, mux_signing_key_private, app_domains')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -86,6 +87,7 @@ export const Settings: React.FC = () => {
         setMuxTokenSecret(data.mux_token_secret);
         setMuxSigningKeyId(data.mux_signing_key_id || '');
         setMuxSigningKeyPrivate(data.mux_signing_key_private || '');
+        setAppDomains(data.app_domains || ['interviews.solprojectos.com', 'solprojectos.com']);
         setHasMuxKey(true);
       } else {
         setHasMuxKey(false);
@@ -102,7 +104,8 @@ export const Settings: React.FC = () => {
     tokenId: string,
     tokenSecret: string,
     signingKeyId: string,
-    signingKeyPrivate: string
+    signingKeyPrivate: string,
+    domains: string[]
   ) => {
     if (!user) return false;
 
@@ -115,6 +118,7 @@ export const Settings: React.FC = () => {
           mux_token_secret: tokenSecret || null,
           mux_signing_key_id: signingKeyId || null,
           mux_signing_key_private: signingKeyPrivate || null,
+          app_domains: domains.length > 0 ? domains : null,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_id'
@@ -126,12 +130,52 @@ export const Settings: React.FC = () => {
       setMuxTokenSecret(tokenSecret);
       setMuxSigningKeyId(signingKeyId);
       setMuxSigningKeyPrivate(signingKeyPrivate);
+      setAppDomains(domains);
       setHasMuxKey(!!(tokenId && tokenSecret && signingKeyId && signingKeyPrivate));
+
+      // If all credentials are set, configure Mux playback restrictions
+      if (tokenId && tokenSecret && signingKeyId && signingKeyPrivate && domains.length > 0) {
+        console.log('🔒 Configuring Mux playback restrictions...');
+        await configureMuxPlaybackRestrictions(signingKeyId);
+      }
+
       return true;
     } catch (err: any) {
       console.error('Error saving Mux credentials:', err);
       alert(err.message || 'Failed to save Mux credentials');
       return false;
+    }
+  };
+
+  // Configure Mux playback restrictions
+  const configureMuxPlaybackRestrictions = async (signingKeyId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/configure-mux-playback-restrictions`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ signingKeyId }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Mux playback restrictions configured:', result);
+        alert('Mux playback restrictions configured successfully!');
+      } else {
+        const error = await response.json();
+        console.error('Failed to configure playback restrictions:', error);
+        alert(`Note: Mux credentials saved, but playback restrictions setup failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error configuring Mux playback restrictions:', error);
+      // Don't fail the save operation
     }
   };
 
@@ -599,6 +643,7 @@ export const Settings: React.FC = () => {
           muxTokenSecret={muxTokenSecret}
           muxSigningKeyId={muxSigningKeyId}
           muxSigningKeyPrivate={muxSigningKeyPrivate}
+          appDomains={appDomains}
           hasMuxKey={hasMuxKey}
           onSave={saveMuxCredentials}
           onClose={() => setShowMuxSetup(false)}
