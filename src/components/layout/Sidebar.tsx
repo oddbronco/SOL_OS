@@ -67,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user,
       {/* Logo */}
       <div className="flex items-center justify-center h-24 border-b px-6 border-gray-200">
         <img
-          src="https://cdn.prod.website-files.com/5f90af0ff6ef7c0d8b8e7e58/690639382791a6aa3f64d980_Untitled%20design%20(1).png"
+          src="https://cdn.prod.website-files.com/5f90af0ff6ef7c0d8b8e7e58/690d6155dd6f1870fc39ba99_Untitled%20design%20(2).png"
           alt="SOL Project OS"
           className="h-20 w-auto max-w-full object-contain"
         />
