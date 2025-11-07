@@ -587,7 +587,23 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                           {videoAssignments.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
                               {videoAssignments.map((assignment: any) => (
-                                <Badge key={assignment.id} variant="secondary">
+                                <Badge
+                                  key={assignment.id}
+                                  variant="secondary"
+                                  className="group cursor-pointer hover:bg-red-100 hover:border-red-300 transition-colors"
+                                  onClick={async () => {
+                                    if (confirm('Remove this assignment?')) {
+                                      const { error } = await supabase
+                                        .from('intro_video_assignments')
+                                        .delete()
+                                        .eq('id', assignment.id);
+
+                                      if (!error) {
+                                        await loadAssignments();
+                                      }
+                                    }
+                                  }}
+                                >
                                   {assignment.stakeholder_id ? (
                                     <>
                                       <Users className="h-3 w-3 mr-1" />
@@ -599,6 +615,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                                       Session
                                     </>
                                   )}
+                                  <X className="h-3 w-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </Badge>
                               ))}
                             </div>
