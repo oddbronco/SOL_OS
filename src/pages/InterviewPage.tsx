@@ -114,7 +114,13 @@ export const InterviewPage: React.FC = () => {
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 90
+          backBufferLength: 90,
+          manifestLoadingTimeOut: 20000,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingTimeOut: 20000,
+          xhrSetup: (xhr) => {
+            xhr.withCredentials = false;
+          }
         });
 
         hls.loadSource(hlsUrl);
@@ -1056,6 +1062,7 @@ export const InterviewPage: React.FC = () => {
                         controls
                         preload="metadata"
                         playsInline
+                        crossOrigin="anonymous"
                         className="absolute inset-0 w-full h-full object-contain"
                         onPlay={() => {
                           markVideoAsWatched();
