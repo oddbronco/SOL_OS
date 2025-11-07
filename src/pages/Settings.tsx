@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Save, User, Building2, CreditCard, Key, Bell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { config } from '../config/environment';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -153,7 +154,7 @@ export const Settings: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/configure-mux-playback-restrictions`;
+      const apiUrl = `${config.supabase.url}/functions/v1/configure-mux-playback-restrictions`;
 
       const response = await fetch(apiUrl, {
         method: 'POST',

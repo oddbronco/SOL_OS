@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase';
+import { config } from '../config/environment';
 
 export const triggerMuxUpload = async (videoId: string, projectId: string): Promise<void> => {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
 
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mux-upload-video`;
+    const apiUrl = `${config.supabase.url}/functions/v1/mux-upload-video`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',

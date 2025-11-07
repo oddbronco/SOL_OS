@@ -1,6 +1,8 @@
+import { config } from '../config/environment';
+
 export const getMuxPlaybackToken = async (playbackId: string): Promise<string | null> => {
   try {
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-mux-playback-token`;
+    const apiUrl = `${config.supabase.url}/functions/v1/generate-mux-playback-token`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',
