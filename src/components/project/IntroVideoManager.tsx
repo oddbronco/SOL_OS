@@ -7,6 +7,8 @@ import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { VideoAssignmentModal } from './VideoAssignmentModal';
 import { triggerMuxUpload } from '../../utils/muxUpload';
+import { getMuxPlaybackToken, getMuxPlaybackUrl } from '../../utils/muxPlaybackToken';
+import Hls from 'hls.js';
 import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users, AlertCircle } from 'lucide-react';
 
 interface IntroVideo {
@@ -20,6 +22,8 @@ interface IntroVideo {
   thumbnail_url: string | null;
   is_active: boolean;
   created_at: string;
+  mux_playback_id?: string;
+  mux_status?: string;
 }
 
 interface IntroVideoManagerProps {
@@ -53,11 +57,13 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const [conversionProgress, setConversionProgress] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
   useEffect(() => {
     loadData();
@@ -80,8 +86,85 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+      }
     };
   }, []);
+
+  // Initialize HLS for preview modal when video has Mux playback ID
+  useEffect(() => {
+    if (!showPreviewModal || !selectedVideo || !previewVideoRef.current) {
+      return;
+    }
+
+    const video = previewVideoRef.current;
+
+    // Clean up previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    // If video has Mux playback ID, use HLS streaming
+    if (selectedVideo.mux_playback_id && selectedVideo.mux_status === 'ready') {
+      console.log('🎬 Initializing HLS player for Mux stream in preview');
+
+      const initializeHls = async () => {
+        const token = await getMuxPlaybackToken(selectedVideo.mux_playback_id!);
+        const hlsUrl = getMuxPlaybackUrl(selectedVideo.mux_playback_id!, token || undefined);
+        console.log('🔐 Using', token ? 'signed' : 'unsigned', 'playback URL');
+
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+          });
+
+          hls.loadSource(hlsUrl);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            console.log('✅ HLS manifest loaded');
+          });
+
+          hls.on(Hls.Events.ERROR, (_event, data) => {
+            console.error('❌ HLS error:', data);
+            if (data.fatal) {
+              console.error('Fatal HLS error:', data.type, data.details);
+              if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                console.log('🔄 Falling back to direct video playback');
+                hls.destroy();
+                if (selectedVideo.video_url && video) {
+                  video.src = selectedVideo.video_url;
+                }
+              } else {
+                hls.startLoad();
+              }
+            }
+          });
+
+          hlsRef.current = hls;
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = hlsUrl;
+          console.log('✅ Using native HLS support');
+        }
+      };
+
+      initializeHls();
+    } else {
+      console.log('📹 Using direct video file:', selectedVideo.video_url);
+      video.src = selectedVideo.video_url;
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [showPreviewModal, selectedVideo]);
 
   const startRecording = async () => {
     try {
@@ -1029,6 +1112,8 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                   />
                 ) : (
                   <video
+                    ref={previewVideoRef}
+                    key={selectedVideo.mux_playback_id || selectedVideo.video_url}
                     controls
                     autoPlay
                     playsInline
@@ -1053,12 +1138,14 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                       setError(null);
                     }}
                   >
-                    <source src={selectedVideo.video_url} type={
-                      selectedVideo.video_url.includes('.webm') ? 'video/webm' :
-                      selectedVideo.video_url.includes('.mp4') ? 'video/mp4' :
-                      selectedVideo.video_url.includes('.mov') ? 'video/quicktime' :
-                      'video/mp4'
-                    } />
+                    {!selectedVideo.mux_playback_id && (
+                      <source src={selectedVideo.video_url} type={
+                        selectedVideo.video_url.includes('.webm') ? 'video/webm' :
+                        selectedVideo.video_url.includes('.mp4') ? 'video/mp4' :
+                        selectedVideo.video_url.includes('.mov') ? 'video/quicktime' :
+                        'video/mp4'
+                      } />
+                    )}
                     Your browser does not support the video tag. Try a different browser or contact support.
                   </video>
                 )}
@@ -1073,6 +1160,31 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                   <span>Duration: {Math.floor(selectedVideo.duration_seconds / 60)}:{(selectedVideo.duration_seconds % 60).toString().padStart(2, '0')}</span>
                 )}
               </div>
+
+              {selectedVideo.mux_status && (
+                <div className="mt-4">
+                  {selectedVideo.mux_status === 'pending' && (
+                    <Card className="bg-blue-50 border-blue-200">
+                      <p className="text-sm text-blue-800">🔄 Processing with Mux... This typically takes 30-60 seconds.</p>
+                    </Card>
+                  )}
+                  {selectedVideo.mux_status === 'processing' && (
+                    <Card className="bg-blue-50 border-blue-200">
+                      <p className="text-sm text-blue-800">🔄 Transcoding video... Almost ready!</p>
+                    </Card>
+                  )}
+                  {selectedVideo.mux_status === 'error' && (
+                    <Card className="bg-red-50 border-red-200">
+                      <p className="text-sm text-red-800">❌ Video processing failed. Please try uploading again.</p>
+                    </Card>
+                  )}
+                  {selectedVideo.mux_status === 'ready' && selectedVideo.mux_playback_id && (
+                    <Card className="bg-green-50 border-green-200">
+                      <p className="text-sm text-green-800">✅ Ready for secure streaming via Mux</p>
+                    </Card>
+                  )}
+                </div>
+              )}
             </div>
           </Modal>
         </>
