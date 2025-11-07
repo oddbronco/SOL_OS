@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Key, Eye, EyeOff, ExternalLink, CheckCircle, AlertCircle, Video } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Key, Eye, EyeOff, ExternalLink, CheckCircle, AlertCircle, Video, Upload } from 'lucide-react';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Card } from './Card';
@@ -34,6 +34,7 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
   const [showSigningKey, setShowSigningKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
     setError('');
@@ -96,6 +97,29 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
 
   const openMuxDashboard = () => {
     window.open('https://dashboard.mux.com/settings/access-tokens', '_blank');
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.pem')) {
+      setError('Please upload a .pem file');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const base64 = btoa(text);
+      setInputSigningKeyPrivate(base64);
+      setError('');
+    } catch (err) {
+      setError('Failed to read file');
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -226,8 +250,30 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
 
           <div className="mt-4">
             <label className="block text-xs font-medium text-gray-600 mb-1">
-              Private Key (Base64 Encoded)
+              Private Key
             </label>
+            <div className="flex space-x-2 mb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                icon={Upload}
+                onClick={handleUploadClick}
+                className="text-sm"
+              >
+                Upload .pem File
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pem"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <span className="text-xs text-gray-500 self-center">
+                or paste base64-encoded key below
+              </span>
+            </div>
             <div className="relative">
               <textarea
                 value={inputSigningKeyPrivate}
@@ -235,7 +281,7 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
                   setInputSigningKeyPrivate(e.target.value);
                   setError('');
                 }}
-                placeholder="Enter Base64-encoded private key"
+                placeholder="Upload a .pem file or paste base64-encoded private key"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-xs pr-10 min-h-[100px]"
                 style={{ fontFamily: 'monospace' }}
               />
@@ -319,7 +365,7 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
             <li>3. Select "Video" as the key type</li>
             <li>4. Add your domain (e.g., interviews.solprojectos.com) to the playback restrictions</li>
             <li>5. Copy the Signing Key ID</li>
-            <li>6. Copy the Private Key (already base64 encoded)</li>
+            <li>6. Download the Private Key .pem file (or copy the base64-encoded key)</li>
           </ol>
         </div>
 
