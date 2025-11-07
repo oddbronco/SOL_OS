@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { Lock, MessageSquare, CheckCircle, User, Calendar, Clock, XCircle, AlertCircle, Ban, Video, Play, ChevronRight, Sparkles, Shield } from 'lucide-react';
 import Hls from 'hls.js';
+import { getMuxPlaybackToken, getMuxPlaybackUrl } from '../utils/muxPlaybackToken';
 
 type SessionState = 'active' | 'expired' | 'locked' | 'closed' | 'not_found';
 
@@ -107,24 +108,29 @@ export const InterviewPage: React.FC = () => {
 
     // If video has Mux playback ID, use HLS streaming
     if (introVideo.mux_playback_id) {
-      const hlsUrl = `https://stream.mux.com/${introVideo.mux_playback_id}.m3u8`;
-      console.log('🎬 Initializing HLS player for Mux stream:', hlsUrl);
+      console.log('🎬 Initializing HLS player for Mux stream');
 
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 90,
-          manifestLoadingTimeOut: 20000,
-          manifestLoadingMaxRetry: 4,
-          levelLoadingTimeOut: 20000,
-          xhrSetup: (xhr) => {
-            xhr.withCredentials = false;
-          }
-        });
+      // Fetch signed playback token
+      const initializeHls = async () => {
+        const token = await getMuxPlaybackToken(introVideo.mux_playback_id!);
+        const hlsUrl = getMuxPlaybackUrl(introVideo.mux_playback_id!, token || undefined);
+        console.log('🔐 Using', token ? 'signed' : 'unsigned', 'playback URL');
 
-        hls.loadSource(hlsUrl);
-        hls.attachMedia(video);
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+            manifestLoadingTimeOut: 20000,
+            manifestLoadingMaxRetry: 4,
+            levelLoadingTimeOut: 20000,
+            xhrSetup: (xhr) => {
+              xhr.withCredentials = false;
+            }
+          });
+
+          hls.loadSource(hlsUrl);
+          hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           console.log('✅ HLS manifest loaded');
@@ -150,14 +156,18 @@ export const InterviewPage: React.FC = () => {
           }
         });
 
-        hlsRef.current = hls;
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Native HLS support (Safari)
-        video.src = hlsUrl;
-        console.log('✅ Using native HLS support');
-      } else {
-        console.error('❌ HLS not supported');
-      }
+          hlsRef.current = hls;
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Native HLS support (Safari)
+          video.src = hlsUrl;
+          console.log('✅ Using native HLS support');
+        } else {
+          console.error('❌ HLS not supported');
+        }
+      };
+
+      // Initialize HLS with signed token
+      initializeHls();
     } else {
       // Direct MP4 file - just set the src
       console.log('📹 Using direct video file:', introVideo.video_url);

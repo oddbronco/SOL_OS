@@ -7,21 +7,28 @@ import { Card } from './Card';
 interface MuxKeySetupProps {
   muxTokenId: string;
   muxTokenSecret: string;
+  muxSigningKeyId: string;
+  muxSigningKeyPrivate: string;
   hasMuxKey: boolean;
-  onSave: (tokenId: string, tokenSecret: string) => Promise<boolean>;
+  onSave: (tokenId: string, tokenSecret: string, signingKeyId: string, signingKeyPrivate: string) => Promise<boolean>;
   onClose: () => void;
 }
 
 export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
   muxTokenId,
   muxTokenSecret,
+  muxSigningKeyId,
+  muxSigningKeyPrivate,
   hasMuxKey,
   onSave,
   onClose
 }) => {
   const [inputTokenId, setInputTokenId] = useState(muxTokenId);
   const [inputTokenSecret, setInputTokenSecret] = useState(muxTokenSecret);
+  const [inputSigningKeyId, setInputSigningKeyId] = useState(muxSigningKeyId);
+  const [inputSigningKeyPrivate, setInputSigningKeyPrivate] = useState(muxSigningKeyPrivate);
   const [showSecret, setShowSecret] = useState(false);
+  const [showSigningKey, setShowSigningKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,10 +40,20 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
       return;
     }
 
+    if (!inputSigningKeyId.trim() || !inputSigningKeyPrivate.trim()) {
+      setError('Both Signing Key ID and Private Key are required');
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const success = await onSave(inputTokenId.trim(), inputTokenSecret.trim());
+      const success = await onSave(
+        inputTokenId.trim(),
+        inputTokenSecret.trim(),
+        inputSigningKeyId.trim(),
+        inputSigningKeyPrivate.trim()
+      );
       if (success) {
         onClose();
       }
@@ -50,9 +67,11 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
   const handleClear = async () => {
     setSaving(true);
     try {
-      await onSave('', '');
+      await onSave('', '', '', '');
       setInputTokenId('');
       setInputTokenSecret('');
+      setInputSigningKeyId('');
+      setInputSigningKeyPrivate('');
       onClose();
     } finally {
       setSaving(false);
@@ -158,6 +177,63 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
           </div>
         </div>
 
+        <div className="pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <label className="block text-sm font-medium text-gray-700">
+              Mux Signing Key (Required for Secure Playback)
+            </label>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={ExternalLink}
+              onClick={() => window.open('https://dashboard.mux.com/settings/signing-keys', '_blank')}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              Get Signing Key
+            </Button>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Signing Key ID
+            </label>
+            <Input
+              type="text"
+              value={inputSigningKeyId}
+              onChange={(e) => {
+                setInputSigningKeyId(e.target.value);
+                setError('');
+              }}
+              placeholder="Enter Mux Signing Key ID"
+            />
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Private Key (Base64 Encoded)
+            </label>
+            <div className="relative">
+              <textarea
+                value={inputSigningKeyPrivate}
+                onChange={(e) => {
+                  setInputSigningKeyPrivate(e.target.value);
+                  setError('');
+                }}
+                placeholder="Enter Base64-encoded private key"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-xs pr-10 min-h-[100px]"
+                style={{ fontFamily: 'monospace' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowSigningKey(!showSigningKey)}
+                className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
+              >
+                {showSigningKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {error && (
           <div className="flex items-center space-x-2 text-red-600">
             <AlertCircle className="h-4 w-4" />
@@ -172,23 +248,46 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
 
       <Card className="bg-gray-50 border-gray-200">
         <h4 className="font-medium mb-3 text-gray-900">
-          How to get your Mux Access Token:
+          Setup Instructions:
         </h4>
-        <ol className="text-sm space-y-2 text-gray-600">
-          <li>1. Visit{' '}
-            <button
-              onClick={openMuxDashboard}
-              className="text-blue-600 hover:text-blue-700 underline"
-            >
-              Mux Dashboard
-            </button>
-          </li>
-          <li>2. Sign up for a free account (includes $20 credit)</li>
-          <li>3. Go to Settings → Access Tokens</li>
-          <li>4. Click "Generate new token"</li>
-          <li>5. Enable "Mux Video" permissions</li>
-          <li>6. Copy both the Token ID and Token Secret</li>
-        </ol>
+
+        <div className="mb-4">
+          <h5 className="font-medium text-sm text-gray-900 mb-2">Step 1: Get Access Token</h5>
+          <ol className="text-sm space-y-1 text-gray-600 ml-4">
+            <li>1. Visit{' '}
+              <button
+                onClick={openMuxDashboard}
+                className="text-blue-600 hover:text-blue-700 underline"
+              >
+                Mux Dashboard
+              </button>
+            </li>
+            <li>2. Sign up for a free account (includes $20 credit)</li>
+            <li>3. Go to Settings → Access Tokens</li>
+            <li>4. Click "Generate new token"</li>
+            <li>5. Enable "Mux Video" permissions</li>
+            <li>6. Copy both the Token ID and Token Secret</li>
+          </ol>
+        </div>
+
+        <div>
+          <h5 className="font-medium text-sm text-gray-900 mb-2">Step 2: Create Signing Key</h5>
+          <ol className="text-sm space-y-1 text-gray-600 ml-4">
+            <li>1. Visit{' '}
+              <button
+                onClick={() => window.open('https://dashboard.mux.com/settings/signing-keys', '_blank')}
+                className="text-blue-600 hover:text-blue-700 underline"
+              >
+                Mux Signing Keys
+              </button>
+            </li>
+            <li>2. Click "Create new signing key"</li>
+            <li>3. Select "Video" as the key type</li>
+            <li>4. Add your domain (e.g., interviews.solprojectos.com) to the playback restrictions</li>
+            <li>5. Copy the Signing Key ID</li>
+            <li>6. Copy the Private Key (already base64 encoded)</li>
+          </ol>
+        </div>
 
         <div className="mt-4 pt-4 border-t border-gray-200">
           <h5 className="font-medium text-sm text-gray-900 mb-2">Pricing:</h5>
@@ -229,7 +328,12 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
             disabled={
               !inputTokenId.trim() ||
               !inputTokenSecret.trim() ||
-              (inputTokenId === muxTokenId && inputTokenSecret === muxTokenSecret)
+              !inputSigningKeyId.trim() ||
+              !inputSigningKeyPrivate.trim() ||
+              (inputTokenId === muxTokenId &&
+               inputTokenSecret === muxTokenSecret &&
+               inputSigningKeyId === muxSigningKeyId &&
+               inputSigningKeyPrivate === muxSigningKeyPrivate)
             }
           >
             {hasMuxKey ? 'Update Credentials' : 'Save Credentials'}

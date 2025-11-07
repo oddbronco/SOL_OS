@@ -26,6 +26,8 @@ export const Settings: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [muxTokenId, setMuxTokenId] = useState('');
   const [muxTokenSecret, setMuxTokenSecret] = useState('');
+  const [muxSigningKeyId, setMuxSigningKeyId] = useState('');
+  const [muxSigningKeyPrivate, setMuxSigningKeyPrivate] = useState('');
   const [hasMuxKey, setHasMuxKey] = useState(false);
   const [loadingMux, setLoadingMux] = useState(true);
   const isDark = false; // Always light mode
@@ -71,7 +73,7 @@ export const Settings: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('user_settings')
-        .select('mux_token_id, mux_token_secret')
+        .select('mux_token_id, mux_token_secret, mux_signing_key_id, mux_signing_key_private')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -82,6 +84,8 @@ export const Settings: React.FC = () => {
       if (data?.mux_token_id && data?.mux_token_secret) {
         setMuxTokenId(data.mux_token_id);
         setMuxTokenSecret(data.mux_token_secret);
+        setMuxSigningKeyId(data.mux_signing_key_id || '');
+        setMuxSigningKeyPrivate(data.mux_signing_key_private || '');
         setHasMuxKey(true);
       } else {
         setHasMuxKey(false);
@@ -94,7 +98,12 @@ export const Settings: React.FC = () => {
   };
 
   // Save Mux credentials
-  const saveMuxCredentials = async (tokenId: string, tokenSecret: string) => {
+  const saveMuxCredentials = async (
+    tokenId: string,
+    tokenSecret: string,
+    signingKeyId: string,
+    signingKeyPrivate: string
+  ) => {
     if (!user) return false;
 
     try {
@@ -104,6 +113,8 @@ export const Settings: React.FC = () => {
           user_id: user.id,
           mux_token_id: tokenId || null,
           mux_token_secret: tokenSecret || null,
+          mux_signing_key_id: signingKeyId || null,
+          mux_signing_key_private: signingKeyPrivate || null,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_id'
@@ -113,7 +124,9 @@ export const Settings: React.FC = () => {
 
       setMuxTokenId(tokenId);
       setMuxTokenSecret(tokenSecret);
-      setHasMuxKey(!!(tokenId && tokenSecret));
+      setMuxSigningKeyId(signingKeyId);
+      setMuxSigningKeyPrivate(signingKeyPrivate);
+      setHasMuxKey(!!(tokenId && tokenSecret && signingKeyId && signingKeyPrivate));
       return true;
     } catch (err: any) {
       console.error('Error saving Mux credentials:', err);
@@ -584,6 +597,8 @@ export const Settings: React.FC = () => {
         <MuxKeySetup
           muxTokenId={muxTokenId}
           muxTokenSecret={muxTokenSecret}
+          muxSigningKeyId={muxSigningKeyId}
+          muxSigningKeyPrivate={muxSigningKeyPrivate}
           hasMuxKey={hasMuxKey}
           onSave={saveMuxCredentials}
           onClose={() => setShowMuxSetup(false)}
