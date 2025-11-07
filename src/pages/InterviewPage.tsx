@@ -397,11 +397,26 @@ export const InterviewPage: React.FC = () => {
 
         // Load intro video if available
         if (sessionData?.id) {
+          console.log('🎬 Loading intro video for session:', sessionData.id);
           const { data: videoData, error: videoError } = await supabase
             .rpc('get_intro_video_for_session', { session_id: sessionData.id });
 
+          console.log('🎬 Intro video result:', {
+            success: !videoError,
+            videoCount: videoData?.length || 0,
+            video: videoData?.[0],
+            error: videoError
+          });
+
+          if (videoError) {
+            console.error('❌ Error loading intro video:', videoError);
+          }
+
           if (!videoError && videoData && videoData.length > 0) {
+            console.log('✅ Setting intro video:', videoData[0]);
             setIntroVideo(videoData[0]);
+          } else {
+            console.log('ℹ️ No intro video found for this session');
           }
         }
 
