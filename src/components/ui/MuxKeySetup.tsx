@@ -430,7 +430,8 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
               (inputTokenId === muxTokenId &&
                inputTokenSecret === muxTokenSecret &&
                inputSigningKeyId === muxSigningKeyId &&
-               inputSigningKeyPrivate === muxSigningKeyPrivate)
+               inputSigningKeyPrivate === muxSigningKeyPrivate &&
+               inputAppDomains === appDomains.join(', '))
             }
           >
             {hasMuxKey ? 'Update Credentials' : 'Save Credentials'}
