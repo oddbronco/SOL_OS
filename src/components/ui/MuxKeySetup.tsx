@@ -34,6 +34,7 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
   const [showSigningKey, setShowSigningKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
@@ -105,6 +106,7 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
 
     if (!file.name.endsWith('.pem')) {
       setError('Please upload a .pem file');
+      setUploadedFileName('');
       return;
     }
 
@@ -112,9 +114,15 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
       const text = await file.text();
       const base64 = btoa(text);
       setInputSigningKeyPrivate(base64);
+      setUploadedFileName(file.name);
       setError('');
     } catch (err) {
       setError('Failed to read file');
+      setUploadedFileName('');
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -270,9 +278,18 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
                 onChange={handleFileUpload}
                 className="hidden"
               />
-              <span className="text-xs text-gray-500 self-center">
-                or paste base64-encoded key below
-              </span>
+              {uploadedFileName ? (
+                <div className="flex items-center space-x-2 bg-green-50 px-3 py-1 rounded-md border border-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-xs text-green-700 font-medium">
+                    {uploadedFileName} uploaded
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-500 self-center">
+                  or paste base64-encoded key below
+                </span>
+              )}
             </div>
             <div className="relative">
               <textarea
