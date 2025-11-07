@@ -6,7 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
-// Base64URL encoding functions
 function base64urlEncode(str: string): string {
   return btoa(str)
     .replace(/\+/g, '-')
@@ -35,7 +34,6 @@ function base64Decode(base64: string): Uint8Array {
   return bytes;
 }
 
-// Parse PEM key to extract DER format
 function pemToDer(pem: string): Uint8Array {
   const pemHeader = '-----BEGIN RSA PRIVATE KEY-----';
   const pemFooter = '-----END RSA PRIVATE KEY-----';
@@ -46,18 +44,23 @@ function pemToDer(pem: string): Uint8Array {
   return base64Decode(pemContents);
 }
 
-// Convert PKCS#1 to PKCS#8 format
 function pkcs1ToPkcs8(pkcs1Der: Uint8Array): Uint8Array {
-  // PKCS#8 header for RSA
+  const octetStringLength = pkcs1Der.length;
+  const totalLength = 26 + octetStringLength;
+
   const pkcs8Header = new Uint8Array([
-    0x30, 0x82, 0x04, 0xbe, // SEQUENCE
-    0x02, 0x01, 0x00, // version
-    0x30, 0x0d, // SEQUENCE
-    0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, // rsaEncryption OID
-    0x05, 0x00, // NULL
-    0x04, 0x82, 0x04, 0xa8, // OCTET STRING
+    0x30, 0x82,
+    (totalLength >> 8) & 0xff,
+    totalLength & 0xff,
+    0x02, 0x01, 0x00,
+    0x30, 0x0d,
+    0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
+    0x05, 0x00,
+    0x04, 0x82,
+    (octetStringLength >> 8) & 0xff,
+    octetStringLength & 0xff,
   ]);
-  
+
   const result = new Uint8Array(pkcs8Header.length + pkcs1Der.length);
   result.set(pkcs8Header, 0);
   result.set(pkcs1Der, pkcs8Header.length);
@@ -84,7 +87,6 @@ Deno.serve(async (req: Request) => {
       throw new Error('Missing playbackId parameter');
     }
 
-    // Find the video and project owner by playback ID
     const { data: video, error: videoError } = await supabase
       .from('project_intro_videos')
       .select('project_id, projects(customer_id)')
@@ -95,13 +97,11 @@ Deno.serve(async (req: Request) => {
       throw new Error('Video not found');
     }
 
-    // Get the project's customer_id (e.g., "CUST_XXX")
     const projectCustomerId = (video.projects as any)?.customer_id;
     if (!projectCustomerId) {
       throw new Error('Project customer not found');
     }
 
-    // Look up the customer to get the owner_id (UUID)
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('owner_id')
@@ -112,7 +112,6 @@ Deno.serve(async (req: Request) => {
       throw new Error('Customer owner not found');
     }
 
-    // Get the owner's Mux signing key from user_settings
     const { data: settings } = await supabase
       .from('user_settings')
       .select('mux_signing_key_id, mux_signing_key_private')
@@ -120,7 +119,6 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (!settings?.mux_signing_key_id || !settings?.mux_signing_key_private) {
-      // No signing key configured, return null to use unsigned URL
       return new Response(
         JSON.stringify({
           token: null,
@@ -135,12 +133,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Decode the base64 private key
     const privateKeyPem = atob(settings.mux_signing_key_private);
     const pkcs1Der = pemToDer(privateKeyPem);
     const pkcs8Der = pkcs1ToPkcs8(pkcs1Der);
 
-    // Import the private key
     const privateKey = await crypto.subtle.importKey(
       'pkcs8',
       pkcs8Der,
@@ -152,9 +148,8 @@ Deno.serve(async (req: Request) => {
       ['sign']
     );
 
-    // Create JWT with Mux claims
     const now = Math.floor(Date.now() / 1000);
-    const exp = now + 7200; // 2 hours from now
+    const exp = now + 7200;
 
     const header = {
       alg: 'RS256',
@@ -164,17 +159,15 @@ Deno.serve(async (req: Request) => {
 
     const payload = {
       sub: playbackId,
-      aud: 'v', // audience must be 'v' for video
+      aud: 'v',
       exp: exp,
       kid: settings.mux_signing_key_id,
     };
 
-    // Encode header and payload
     const encodedHeader = base64urlEncode(JSON.stringify(header));
     const encodedPayload = base64urlEncode(JSON.stringify(payload));
     const signingInput = `${encodedHeader}.${encodedPayload}`;
 
-    // Sign the JWT
     const encoder = new TextEncoder();
     const data = encoder.encode(signingInput);
     const signatureBuffer = await crypto.subtle.sign(
