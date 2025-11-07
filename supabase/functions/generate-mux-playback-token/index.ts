@@ -95,16 +95,28 @@ Deno.serve(async (req: Request) => {
       throw new Error('Video not found');
     }
 
-    // Get the project owner's Mux signing key
-    const customerId = (video.projects as any)?.customer_id;
-    if (!customerId) {
-      throw new Error('Project owner not found');
+    // Get the project's customer_id (e.g., "CUST_XXX")
+    const projectCustomerId = (video.projects as any)?.customer_id;
+    if (!projectCustomerId) {
+      throw new Error('Project customer not found');
     }
 
+    // Look up the customer to get the owner_id (UUID)
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('owner_id')
+      .eq('customer_id', projectCustomerId)
+      .maybeSingle();
+
+    if (customerError || !customer?.owner_id) {
+      throw new Error('Customer owner not found');
+    }
+
+    // Get the owner's Mux signing key from user_settings
     const { data: settings } = await supabase
       .from('user_settings')
       .select('mux_signing_key_id, mux_signing_key_private')
-      .eq('user_id', customerId)
+      .eq('user_id', customer.owner_id)
       .maybeSingle();
 
     if (!settings?.mux_signing_key_id || !settings?.mux_signing_key_private) {
