@@ -489,6 +489,18 @@ function AppContent() {
     }
   };
 
+  // Don't render sidebar until user data is fully loaded
+  if (!user || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#ffffff' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coral-500 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex" style={{
       backgroundColor: '#ffffff'
