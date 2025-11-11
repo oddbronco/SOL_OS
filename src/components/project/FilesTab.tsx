@@ -34,6 +34,8 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [uploadForm, setUploadForm] = useState({
     upload_type: 'supplemental_doc',
     description: '',
@@ -168,19 +170,81 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
     return File;
   };
 
+  // Filter uploads based on search and type
+  const filteredUploads = uploads.filter(upload => {
+    const matchesSearch = searchTerm === '' ||
+      upload.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      upload.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesType = typeFilter === 'all' || upload.upload_type === typeFilter;
+
+    return matchesSearch && matchesType;
+  });
+
+  // Get unique upload types
+  const uploadTypes = Array.from(new Set(uploads.map(u => u.upload_type)));
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Project Files</h2>
           <p className="text-sm text-gray-600 mt-1">
-            {uploads.length} file{uploads.length !== 1 ? 's' : ''} uploaded
+            {filteredUploads.length} of {uploads.length} file{uploads.length !== 1 ? 's' : ''}
           </p>
         </div>
         <Button icon={Upload} onClick={() => setShowUploadModal(true)}>
           Upload File
         </Button>
       </div>
+
+      {/* Search and Filter */}
+      {uploads.length > 0 && (
+        <Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700">
+                Search Files
+              </label>
+              <Input
+                placeholder="Search by filename or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700">
+                File Type
+              </label>
+              <Select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="all">All Types</option>
+                {uploadTypes.map(type => (
+                  <option key={type} value={type}>
+                    {type.replace('_', ' ')}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          {(searchTerm || typeFilter !== 'all') && (
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('');
+                  setTypeFilter('all');
+                }}
+              >
+                Clear Filters
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
 
       {loading ? (
         <div className="text-center py-12">Loading files...</div>
@@ -191,9 +255,23 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
           <p className="mb-4 text-gray-600">Upload supplemental documents, transcripts, RFPs, and more</p>
           <Button onClick={() => setShowUploadModal(true)}>Upload First File</Button>
         </Card>
+      ) : filteredUploads.length === 0 ? (
+        <Card className="text-center py-12">
+          <p className="text-gray-600">No files match your filters</p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => {
+              setSearchTerm('');
+              setTypeFilter('all');
+            }}
+          >
+            Clear Filters
+          </Button>
+        </Card>
       ) : (
         <div className="space-y-3">
-          {uploads.map((upload) => {
+          {filteredUploads.map((upload) => {
             const Icon = getFileIcon(upload.mime_type);
             return (
               <Card key={upload.id} className="flex items-center justify-between p-4">

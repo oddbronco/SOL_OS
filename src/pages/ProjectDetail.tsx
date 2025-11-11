@@ -94,6 +94,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const [selectedStakeholderForInterview, setSelectedStakeholderForInterview] = useState<Stakeholder | null>(null);
   const [selectedStakeholderForUpload, setSelectedStakeholderForUpload] = useState<Stakeholder | null>(null);
   const [interviewPassword, setInterviewPassword] = useState('');
+
+  // Search/filter states
+  const [questionsSearch, setQuestionsSearch] = useState('');
+  const [stakeholdersSearch, setStakeholdersSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+
   const [responseData, setResponseData] = useState({
     content: '',
     file: null as File | null,
@@ -221,6 +228,54 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
     }
   };
 
+  // Filter questions based on search and filters
+  const filteredQuestions = questions.filter(question => {
+    const matchesSearch = questionsSearch === '' ||
+      question.text.toLowerCase().includes(questionsSearch.toLowerCase()) ||
+      question.category.toLowerCase().includes(questionsSearch.toLowerCase());
+
+    const matchesCategory = categoryFilter === 'all' || question.category === categoryFilter;
+
+    // Calculate status for filtering
+    const assignments = questionAssignments.filter(qa => qa.question_id === question.id);
+    const totalAssigned = assignments.length;
+    const answeredCount = assignments.filter(qa => {
+      const responses = stakeholderResponses.filter(sr =>
+        sr.question_id === question.id && sr.stakeholder_id === qa.stakeholder_id
+      );
+      return responses.length > 0;
+    }).length;
+
+    let questionStatus = 'not_assigned';
+    if (totalAssigned === 0) {
+      questionStatus = 'not_assigned';
+    } else if (answeredCount === 0) {
+      questionStatus = 'pending';
+    } else if (answeredCount < totalAssigned) {
+      questionStatus = 'in_progress';
+    } else {
+      questionStatus = 'complete';
+    }
+
+    const matchesStatus = statusFilter === 'all' || questionStatus === statusFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  // Filter stakeholders based on search
+  const filteredStakeholders = stakeholders.filter(stakeholder => {
+    const matchesSearch = stakeholdersSearch === '' ||
+      stakeholder.name.toLowerCase().includes(stakeholdersSearch.toLowerCase()) ||
+      stakeholder.role.toLowerCase().includes(stakeholdersSearch.toLowerCase()) ||
+      stakeholder.department.toLowerCase().includes(stakeholdersSearch.toLowerCase()) ||
+      stakeholder.email.toLowerCase().includes(stakeholdersSearch.toLowerCase());
+
+    return matchesSearch;
+  });
+
+  // Get unique categories for filter
+  const categories = Array.from(new Set(questions.map(q => q.category)));
+
   // Retry loading if project not found initially
   useEffect(() => {
     if (projectNotFound) {
@@ -228,7 +283,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         console.log('🔄 Retrying project load...');
         loadProjectData();
       }, 1000);
-      
+
       return () => clearTimeout(retryTimer);
     }
   }, [projectNotFound]);
@@ -1052,16 +1107,45 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               limits={{ maxStakeholders: 15 }} // Get from user subscription
             />
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Stakeholders ({stakeholders.length})
+                Stakeholders ({filteredStakeholders.length} of {stakeholders.length})
               </h3>
               <Button icon={Users}>Add Stakeholder</Button>
             </div>
 
+            {/* Search */}
+            <Card className="mb-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Search Stakeholders
+                  </label>
+                  <Input
+                    placeholder="Search by name, role, department, or email..."
+                    value={stakeholdersSearch}
+                    onChange={(e) => setStakeholdersSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Clear Search */}
+              {stakeholdersSearch && (
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStakeholdersSearch('')}
+                  >
+                    Clear Search
+                  </Button>
+                </div>
+              )}
+            </Card>
+
             {/* Enhanced Stakeholders List */}
             <EnhancedStakeholdersList
-              stakeholders={stakeholders}
+              stakeholders={filteredStakeholders}
               interviewSessions={interviewSessions}
               onEditStakeholder={handleEditStakeholder}
               onViewInterview={(stakeholder) => {
@@ -1095,9 +1179,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               limits={{ maxQuestions: user?.subscription.maxQuestions || 50 }}
             />
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Questions ({questions.length})
+                Questions ({filteredQuestions.length} of {questions.length})
               </h3>
               <div className="flex space-x-2">
                 <Button
@@ -1118,9 +1202,76 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               </div>
             </div>
 
+            {/* Search and Filters */}
+            <Card className="mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Search Input */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Search Questions
+                  </label>
+                  <Input
+                    placeholder="Search by text or category..."
+                    value={questionsSearch}
+                    onChange={(e) => setQuestionsSearch(e.target.value)}
+                  />
+                </div>
+
+                {/* Category Filter */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Category
+                  </label>
+                  <Select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </Select>
+                </div>
+
+                {/* Status Filter */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Status
+                  </label>
+                  <Select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="complete">Complete</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="pending">Pending</option>
+                    <option value="not_assigned">Not Assigned</option>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Clear Filters */}
+              {(questionsSearch || categoryFilter !== 'all' || statusFilter !== 'all') && (
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setQuestionsSearch('');
+                      setCategoryFilter('all');
+                      setStatusFilter('all');
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
+            </Card>
+
             {/* Enhanced Questions List */}
             <EnhancedQuestionsList
-              questions={questions}
+              questions={filteredQuestions}
               questionAssignments={questionAssignments}
               stakeholderResponses={stakeholderResponses}
               stakeholders={stakeholders}
