@@ -609,18 +609,51 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
       const { data: responses } = await supabase
         .from('interview_responses')
         .select('*, stakeholders(*), questions(*)')
-        .eq('project_id', projectId);
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
 
       const { data: uploads } = await supabase
         .from('project_uploads')
         .select('*')
         .eq('project_id', projectId)
-        .eq('include_in_generation', true);
+        .eq('include_in_generation', true)
+        .order('created_at', { ascending: false });
 
       const { data: questions } = await supabase
         .from('questions')
         .select('*')
-        .eq('project_id', projectId);
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      // Load interview sessions data
+      const { data: sessions } = await supabase
+        .from('interview_sessions')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      // Load document runs (generated documents)
+      const { data: documentRuns } = await supabase
+        .from('document_runs')
+        .select('*, document_templates(*)')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      // Load document templates
+      const { data: templates } = await supabase
+        .from('document_templates')
+        .select('*')
+        .or(`is_system.eq.true,created_by.eq.${(await supabase.auth.getUser()).data.user?.id}`)
+        .order('created_at', { ascending: false });
+
+      // Load project exports
+      const { data: exports } = await supabase
+        .from('project_exports')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
       // Build unified AI context
       const contextData: AIContextData = {
@@ -629,7 +662,11 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
         stakeholders: stakeholders || [],
         responses: responses || [],
         uploads: uploads || [],
-        questions: questions || []
+        questions: questions || [],
+        sessions: sessions || [],
+        documentRuns: documentRuns || [],
+        templates: templates || [],
+        exports: exports || []
       };
 
       const aiContext = buildAIContext(contextData);

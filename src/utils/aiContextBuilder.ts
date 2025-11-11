@@ -19,6 +19,9 @@ export interface AIContextData {
   uploads?: any[];
   questions?: any[];
   sessions?: any[];
+  documentRuns?: any[];
+  templates?: any[];
+  exports?: any[];
 }
 
 export interface FormattedAIContext {
@@ -29,6 +32,9 @@ export interface FormattedAIContext {
   interviewByStakeholder: string;
   uploadedFiles: string;
   questionList: string;
+  sessionsSummary: string;
+  documentRunsSummary: string;
+  exportsSummary: string;
   fullContext: string;
 }
 
@@ -68,8 +74,33 @@ export const buildAIContext = (data: AIContextData): FormattedAIContext => {
     : 'No files uploaded.';
 
   const questionList = data.questions && data.questions.length > 0
-    ? data.questions.map(q => `- [${q.category}] ${q.text}`).join('\n')
+    ? data.questions.map(q => `- [${q.category}] ${q.text} (Created: ${new Date(q.created_at).toLocaleString()})`).join('\n')
     : 'No questions available.';
+
+  // Format interview sessions
+  const sessionsSummary = data.sessions && data.sessions.length > 0
+    ? data.sessions.map(s => {
+        const status = s.completed_at ? 'Completed' : 'In Progress';
+        const progress = s.total_questions > 0 ? `${s.answered_questions}/${s.total_questions} answered (${Math.round((s.answered_questions / s.total_questions) * 100)}%)` : 'No questions';
+        return `- Session: ${s.title || 'Untitled'}\n  Status: ${status}\n  Progress: ${progress}\n  Started: ${new Date(s.created_at).toLocaleString()}${s.completed_at ? `\n  Completed: ${new Date(s.completed_at).toLocaleString()}` : ''}\n  Access Code: ${s.access_code}`;
+      }).join('\n\n')
+    : 'No interview sessions created yet.';
+
+  // Format document runs
+  const documentRunsSummary = data.documentRuns && data.documentRuns.length > 0
+    ? data.documentRuns.map(run => {
+        const template = run.document_templates;
+        const duration = run.processing_time_seconds ? `${run.processing_time_seconds}s` : 'N/A';
+        return `- Document: ${template?.name || 'Unknown Template'}\n  Format: ${template?.output_format || 'N/A'}\n  Status: ${run.status}\n  Created: ${new Date(run.created_at).toLocaleString()}${run.completed_at ? `\n  Completed: ${new Date(run.completed_at).toLocaleString()}` : ''}\n  Processing Time: ${duration}`;
+      }).join('\n\n')
+    : 'No documents generated yet.';
+
+  // Format exports
+  const exportsSummary = data.exports && data.exports.length > 0
+    ? data.exports.map(exp => {
+        return `- Export: ${exp.export_type}\n  Format: ${exp.format}\n  Status: ${exp.status}\n  Created: ${new Date(exp.created_at).toLocaleString()}${exp.completed_at ? `\n  Completed: ${new Date(exp.completed_at).toLocaleString()}` : ''}`;
+      }).join('\n\n')
+    : 'No exports created yet.';
 
   const fullContext = `
 PROJECT INFORMATION:
@@ -78,7 +109,10 @@ ${projectSummary}
 STAKEHOLDER TEAM:
 ${stakeholderProfiles}
 
-INTERVIEW RESPONSES (Q&A Format):
+INTERVIEW SESSIONS:
+${sessionsSummary}
+
+INTERVIEW RESPONSES (Q&A Format with Timestamps):
 ${interviewData}
 
 UPLOADED DOCUMENTS & FILES:
@@ -86,6 +120,12 @@ ${uploadedFiles}
 
 QUESTIONS ASKED:
 ${questionList}
+
+GENERATED DOCUMENTS:
+${documentRunsSummary}
+
+PROJECT EXPORTS:
+${exportsSummary}
 `.trim();
 
   return {
@@ -96,19 +136,41 @@ ${questionList}
     interviewByStakeholder,
     uploadedFiles,
     questionList,
+    sessionsSummary,
+    documentRunsSummary,
+    exportsSummary,
     fullContext
   };
 };
 
 export const buildSidekickPrompt = (userQuery: string, context: FormattedAIContext): string => {
-  return `You are an AI assistant helping with a software project. You have access to comprehensive project information including stakeholder interviews, uploaded documents, and project details.
+  return `You are the Project Sidekick, an AI assistant with comprehensive access to this software project's complete data.
+
+You have access to:
+- Project overview and timeline information
+- Complete stakeholder profiles with roles and departments
+- All interview sessions with progress tracking
+- Interview responses with timestamps showing who said what and when
+- Uploaded documents and files with their content
+- All questions that have been asked
+- Generated documents and their status
+- Project exports and their formats
 
 ${context.fullContext}
+
+---
 
 USER QUESTION:
 ${userQuery}
 
-Provide a helpful, detailed response based on the project context above. If the context contains relevant information, reference it specifically. If you need more information that isn't in the context, let the user know what additional details would be helpful.`;
+INSTRUCTIONS:
+- Provide helpful, detailed responses based on the project data above
+- When referencing data, cite specific sources (e.g., "According to John Smith's response on 1/15/2025...")
+- Include relevant timestamps when discussing events or responses
+- If analyzing trends, compare responses across different stakeholders or time periods
+- If the user asks about progress or status, reference the specific metrics and dates
+- If information is missing, suggest what additional data would be helpful
+- Be conversational but precise - use the actual data to support your answers`;
 };
 
 export const buildQuestionGeneratorPrompt = (
