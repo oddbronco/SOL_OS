@@ -145,27 +145,30 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
           }}
         />
 
-        {/* Header Section */}
+        {/* Header Section - Fully Clickable */}
         <div className="relative p-5">
-          <div className="flex items-center gap-4">
-            {/* Expand/Collapse Button */}
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className={`flex-shrink-0 p-2.5 rounded-xl transition-all duration-300 ${
-                isDark
-                  ? 'bg-gray-800 hover:bg-gray-700'
-                  : 'bg-white hover:bg-gray-50'
-              } shadow-sm hover:shadow-md`}
-            >
-              {isExpanded ? (
-                <ChevronUp className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} />
-              ) : (
-                <ChevronDown className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} />
-              )}
-            </button>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full text-left"
+          >
+            <div className="flex items-center gap-4">
+              {/* Expand/Collapse Button */}
+              <div
+                className={`flex-shrink-0 p-2.5 rounded-xl transition-all duration-300 ${
+                  isDark
+                    ? 'bg-gray-800 hover:bg-gray-700'
+                    : 'bg-white hover:bg-gray-50'
+                } shadow-sm hover:shadow-md`}
+              >
+                {isExpanded ? (
+                  <ChevronUp className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} />
+                ) : (
+                  <ChevronDown className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} />
+                )}
+              </div>
 
-            {/* Avatar with Status Indicator */}
-            <div className="relative flex-shrink-0">
+              {/* Avatar with Status Indicator */}
+              <div className="relative flex-shrink-0">
               <div
                 className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-md transition-transform duration-300 group-hover:scale-105`}
                 style={{
@@ -269,11 +272,18 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
               </div>
             </div>
 
-            {/* Action Button */}
+            </div>
+          </button>
+
+          {/* Action Button - Outside clickable area */}
+          <div className="absolute top-5 right-5">
             <Button
               size="md"
               icon={Plus}
-              onClick={() => setShowCreateModal(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCreateModal(true);
+              }}
               className={`shadow-md hover:shadow-lg transition-all duration-300 ${
                 isDark
                   ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600'

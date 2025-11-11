@@ -20,6 +20,8 @@ import { StakeholderInterviewView } from '../components/interviews/StakeholderIn
 import { ViewResponsesModal } from '../components/interviews/ViewResponsesModal';
 import { CSVUploadManager } from '../components/csv/CSVUploadManager';
 import { QuestionCollectionImporter } from '../components/questions/QuestionCollectionImporter';
+import { EnhancedQuestionsList } from '../components/questions/EnhancedQuestionsList';
+import { EnhancedStakeholdersList } from '../components/stakeholders/EnhancedStakeholdersList';
 import { FilesTab } from '../components/project/FilesTab';
 import { IntroVideoManager } from '../components/project/IntroVideoManager';
 import { BrandingSettings } from '../components/project/BrandingSettings';
@@ -1057,77 +1059,19 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               <Button icon={Users}>Add Stakeholder</Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {stakeholders.map((stakeholder) => (
-                <Card key={stakeholder.id}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                        <Users className="h-6 w-6 text-purple-600" />
-                      </div>
-                      <div>
-                        <h4 className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                          {stakeholder.name}
-                        </h4>
-                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                          {stakeholder.role}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge 
-                      variant={stakeholder.status === 'completed' ? 'success' : 'warning'}
-                      size="sm"
-                    >
-                      {stakeholder.status}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <div className={`flex items-center text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                      <Mail className="h-4 w-4 mr-2" />
-                      <span>{stakeholder.email}</span>
-                    </div>
-                    {stakeholder.phone && (
-                      <div className={`flex items-center text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                        <Phone className="h-4 w-4 mr-2" />
-                        <span>{stakeholder.phone}</span>
-                      </div>
-                    )}
-                    <div className={`flex items-center text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                      <Users className="h-4 w-4 mr-2" />
-                      <span>{stakeholder.department}</span>
-                    </div>
-                    {stakeholder.seniority && (
-                      <div className={`flex items-center text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                        <Target className="h-4 w-4 mr-2" />
-                        <span>{stakeholder.seniority} • {stakeholder.experience_years} years</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      icon={Edit}
-                      onClick={() => handleEditStakeholder(stakeholder)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedStakeholder(stakeholder);
-                        setShowStakeholderInterview(true);
-                      }}
-                    >
-                      View Interview
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
+            {/* Enhanced Stakeholders List */}
+            <EnhancedStakeholdersList
+              stakeholders={stakeholders}
+              interviewSessions={interviewSessions}
+              onEditStakeholder={(stakeholder) => {
+                setSelectedStakeholder(stakeholder);
+                setShowEditStakeholder(true);
+              }}
+              onViewInterview={(stakeholder) => {
+                setSelectedStakeholder(stakeholder);
+                setShowStakeholderInterview(true);
+              }}
+            />
           </div>
         )}
 
@@ -1177,84 +1121,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
               </div>
             </div>
 
-            <div className="space-y-4">
-              {questions.map((question) => {
-                // Calculate question statistics
-                const assignments = questionAssignments.filter(qa => qa.question_id === question.id);
-                const totalAssigned = assignments.length;
-                const answeredCount = assignments.filter(qa => {
-                  const responses = stakeholderResponses.filter(sr =>
-                    sr.question_id === question.id &&
-                    sr.stakeholder_id === qa.stakeholder_id
-                  );
-                  return responses.length > 0;
-                }).length;
-
-                // Determine status
-                let statusBadge = null;
-                let statusVariant: 'default' | 'warning' | 'info' | 'success' = 'default';
-                let statusText = '';
-
-                if (totalAssigned === 0) {
-                  statusVariant = 'default';
-                  statusText = 'Not Assigned';
-                } else if (answeredCount === 0) {
-                  statusVariant = 'warning';
-                  statusText = `Pending (0/${totalAssigned})`;
-                } else if (answeredCount < totalAssigned) {
-                  statusVariant = 'info';
-                  statusText = `In Progress (${answeredCount}/${totalAssigned})`;
-                } else {
-                  statusVariant = 'success';
-                  statusText = `Complete (${totalAssigned}/${totalAssigned})`;
-                }
-
-                return (
-                  <Card key={question.id}>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="info">{question.category}</Badge>
-                        <Badge variant={statusVariant}>{statusText}</Badge>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          icon={Eye}
-                          onClick={() => {
-                            setSelectedQuestionForResponses(question);
-                            setShowViewResponsesModal(true);
-                          }}
-                        >
-                          View Responses ({answeredCount})
-                        </Button>
-                        <Button size="sm" variant="ghost" icon={Edit}>Edit</Button>
-                      </div>
-                    </div>
-                    <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                      {question.text}
-                    </p>
-                    {question.target_roles && question.target_roles.length > 0 && (
-                      <div className="mt-3">
-                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                          Target roles: {question.target_roles.join(', ')}
-                        </p>
-                      </div>
-                    )}
-                    {totalAssigned > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                          Assigned to: {assignments.map(qa => {
-                            const stakeholder = stakeholders.find(s => s.id === qa.stakeholder_id);
-                            return stakeholder?.name;
-                          }).filter(Boolean).join(', ')}
-                        </p>
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
+            {/* Enhanced Questions List */}
+            <EnhancedQuestionsList
+              questions={questions}
+              questionAssignments={questionAssignments}
+              stakeholderResponses={stakeholderResponses}
+              stakeholders={stakeholders}
+              onViewResponses={(question) => {
+                setSelectedQuestionForResponses(question);
+                setShowViewResponsesModal(true);
+              }}
+              onEditQuestion={(question) => {
+                // TODO: Implement edit question
+                console.log('Edit question:', question);
+              }}
+            />
           </div>
         )}
 
