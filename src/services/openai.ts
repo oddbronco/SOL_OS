@@ -736,46 +736,32 @@ IMPORTANT: Return only valid JSON, no other text.`;
     }
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-chat`;
+
+      const response = await fetch(functionUrl, {
         method: 'POST',
-        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
           messages,
+          model: 'gpt-4o',
           temperature: 0.7,
-          max_tokens: 2000
+          max_tokens: 2000,
+          openai_api_key: apiKey
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData?.error?.message || response.statusText;
-
-        // Handle specific OpenAI errors
-        if (response.status === 401) {
-          throw new Error('Invalid OpenAI API key. Please check your API key in Settings.');
-        } else if (response.status === 429) {
-          throw new Error('OpenAI rate limit exceeded. Please wait a moment and try again.');
-        } else if (response.status === 403) {
-          throw new Error('OpenAI API access forbidden. Please check your API key permissions.');
-        } else if (errorMessage.includes('insufficient_quota')) {
-          throw new Error('OpenAI API quota exceeded. Please check your OpenAI account billing.');
-        }
-
-        throw new Error(`OpenAI API error: ${errorMessage}`);
+        const errorMessage = errorData?.error || errorData?.details || response.statusText;
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       return data.choices[0].message.content;
     } catch (error) {
-      // Handle network errors
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error('Network error: Unable to reach OpenAI API. Please check your internet connection or if the OpenAI API is accessible from your network.');
-      }
       console.error('Error in chat:', error);
       throw error;
     }
