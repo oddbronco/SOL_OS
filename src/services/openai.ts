@@ -732,12 +732,13 @@ IMPORTANT: Return only valid JSON, no other text.`;
   async chat(messages: OpenAIMessage[]): Promise<string> {
     const apiKey = await getUserApiKey();
     if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
+      throw new Error('OpenAI API key not configured. Please set up your API key in Settings > Integrations.');
     }
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
@@ -751,12 +752,30 @@ IMPORTANT: Return only valid JSON, no other text.`;
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.error?.message || response.statusText;
+
+        // Handle specific OpenAI errors
+        if (response.status === 401) {
+          throw new Error('Invalid OpenAI API key. Please check your API key in Settings.');
+        } else if (response.status === 429) {
+          throw new Error('OpenAI rate limit exceeded. Please wait a moment and try again.');
+        } else if (response.status === 403) {
+          throw new Error('OpenAI API access forbidden. Please check your API key permissions.');
+        } else if (errorMessage.includes('insufficient_quota')) {
+          throw new Error('OpenAI API quota exceeded. Please check your OpenAI account billing.');
+        }
+
+        throw new Error(`OpenAI API error: ${errorMessage}`);
       }
 
       const data = await response.json();
       return data.choices[0].message.content;
     } catch (error) {
+      // Handle network errors
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('Network error: Unable to reach OpenAI API. Please check your internet connection or if the OpenAI API is accessible from your network.');
+      }
       console.error('Error in chat:', error);
       throw error;
     }
