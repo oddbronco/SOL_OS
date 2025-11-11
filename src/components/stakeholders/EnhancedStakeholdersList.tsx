@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import {
@@ -14,8 +13,7 @@ import {
   Clock,
   TrendingUp,
   Activity,
-  Phone,
-  MapPin
+  Phone
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -72,7 +70,7 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
       statusIcon = Clock;
     } else if (completedSessions === sessions.length) {
       statusVariant = 'success';
-      statusText = 'All Complete';
+      statusText = 'Complete';
       statusIcon = CheckCircle;
     } else if (inProgressSessions > 0 || completedSessions > 0) {
       statusVariant = 'info';
@@ -95,42 +93,9 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
     };
   };
 
-  const getStatusGradient = (statusVariant: string) => {
-    switch (statusVariant) {
-      case 'success':
-        return isDark
-          ? 'from-green-900/20 to-emerald-900/20 border-green-500/30'
-          : 'from-green-50 to-emerald-50 border-green-200';
-      case 'info':
-        return isDark
-          ? 'from-blue-900/20 to-indigo-900/20 border-blue-500/30'
-          : 'from-blue-50 to-indigo-50 border-blue-200';
-      case 'warning':
-        return isDark
-          ? 'from-yellow-900/20 to-orange-900/20 border-yellow-500/30'
-          : 'from-yellow-50 to-orange-50 border-yellow-200';
-      default:
-        return isDark
-          ? 'from-gray-800/50 to-gray-900/50 border-gray-700'
-          : 'from-gray-50 to-gray-100 border-gray-200';
-    }
-  };
-
-  const getAvatarGradient = (index: number) => {
-    const gradients = [
-      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-      'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-    ];
-    return gradients[index % gradients.length];
-  };
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {stakeholders.map((stakeholder, index) => {
+      {stakeholders.map((stakeholder) => {
         const stats = getStakeholderStats(stakeholder);
         const StatusIcon = stats.statusIcon;
         const isHovered = hoveredStakeholder === stakeholder.id;
@@ -140,34 +105,37 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
             key={stakeholder.id}
             onMouseEnter={() => setHoveredStakeholder(stakeholder.id)}
             onMouseLeave={() => setHoveredStakeholder(null)}
-            className={`rounded-xl border transition-all duration-300 ${
-              isHovered ? 'shadow-xl scale-[1.02]' : 'shadow-md'
-            } bg-gradient-to-br ${getStatusGradient(stats.statusVariant)} overflow-hidden`}
+            className={`rounded-xl border transition-all duration-300 overflow-hidden ${
+              isHovered ? 'shadow-lg scale-[1.02]' : 'shadow-md'
+            } ${
+              isDark
+                ? 'bg-gray-800 border-gray-700'
+                : 'bg-white border-gray-200'
+            }`}
           >
             {/* Header with Avatar */}
-            <div className={`p-5 pb-4 ${
-              isDark ? 'bg-gradient-to-br from-gray-800/50 to-gray-900/50' : 'bg-white/50'
+            <div className={`p-5 pb-4 border-b ${
+              isDark ? 'border-gray-700' : 'border-gray-100'
             }`}>
-              <div className="flex items-start gap-4 mb-4">
-                {/* Avatar */}
-                <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0"
-                  style={{
-                    background: getAvatarGradient(index)
-                  }}
-                >
-                  <User className="h-8 w-8 text-white" />
+              <div className="flex items-start gap-4 mb-3">
+                {/* Simple Avatar */}
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  isDark ? 'bg-blue-900/30' : 'bg-blue-50'
+                }`}>
+                  <User className={`h-7 w-7 ${
+                    isDark ? 'text-blue-400' : 'text-blue-600'
+                  }`} />
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-lg font-semibold mb-1 truncate ${
+                  <h4 className={`text-base font-semibold mb-1.5 truncate ${
                     isDark ? 'text-white' : 'text-gray-900'
                   }`}>
                     {stakeholder.name}
                   </h4>
 
-                  <Badge variant={stats.statusVariant} className="text-xs mb-2">
+                  <Badge variant={stats.statusVariant} className="text-xs">
                     <StatusIcon className="h-3 w-3 mr-1" />
                     {stats.statusText}
                   </Badge>
@@ -225,16 +193,14 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
             </div>
 
             {/* Stats Section */}
-            <div className="p-5 pt-4">
+            <div className="p-5">
               <div className="grid grid-cols-3 gap-3 mb-4">
                 {/* Interviews Count */}
-                <div className={`text-center p-3 rounded-xl ${
-                  isDark ? 'bg-gray-800/50' : 'bg-white/80'
-                }`}>
+                <div className="text-center">
                   <MessageSquare className={`h-5 w-5 mx-auto mb-1 ${
-                    isDark ? 'text-blue-400' : 'text-blue-600'
+                    isDark ? 'text-gray-400' : 'text-gray-500'
                   }`} />
-                  <div className={`text-xl font-bold ${
+                  <div className={`text-lg font-bold ${
                     isDark ? 'text-white' : 'text-gray-900'
                   }`}>
                     {stats.totalSessions}
@@ -247,15 +213,13 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
                 </div>
 
                 {/* Completed Count */}
-                <div className={`text-center p-3 rounded-xl ${
-                  isDark ? 'bg-gray-800/50' : 'bg-white/80'
-                }`}>
+                <div className="text-center">
                   <CheckCircle className={`h-5 w-5 mx-auto mb-1 ${
                     stats.completedSessions > 0
                       ? 'text-green-500'
                       : isDark ? 'text-gray-600' : 'text-gray-400'
                   }`} />
-                  <div className={`text-xl font-bold ${
+                  <div className={`text-lg font-bold ${
                     isDark ? 'text-white' : 'text-gray-900'
                   }`}>
                     {stats.completedSessions}
@@ -268,9 +232,7 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
                 </div>
 
                 {/* Progress */}
-                <div className={`text-center p-3 rounded-xl ${
-                  isDark ? 'bg-gray-800/50' : 'bg-white/80'
-                }`}>
+                <div className="text-center">
                   <TrendingUp className={`h-5 w-5 mx-auto mb-1 ${
                     stats.avgProgress === 100
                       ? 'text-green-500'
@@ -278,7 +240,7 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
                       ? isDark ? 'text-blue-400' : 'text-blue-600'
                       : isDark ? 'text-gray-600' : 'text-gray-400'
                   }`} />
-                  <div className={`text-xl font-bold ${
+                  <div className={`text-lg font-bold ${
                     isDark ? 'text-white' : 'text-gray-900'
                   }`}>
                     {stats.avgProgress}%
@@ -294,42 +256,31 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
               {/* Progress Bar */}
               {stats.totalSessions > 0 && (
                 <div className="mb-4">
-                  <div className={`h-2 rounded-full overflow-hidden ${
+                  <div className={`h-1.5 rounded-full overflow-hidden ${
                     isDark ? 'bg-gray-700' : 'bg-gray-200'
                   }`}>
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
                         stats.avgProgress === 100
-                          ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                          ? 'bg-green-500'
                           : stats.avgProgress > 0
-                          ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                          ? 'bg-blue-500'
                           : 'bg-gray-400'
                       }`}
-                      style={{
-                        width: `${stats.avgProgress}%`,
-                        boxShadow: stats.avgProgress > 0
-                          ? '0 0 10px rgba(59, 130, 246, 0.4)'
-                          : 'none'
-                      }}
-                    >
-                      {stats.avgProgress > 10 && (
-                        <div className="h-full w-full animate-pulse bg-white/20" />
-                      )}
-                    </div>
+                      style={{ width: `${stats.avgProgress}%` }}
+                    />
                   </div>
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className={`flex gap-2 transition-opacity duration-200 ${
-                isHovered ? 'opacity-100' : 'opacity-80'
-              }`}>
+              <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
                   icon={Edit}
                   onClick={() => onEditStakeholder(stakeholder)}
-                  className="flex-1 shadow-sm hover:shadow-md"
+                  className="flex-1"
                 >
                   Edit
                 </Button>
@@ -338,24 +289,12 @@ export const EnhancedStakeholdersList: React.FC<EnhancedStakeholdersListProps> =
                   variant="outline"
                   icon={Eye}
                   onClick={() => onViewInterview(stakeholder)}
-                  className="flex-1 shadow-sm hover:shadow-md"
+                  className="flex-1"
                 >
                   Interviews
                 </Button>
               </div>
             </div>
-
-            {/* Hover Effect */}
-            {isHovered && (
-              <div
-                className="absolute inset-0 rounded-xl pointer-events-none"
-                style={{
-                  boxShadow: isDark
-                    ? '0 0 25px rgba(59, 130, 246, 0.25)'
-                    : '0 0 25px rgba(59, 130, 246, 0.2)'
-                }}
-              />
-            )}
           </div>
         );
       })}

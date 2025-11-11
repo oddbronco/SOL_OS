@@ -1063,10 +1063,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
             <EnhancedStakeholdersList
               stakeholders={stakeholders}
               interviewSessions={interviewSessions}
-              onEditStakeholder={(stakeholder) => {
-                setSelectedStakeholder(stakeholder);
-                setShowEditStakeholder(true);
-              }}
+              onEditStakeholder={handleEditStakeholder}
               onViewInterview={(stakeholder) => {
                 setSelectedStakeholder(stakeholder);
                 setShowStakeholderInterview(true);
