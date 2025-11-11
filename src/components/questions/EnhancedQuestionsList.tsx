@@ -185,16 +185,16 @@ export const EnhancedQuestionsList: React.FC<EnhancedQuestionsListProps> = ({
 
                 {/* Question Content */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="info" className="text-xs">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <Badge variant="info" className="text-xs flex-shrink-0">
                       {question.category}
                     </Badge>
-                    <Badge variant={stats.statusVariant} className="text-xs">
+                    <Badge variant={stats.statusVariant} className="text-xs flex-shrink-0">
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {stats.statusText}
                     </Badge>
                     {stats.totalAssigned > 0 && (
-                      <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                      <span className={`text-xs flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                         {stats.answeredCount}/{stats.totalAssigned} responses
                       </span>
                     )}
@@ -222,7 +222,7 @@ export const EnhancedQuestionsList: React.FC<EnhancedQuestionsListProps> = ({
                 </div>
 
                 {/* Action Buttons */}
-                <div className={`flex gap-2 transition-opacity duration-200 ${
+                <div className={`flex gap-2 flex-shrink-0 transition-opacity duration-200 ${
                   isHovered ? 'opacity-100' : 'opacity-70'
                 }`}>
                   <Button
@@ -230,7 +230,7 @@ export const EnhancedQuestionsList: React.FC<EnhancedQuestionsListProps> = ({
                     variant="outline"
                     icon={Eye}
                     onClick={() => onViewResponses(question)}
-                    className="shadow-sm hover:shadow-md"
+                    className="shadow-sm hover:shadow-md flex-shrink-0"
                     title="View Responses"
                   >
                     {stats.answeredCount}
@@ -240,13 +240,13 @@ export const EnhancedQuestionsList: React.FC<EnhancedQuestionsListProps> = ({
                     variant="outline"
                     icon={Edit}
                     onClick={() => onEditQuestion(question)}
-                    className="shadow-sm hover:shadow-md"
+                    className="shadow-sm hover:shadow-md flex-shrink-0"
                     title="Edit Question"
                   />
                   {stats.totalAssigned > 0 && (
                     <button
                       onClick={() => toggleExpand(question.id)}
-                      className={`p-2 rounded-lg transition-all ${
+                      className={`p-2 rounded-lg transition-all flex-shrink-0 ${
                         isDark
                           ? 'hover:bg-gray-700 text-gray-400'
                           : 'hover:bg-gray-100 text-gray-600'

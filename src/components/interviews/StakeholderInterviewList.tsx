@@ -145,34 +145,34 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
           }}
         />
 
-        {/* Header Section - Fully Clickable */}
-        <div className="relative p-5">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full text-left"
-          >
-            <div className="flex items-center gap-4">
-              {/* Expand/Collapse Button */}
-              <div
-                className={`flex-shrink-0 p-2.5 rounded-xl transition-all duration-300 ${
-                  isDark
-                    ? 'bg-gray-800 hover:bg-gray-700'
-                    : 'bg-white hover:bg-gray-50'
-                } shadow-sm hover:shadow-md`}
-              >
-                {isExpanded ? (
-                  <ChevronUp className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} />
-                ) : (
-                  <ChevronDown className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} />
-                )}
-              </div>
+        {/* Header Section */}
+        <div className="p-5">
+          <div className="flex items-center gap-4">
+            {/* Expand/Collapse Button - Clickable */}
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={`flex-shrink-0 p-2.5 rounded-xl transition-all duration-300 ${
+                isDark
+                  ? 'bg-gray-800 hover:bg-gray-700'
+                  : 'bg-white hover:bg-gray-50'
+              } shadow-sm hover:shadow-md`}
+            >
+              {isExpanded ? (
+                <ChevronUp className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} />
+              ) : (
+                <ChevronDown className={`h-5 w-5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} />
+              )}
+            </button>
 
-              {/* Avatar with Status Indicator */}
-              <div className="relative flex-shrink-0">
+            {/* Avatar with Status Indicator - Clickable */}
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="relative flex-shrink-0"
+            >
               <div
                 className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-md transition-transform duration-300 group-hover:scale-105`}
                 style={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  background: isDark ? '#1e40af' : '#3b82f6'
                 }}
               >
                 <User className="h-7 w-7 text-white" />
@@ -188,33 +188,36 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
                     : 'bg-yellow-500'
                 }`} />
               )}
-            </div>
+            </button>
 
-            {/* Stakeholder Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h4 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            {/* Stakeholder Info - Clickable */}
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex-1 min-w-0 text-left"
+            >
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h4 className={`text-lg font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {stakeholder.name}
                 </h4>
                 {completedCount === sessions.length && sessions.length > 0 && (
-                  <Badge variant="success" className="text-xs">
+                  <Badge variant="success" className="text-xs flex-shrink-0">
                     <CheckCircle className="h-3 w-3 mr-1" />
                     All Complete
                   </Badge>
                 )}
               </div>
 
-              <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-3 text-sm flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <Briefcase className={`h-3.5 w-3.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                  <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                  <Briefcase className={`h-3.5 w-3.5 flex-shrink-0 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                  <span className={`truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     {stakeholder.role}
                   </span>
                 </div>
                 {stakeholder.department && (
                   <>
                     <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>•</span>
-                    <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                    <span className={`truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                       {stakeholder.department}
                     </span>
                   </>
@@ -223,27 +226,27 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
 
               {stakeholder.email && (
                 <div className="flex items-center gap-1.5 mt-1 text-xs">
-                  <Mail className={`h-3 w-3 ${isDark ? 'text-gray-600' : 'text-gray-400'}`} />
-                  <span className={isDark ? 'text-gray-500' : 'text-gray-500'}>
+                  <Mail className={`h-3 w-3 flex-shrink-0 ${isDark ? 'text-gray-600' : 'text-gray-400'}`} />
+                  <span className={`truncate ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                     {stakeholder.email}
                   </span>
                 </div>
               )}
-            </div>
+            </button>
 
-            {/* Quick Stats Cards */}
-            <div className="hidden lg:flex items-center gap-3">
+            {/* Quick Stats Cards - Desktop only */}
+            <div className="hidden xl:flex items-center gap-3 flex-shrink-0">
               {/* Interviews Count */}
-              <div className={`px-4 py-3 rounded-xl ${
+              <div className={`px-3 py-2 rounded-xl ${
                 isDark ? 'bg-gray-800/50' : 'bg-white/80'
-              } shadow-sm min-w-[100px]`}>
-                <div className="flex items-center justify-between gap-3">
-                  <MessageSquare className={`h-5 w-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
-                  <div className="text-right">
-                    <div className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              } shadow-sm`}>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className={`h-4 w-4 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <div className="text-center">
+                    <div className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                       {sessions.length}
                     </div>
-                    <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                    <div className={`text-xs whitespace-nowrap ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                       Interview{sessions.length !== 1 ? 's' : ''}
                     </div>
                   </div>
@@ -251,20 +254,20 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
               </div>
 
               {/* Progress */}
-              <div className={`px-4 py-3 rounded-xl ${
+              <div className={`px-3 py-2 rounded-xl ${
                 isDark ? 'bg-gray-800/50' : 'bg-white/80'
-              } shadow-sm min-w-[100px]`}>
-                <div className="flex items-center justify-between gap-3">
-                  <TrendingUp className={`h-5 w-5 ${
+              } shadow-sm`}>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className={`h-4 w-4 ${
                     avgProgress === 100 ? (isDark ? 'text-green-400' : 'text-green-600') :
                     avgProgress > 0 ? (isDark ? 'text-blue-400' : 'text-blue-600') :
                     (isDark ? 'text-gray-500' : 'text-gray-400')
                   }`} />
-                  <div className="text-right">
-                    <div className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <div className="text-center">
+                    <div className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                       {avgProgress}%
                     </div>
-                    <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                    <div className={`text-xs whitespace-nowrap ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                       Avg Progress
                     </div>
                   </div>
@@ -272,26 +275,21 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
               </div>
             </div>
 
+            {/* Action Button - Always visible */}
+            <div className="flex-shrink-0">
+              <Button
+                size="sm"
+                icon={Plus}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCreateModal(true);
+                }}
+                className="whitespace-nowrap"
+              >
+                <span className="hidden sm:inline">New Interview</span>
+                <span className="sm:hidden">New</span>
+              </Button>
             </div>
-          </button>
-
-          {/* Action Button - Outside clickable area */}
-          <div className="absolute top-5 right-5">
-            <Button
-              size="md"
-              icon={Plus}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowCreateModal(true);
-              }}
-              className={`shadow-md hover:shadow-lg transition-all duration-300 ${
-                isDark
-                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600'
-                  : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600'
-              }`}
-            >
-              New Interview
-            </Button>
           </div>
 
           {/* Mobile Stats (shown when collapsed) */}
@@ -419,7 +417,7 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
                         </div>
 
                         {/* Quick Actions */}
-                        <div className={`flex gap-1.5 ml-4 transition-opacity duration-200 ${
+                        <div className={`flex gap-1.5 ml-4 flex-shrink-0 transition-opacity duration-200 ${
                           isHovered ? 'opacity-100' : 'opacity-70'
                         }`}>
                           <Button
@@ -427,7 +425,7 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
                             variant="outline"
                             icon={MessageSquare}
                             onClick={() => onAssignQuestions(stakeholder, session)}
-                            className="shadow-sm hover:shadow-md"
+                            className="shadow-sm hover:shadow-md flex-shrink-0"
                             title="Assign Questions"
                           />
                           <Button
@@ -435,7 +433,7 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
                             variant="outline"
                             icon={ExternalLink}
                             onClick={() => onViewSession(session)}
-                            className="shadow-sm hover:shadow-md"
+                            className="shadow-sm hover:shadow-md flex-shrink-0"
                             title="View Details"
                           />
                         </div>
