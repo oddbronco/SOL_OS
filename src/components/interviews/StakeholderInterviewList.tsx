@@ -137,7 +137,7 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
         }}
       >
         {/* Animated Background Gradient */}
-        <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500`}
+        <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`}
           style={{
             background: isDark
               ? 'radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.1) 0%, transparent 50%)'
@@ -146,7 +146,7 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
         />
 
         {/* Header Section */}
-        <div className="p-5">
+        <div className="p-5 relative z-10">
           <div className="flex items-center gap-4">
             {/* Expand/Collapse Button - Clickable */}
             <button
