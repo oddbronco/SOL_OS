@@ -651,10 +651,31 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
 
     } catch (err) {
       console.error('Error in sidekick:', err);
+
+      let errorContent = 'Sorry, I encountered an error processing your request. ';
+
+      if (err instanceof Error) {
+        if (err.message.includes('API key')) {
+          errorContent += 'Please make sure your OpenAI API key is configured in Settings.';
+        } else if (err.message.includes('Network error')) {
+          errorContent += 'There was a network issue connecting to OpenAI. Please check your internet connection.';
+        } else if (err.message.includes('quota') || err.message.includes('insufficient_quota')) {
+          errorContent += 'Your OpenAI API quota has been exceeded. Please check your OpenAI account billing.';
+        } else if (err.message.includes('rate limit')) {
+          errorContent += 'OpenAI rate limit reached. Please wait a moment and try again.';
+        } else if (err.message.includes('invalid_api_key')) {
+          errorContent += 'Your OpenAI API key appears to be invalid. Please check it in Settings.';
+        } else {
+          errorContent += `Error: ${err.message}`;
+        }
+      } else {
+        errorContent += 'An unexpected error occurred. Please try again.';
+      }
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please make sure your OpenAI API key is configured in Settings.',
+        content: errorContent,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

@@ -83,21 +83,30 @@ class OpenAIService {
 
   private async makeRequest(endpoint: string, data: any) {
     await this.ensureApiKey();
-    
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData?.error?.message || response.statusText;
+        throw new Error(`OpenAI API error: ${errorMessage}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('Network error: Unable to reach OpenAI API. Please check your internet connection or if the OpenAI API is accessible from your network.');
+      }
+      throw error;
     }
-
-    return response.json();
   }
 
   async generateQuestions(context: {
