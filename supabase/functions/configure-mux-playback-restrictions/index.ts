@@ -32,13 +32,13 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { signingKeyId } = await req.json();
+    const { signingKeyId, domains } = await req.json();
 
     if (!signingKeyId) {
       throw new Error('Missing signingKeyId parameter');
     }
 
-    // Get user's Mux credentials and app domains
+    // Get user's Mux credentials
     const { data: settings } = await supabase
       .from('user_settings')
       .select('mux_token_id, mux_token_secret, app_domains')
@@ -49,8 +49,8 @@ Deno.serve(async (req: Request) => {
       throw new Error('Mux credentials not configured');
     }
 
-    // Get app domains from settings or use defaults
-    let appDomains = settings.app_domains || ['*.solprojectos.com', 'solprojectos.com'];
+    // Use domains from request body, fall back to settings, or use defaults
+    let appDomains = domains || settings.app_domains || ['*.solprojectos.com', 'solprojectos.com'];
 
     // Fix malformed wildcard domains (e.g., *example.com -> *.example.com)
     appDomains = appDomains.map((domain: string) => {

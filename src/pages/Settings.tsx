@@ -127,7 +127,7 @@ export const Settings: React.FC = () => {
 
       if (error) throw error;
 
-  S     setMuxTokenId(tokenId);
+      setMuxTokenId(tokenId);
       setMuxTokenSecret(tokenSecret);
       setMuxSigningKeyId(signingKeyId);
       setMuxSigningKeyPrivate(signingKeyPrivate);
@@ -148,20 +148,6 @@ export const Settings: React.FC = () => {
       return false;
     }
   };
-
-      // If all credentials are set, configure Mux playback restrictions
-      if (tokenId && tokenSecret && signingKeyId && signingKeyPrivate && domains.length > 0) {
-        console.log('🔒 Configuring Mux playback restrictions...');
-        await configureMuxPlaybackRestrictions(signingKeyId);
-      }
-
-      return true;
-    } catch (err: any) {
-      console.error('Error saving Mux credentials:', err);
-      alert(err.message || 'Failed to save Mux credentials');
-      return false;
-    }
-  };
 
   // Configure Mux playback restrictions
   // VVVV 1. ACCEPT THE DOMAINS ARRAY HERE VVVV
@@ -196,51 +182,6 @@ export const Settings: React.FC = () => {
       // Don't fail the save operation
     }
   };
-      
-      // Update auth metadata first (this is what the app reads)
-      const { error: metadataError } = await supabase.auth.updateUser({
-        data: {
-          full_name: profileData.fullName,
-          company_name: companyData.companyName
-        }
-      });
-
-      if (metadataError) {
-        console.error('❌ Auth metadata update failed:', metadataError);
-        throw metadataError;
-      }
-
-      console.log('✅ Auth metadata updated successfully');
-
-      // Try to update users table (secondary, won't break if it fails)
-      const { error: profileError } = await supabase
-        .from('users')
-        .update({
-          full_name: profileData.fullName,
-          company_name: companyData.companyName,
-          phone: profileData.phone,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user?.id);
-
-      if (profileError) {
-        console.warn('⚠️ Users table update failed (non-critical):', profileError);
-      }
-
-      console.log('✅ Profile updated successfully');
-      alert('Profile updated successfully!');
-      
-      // Small delay then reload to refresh auth context
-      setTimeout(() => {
-      window.location.reload();
-      }, 500);
-    } catch (error) {
-      console.error('💥 Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleUpgradePlan = async () => {
     if (!selectedPlan || !phoneNumber) return;
