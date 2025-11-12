@@ -9,7 +9,7 @@ import { VideoAssignmentModal } from './VideoAssignmentModal';
 import { triggerMuxUpload } from '../../utils/muxUpload';
 import { getMuxPlaybackToken, getMuxPlaybackUrl } from '../../utils/muxPlaybackToken';
 import Hls from 'hls.js';
-import { Video, Upload, Link as LinkIcon, Play, Trash2, Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users, AlertCircle } from 'lucide-react';
+import { Video, Upload, Link as LinkIcon, Play, Trash2, CreditCard as Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users, AlertCircle } from 'lucide-react';
 
 interface IntroVideo {
   id: string;
