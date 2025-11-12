@@ -50,7 +50,16 @@ Deno.serve(async (req: Request) => {
     }
 
     // Get app domains from settings or use defaults
-    const appDomains = settings.app_domains || ['interviews.solprojectos.com', 'solprojectos.com'];
+    let appDomains = settings.app_domains || ['*.solprojectos.com', 'solprojectos.com'];
+
+    // Fix malformed wildcard domains (e.g., *example.com -> *.example.com)
+    appDomains = appDomains.map((domain: string) => {
+      if (domain.startsWith('*') && !domain.startsWith('*.')) {
+        return '*.' + domain.substring(1);
+      }
+      return domain;
+    });
+
     console.log('📍 Configuring playback restrictions for domains:', appDomains);
 
     const basicAuth = btoa(`${settings.mux_token_id}:${settings.mux_token_secret}`);
@@ -65,7 +74,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         referrer: {
           allowed_domains: appDomains,
-          allow_no_referrer: false,
+          allow_no_referrer: true,
         },
       }),
     });
