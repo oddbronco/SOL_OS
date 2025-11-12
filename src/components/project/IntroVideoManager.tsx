@@ -531,9 +531,15 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
     }
 
     try {
+      // Clear old Mux references before re-processing
       await supabase
         .from('project_intro_videos')
-        .update({ mux_status: 'pending' })
+        .update({
+          mux_status: 'pending',
+          mux_playback_id: null,
+          mux_asset_id: null,
+          thumbnail_url: null
+        })
         .eq('id', video.id);
 
       await triggerMuxUpload(video.id, projectId);
