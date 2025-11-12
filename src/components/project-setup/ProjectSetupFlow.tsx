@@ -46,7 +46,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [initialLoad, setInitialLoad] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Project data state
   const [projectData, setProjectData] = useState({
@@ -149,13 +149,14 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     return [...standardTypes, ...customTypes];
   };
 
-  // Load existing project data on mount
+  // Load existing project data on mount - only once when component mounts
   useEffect(() => {
     if (projectId && user) {
       loadProjectData();
       loadCollections();
     }
-  }, [projectId, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, user?.id]);
 
   const loadCollections = async () => {
     if (!user) return;
@@ -250,10 +251,12 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       setCurrentStep(step);
 
       console.log('✅ Project data loaded, starting at step:', step);
+      setDataLoaded(true);
 
     } catch (err) {
       console.error('💥 Error loading project data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load project data');
+      setDataLoaded(true); // Mark as loaded even on error so UI shows
     } finally {
       setLoading(false);
     }
@@ -847,30 +850,27 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     { id: 'user_stories', title: 'User Stories', description: 'User-focused feature descriptions and acceptance criteria' }
   ];
 
-  // Track initial load completion
-  useEffect(() => {
-    if (!loading && initialLoad) {
-      setInitialLoad(false);
-    }
-  }, [loading, initialLoad]);
-
-  if (initialLoad && loading) {
+  // Show loading screen only until initial data is loaded
+  if (!dataLoaded) {
     return (
       <div style={{ backgroundColor: '#ffffff', minHeight: '100vh' }}>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-screen">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading project setup...</p>
-            {error && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg max-w-md mx-auto">
-                <p className="text-red-800 text-sm">{error}</p>
+            {!error ? (
+              <>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading project setup...</p>
+              </>
+            ) : (
+              <div className="max-w-md mx-auto p-6 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Project</h3>
+                <p className="text-red-800 text-sm mb-4">{error}</p>
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={onBack}
-                  className="mt-2"
                 >
-                  Go Back
+                  Go Back to Projects
                 </Button>
               </div>
             )}
