@@ -458,6 +458,11 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       setError(null);
       console.log('🤖 Extracting stakeholders and generating description...');
 
+      // Validate transcript exists
+      if (!projectData.transcript || projectData.transcript.trim().length < 50) {
+        throw new Error('Please provide a longer transcript (at least 50 characters) for AI analysis.');
+      }
+
       const [stakeholders, description] = await Promise.all([
         openAIService.extractStakeholdersFromTranscript(projectData.transcript),
         openAIService.generateProjectDescription({
@@ -466,7 +471,18 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
         })
       ]);
 
-      const updates = { stakeholders, description };
+      if (!stakeholders || stakeholders.length === 0) {
+        console.warn('⚠️ No stakeholders extracted, allowing manual addition');
+        setError('No stakeholders were automatically detected. You can add them manually in the next step.');
+        // Continue with empty stakeholders array
+      }
+
+      if (!description || description.trim().length === 0) {
+        console.warn('⚠️ No description generated, using default');
+        description = `${projectName} project`;
+      }
+
+      const updates = { stakeholders: stakeholders || [], description };
       await saveProjectData(updates);
       setProjectData(prev => ({ ...prev, ...updates }));
 
@@ -475,7 +491,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
 
     } catch (err) {
       console.error('💥 AI extraction failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to extract stakeholders');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to extract stakeholders';
+      setError(`AI Analysis Error: ${errorMsg}\n\nYou can skip AI analysis and add stakeholders manually.`);
     } finally {
       setLoading(false);
     }
@@ -502,21 +519,35 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       setError(null);
       console.log('🤖 Generating questions...');
 
+      // Validate inputs
+      if (!projectData.description || projectData.description.trim().length < 10) {
+        throw new Error('Please provide a project description (at least 10 characters) before generating questions.');
+      }
+
+      if (!projectData.stakeholders || projectData.stakeholders.length === 0) {
+        throw new Error('Please add at least one stakeholder before generating questions.');
+      }
+
       const questions = await openAIService.generateQuestions({
         projectDescription: projectData.description,
-        transcription: projectData.transcript,
+        transcription: projectData.transcript || '',
         stakeholders: projectData.stakeholders.map(s => ({ role: s.role, department: s.department }))
       });
+
+      if (!questions || questions.length === 0) {
+        throw new Error('No questions were generated. Please try again or add questions manually.');
+      }
 
       const updates = { questions };
       await saveProjectData(updates);
       setProjectData(prev => ({ ...prev, ...updates }));
 
-      console.log('✅ Questions generated');
+      console.log(`✅ Generated ${questions.length} questions`);
 
     } catch (err) {
       console.error('💥 Question generation failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to generate questions');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to generate questions';
+      setError(`Question Generation Error: ${errorMsg}\n\nYou can add questions manually instead.`);
     } finally {
       setLoading(false);
     }
@@ -554,6 +585,10 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       setError(null);
 
       if (type === 'stakeholders') {
+        if (!projectData.transcript || projectData.transcript.trim().length < 50) {
+          throw new Error('Please provide a longer transcript (at least 50 characters) for AI analysis.');
+        }
+
         const [stakeholders, description] = await Promise.all([
           openAIService.extractStakeholdersFromTranscript(projectData.transcript),
           openAIService.generateProjectDescription({
@@ -562,15 +597,30 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
           })
         ]);
 
-        const updates = { stakeholders, description };
+        const updates = {
+          stakeholders: stakeholders || [],
+          description: description || `${projectName} project`
+        };
         await saveProjectData(updates);
         setProjectData(prev => ({ ...prev, ...updates }));
       } else {
+        if (!projectData.description || projectData.description.trim().length < 10) {
+          throw new Error('Please provide a project description before generating questions.');
+        }
+
+        if (!projectData.stakeholders || projectData.stakeholders.length === 0) {
+          throw new Error('Please add at least one stakeholder before generating questions.');
+        }
+
         const questions = await openAIService.generateQuestions({
           projectDescription: projectData.description,
-          transcription: projectData.transcript,
+          transcription: projectData.transcript || '',
           stakeholders: projectData.stakeholders.map(s => ({ role: s.role, department: s.department }))
         });
+
+        if (!questions || questions.length === 0) {
+          throw new Error('No questions were generated. Please try again.');
+        }
 
         const updates = { questions };
         await saveProjectData(updates);
@@ -582,7 +632,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
 
     } catch (err) {
       console.error(`💥 ${type} regeneration failed:`, err);
-      setError(err instanceof Error ? err.message : `Failed to regenerate ${type}`);
+      const errorMsg = err instanceof Error ? err.message : `Failed to regenerate ${type}`;
+      setError(`Regeneration Error: ${errorMsg}`);
     } finally {
       setLoading(false);
     }

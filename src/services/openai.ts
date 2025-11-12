@@ -201,6 +201,11 @@ Generate comprehensive interview questions that will gather ALL information need
         max_tokens: 2500,
       });
 
+      if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+        console.error('Invalid OpenAI response structure:', response);
+        throw new Error('Invalid response from OpenAI API. Please try again.');
+      }
+
       const content = response.choices[0].message.content;
       
       // Clean the response to ensure it's valid JSON
@@ -351,6 +356,11 @@ Analyze this stakeholder response and provide insights.`;
         max_tokens: 1000,
       });
 
+      if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+        console.error('Invalid OpenAI response structure:', response);
+        throw new Error('Invalid response from OpenAI API. Please try again.');
+      }
+
       const content = response.choices[0].message.content;
       return JSON.parse(content);
     } catch (error) {
@@ -444,6 +454,11 @@ Generate a ${data.documentType.replace('_', ' ')} document.`;
         max_tokens: 3000,
       });
 
+      if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+        console.error('Invalid OpenAI response structure:', response);
+        throw new Error('Invalid response from OpenAI API. Please try again.');
+      }
+
       return response.choices[0].message.content;
     } catch (error) {
       console.error('Failed to generate document:', error);
@@ -486,6 +501,11 @@ Generate a concise project description (1-2 sentences) based on this information
         temperature: 0.3,
         max_tokens: 400,
       });
+
+      if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+        console.error('Invalid OpenAI response structure:', response);
+        throw new Error('Invalid response from OpenAI API. Please try again.');
+      }
 
       return response.choices[0].message.content.trim();
     } catch (error) {
@@ -550,6 +570,11 @@ IMPORTANT: Return only valid JSON, no other text.`;
         temperature: 0.3,
         max_tokens: 1000,
       });
+
+      if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
+        console.error('Invalid OpenAI response structure:', response);
+        throw new Error('Invalid response from OpenAI API. Please try again.');
+      }
 
       const content = response.choices[0].message.content;
       
@@ -763,6 +788,12 @@ IMPORTANT: Return only valid JSON, no other text.`;
       }
 
       const data = await response.json();
+
+      if (!data || !data.choices || !data.choices[0] || !data.choices[0].message) {
+        console.error('Invalid OpenAI response structure:', data);
+        throw new Error('Invalid response from OpenAI API. Please try again.');
+      }
+
       return data.choices[0].message.content;
     } catch (error) {
       console.error('Error in chat:', error);
