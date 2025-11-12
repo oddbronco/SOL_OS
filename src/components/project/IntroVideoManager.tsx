@@ -64,6 +64,8 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const retryCountRef = useRef<number>(0);
+  const MAX_RETRIES = 2;
 
   useEffect(() => {
     loadData();
@@ -129,11 +131,32 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
             console.log('✅ HLS manifest loaded');
           });
 
-          hls.on(Hls.Events.ERROR, (_event, data) => {
+          hls.on(Hls.Events.ERROR, async (_event, data) => {
             console.error('❌ HLS error:', data);
             if (data.fatal) {
               console.error('Fatal HLS error:', data.type, data.details);
               if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                // Try retrying with fresh token (with retry limit)
+                if ((data.details === 'manifestLoadError' || data.details === 'manifestParsingError') &&
+                    retryCountRef.current < MAX_RETRIES) {
+                  retryCountRef.current++;
+                  console.log(`🔄 Retry attempt ${retryCountRef.current}/${MAX_RETRIES} with fresh token...`);
+
+                  try {
+                    const newToken = await getMuxPlaybackToken(selectedVideo.mux_playback_id!);
+                    if (newToken) {
+                      const newUrl = getMuxPlaybackUrl(selectedVideo.mux_playback_id!, newToken);
+                      hls.stopLoad();
+                      hls.loadSource(newUrl);
+                      return;
+                    }
+                  } catch (retryError) {
+                    console.error('❌ Token retry failed:', retryError);
+                  }
+                } else if (retryCountRef.current >= MAX_RETRIES) {
+                  console.error(`❌ Max retries (${MAX_RETRIES}) exceeded. The Mux video asset may not exist or be ready.`);
+                }
+
                 console.log('🔄 Falling back to direct video playback');
                 hls.destroy();
                 if (selectedVideo.video_url && video) {
@@ -159,6 +182,8 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
     }
 
     return () => {
+      // Reset retry count on cleanup
+      retryCountRef.current = 0;
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;

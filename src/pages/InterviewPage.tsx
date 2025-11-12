@@ -73,6 +73,8 @@ export const InterviewPage: React.FC = () => {
   }>({});
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const retryCountRef = useRef<number>(0);
+  const MAX_RETRIES = 2;
 
   // Convert YouTube/Vimeo URLs to embed format
   const getEmbedUrl = (url: string): string => {
@@ -159,20 +161,27 @@ export const InterviewPage: React.FC = () => {
               if (data.fatal) {
                 console.error('Fatal HLS error:', data.type, data.details);
 
-                // Try to re-fetch token on auth errors
+                // Try to re-fetch token on auth errors (with retry limit)
                 if (data.type === Hls.ErrorTypes.NETWORK_ERROR &&
                     (data.details === 'manifestLoadError' || data.details === 'manifestParsingError')) {
-                  console.log('🔄 Retrying with fresh token...');
-                  try {
-                    const newToken = await getMuxPlaybackToken(introVideo.mux_playback_id!);
-                    if (newToken) {
-                      const newUrl = getMuxPlaybackUrl(introVideo.mux_playback_id!, newToken);
-                      hls.stopLoad();
-                      hls.loadSource(newUrl);
-                      return;
+
+                  if (retryCountRef.current < MAX_RETRIES) {
+                    retryCountRef.current++;
+                    console.log(`🔄 Retry attempt ${retryCountRef.current}/${MAX_RETRIES} with fresh token...`);
+
+                    try {
+                      const newToken = await getMuxPlaybackToken(introVideo.mux_playback_id!);
+                      if (newToken) {
+                        const newUrl = getMuxPlaybackUrl(introVideo.mux_playback_id!, newToken);
+                        hls.stopLoad();
+                        hls.loadSource(newUrl);
+                        return;
+                      }
+                    } catch (retryError) {
+                      console.error('❌ Token retry failed:', retryError);
                     }
-                  } catch (retryError) {
-                    console.error('❌ Token retry failed:', retryError);
+                  } else {
+                    console.error(`❌ Max retries (${MAX_RETRIES}) exceeded. The Mux video asset may not exist or be ready.`);
                   }
 
                   // Final fallback to direct MP4
@@ -181,6 +190,8 @@ export const InterviewPage: React.FC = () => {
                   if (introVideo.video_url) {
                     video.src = introVideo.video_url;
                     console.log('✅ Using fallback video URL:', introVideo.video_url);
+                  } else {
+                    console.error('❌ No fallback video URL available');
                   }
                 } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                   console.log('🔧 Attempting to recover from media error');
@@ -220,6 +231,8 @@ export const InterviewPage: React.FC = () => {
     initVideo();
 
     return () => {
+      // Reset retry count on cleanup
+      retryCountRef.current = 0;
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
