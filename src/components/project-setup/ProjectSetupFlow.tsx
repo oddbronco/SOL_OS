@@ -46,7 +46,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [initialLoad, setInitialLoad] = useState(true);
+
   // Project data state
   const [projectData, setProjectData] = useState({
     transcript: '',
@@ -150,9 +151,11 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
 
   // Load existing project data on mount
   useEffect(() => {
-    loadProjectData();
-    loadCollections();
-  }, [projectId]);
+    if (projectId && user) {
+      loadProjectData();
+      loadCollections();
+    }
+  }, [projectId, user]);
 
   const loadCollections = async () => {
     if (!user) return;
@@ -172,8 +175,23 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
   };
 
   const loadProjectData = async () => {
+    if (!projectId) {
+      console.error('❌ No projectId provided');
+      setError('Project ID is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!user) {
+      console.error('❌ User not authenticated');
+      setError('User not authenticated');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
       console.log('🔄 Loading project setup data for:', projectId);
 
       // Load project basic info
@@ -183,7 +201,12 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
         .eq('id', projectId)
         .single();
 
-      if (projectError) throw projectError;
+      if (projectError) {
+        console.error('❌ Project load error:', projectError);
+        throw projectError;
+      }
+
+      console.log('✅ Project loaded:', project);
 
       // Load stakeholders
       const { data: stakeholders, error: stakeholdersError } = await supabase
@@ -824,13 +847,33 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     { id: 'user_stories', title: 'User Stories', description: 'User-focused feature descriptions and acceptance criteria' }
   ];
 
-  if (loading && currentStep === 1) {
+  // Track initial load completion
+  useEffect(() => {
+    if (!loading && initialLoad) {
+      setInitialLoad(false);
+    }
+  }, [loading, initialLoad]);
+
+  if (initialLoad && loading) {
     return (
       <div style={{ backgroundColor: '#ffffff', minHeight: '100vh' }}>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading project setup...</p>
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg max-w-md mx-auto">
+                <p className="text-red-800 text-sm">{error}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onBack}
+                  className="mt-2"
+                >
+                  Go Back
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
