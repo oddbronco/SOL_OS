@@ -47,6 +47,13 @@ export const Settings: React.FC = () => {
     description: ''
   });
 
+  const planOptions = [
+    { value: '', label: 'Select a plan' },
+    { value: 'starter', label: 'Starter - 3 Projects, 15 Stakeholders' },
+    { value: 'professional', label: 'Professional - 10 Projects, 50 Stakeholders' },
+    { value: 'enterprise', label: 'Enterprise - Unlimited Projects & Stakeholders' }
+  ];
+
   // Update profile data when user changes
   React.useEffect(() => {
     if (user) {
