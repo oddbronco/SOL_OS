@@ -35,36 +35,16 @@ function base64Decode(base64: string): Uint8Array {
 }
 
 function pemToDer(pem: string): Uint8Array {
-  const pemHeader = '-----BEGIN RSA PRIVATE KEY-----';
-  const pemFooter = '-----END RSA PRIVATE KEY-----';
-  const pemContents = pem
-    .replace(pemHeader, '')
-    .replace(pemFooter, '')
+  let pemContents = pem;
+
+  pemContents = pemContents
+    .replace(/-----BEGIN RSA PRIVATE KEY-----/g, '')
+    .replace(/-----END RSA PRIVATE KEY-----/g, '')
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
     .replace(/\s/g, '');
+
   return base64Decode(pemContents);
-}
-
-function pkcs1ToPkcs8(pkcs1Der: Uint8Array): Uint8Array {
-  const octetStringLength = pkcs1Der.length;
-  const totalLength = 26 + octetStringLength;
-
-  const pkcs8Header = new Uint8Array([
-    0x30, 0x82,
-    (totalLength >> 8) & 0xff,
-    totalLength & 0xff,
-    0x02, 0x01, 0x00,
-    0x30, 0x0d,
-    0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
-    0x05, 0x00,
-    0x04, 0x82,
-    (octetStringLength >> 8) & 0xff,
-    octetStringLength & 0xff,
-  ]);
-
-  const result = new Uint8Array(pkcs8Header.length + pkcs1Der.length);
-  result.set(pkcs8Header, 0);
-  result.set(pkcs1Der, pkcs8Header.length);
-  return result;
 }
 
 Deno.serve(async (req: Request) => {
@@ -133,13 +113,30 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const privateKeyPem = atob(settings.mux_signing_key_private);
-    const pkcs1Der = pemToDer(privateKeyPem);
-    const pkcs8Der = pkcs1ToPkcs8(pkcs1Der);
+    let privateKeyPem = atob(settings.mux_signing_key_private);
+
+    if (!privateKeyPem.includes('\n') && privateKeyPem.includes('-----BEGIN')) {
+      privateKeyPem = privateKeyPem.replace(/\\n/g, '\n');
+    }
+
+    console.log('🔑 Private key format check:', {
+      hasNewlines: privateKeyPem.includes('\n'),
+      length: privateKeyPem.length,
+      startsWithBegin: privateKeyPem.startsWith('-----BEGIN'),
+      keyType: privateKeyPem.includes('RSA PRIVATE KEY') ? 'PKCS#1' :
+               privateKeyPem.includes('PRIVATE KEY') ? 'PKCS#8' : 'unknown'
+    });
+
+    const der = pemToDer(privateKeyPem);
+
+    console.log('📦 DER conversion:', {
+      derLength: der.length,
+      expectedApprox: '~1200-1300 bytes for RSA-2048'
+    });
 
     const privateKey = await crypto.subtle.importKey(
       'pkcs8',
-      pkcs8Der,
+      der,
       {
         name: 'RSASSA-PKCS1-v1_5',
         hash: 'SHA-256',
@@ -179,6 +176,8 @@ Deno.serve(async (req: Request) => {
     const encodedSignature = arrayBufferToBase64url(signatureBuffer);
     const jwt = `${signingInput}.${encodedSignature}`;
 
+    console.log('✅ JWT generated successfully');
+
     return new Response(
       JSON.stringify({
         token: jwt,
@@ -192,10 +191,17 @@ Deno.serve(async (req: Request) => {
       },
     );
   } catch (error: any) {
-    console.error('Error generating Mux playback token:', error);
+    console.error('❌ Error generating Mux playback token:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+
     return new Response(
       JSON.stringify({
         error: error.message || 'Internal server error',
+        details: error.stack,
       }),
       {
         status: 400,
