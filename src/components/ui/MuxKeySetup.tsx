@@ -111,13 +111,53 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
     }
 
     try {
-      const text = await file.text();
+      let text = await file.text();
+
+      // Validate the PEM format
+      const isPKCS8 = text.includes('-----BEGIN PRIVATE KEY-----');
+      const isPKCS1 = text.includes('-----BEGIN RSA PRIVATE KEY-----');
+
+      if (!isPKCS8 && !isPKCS1) {
+        setError('Invalid PEM file. Must contain a private key (-----BEGIN PRIVATE KEY----- or -----BEGIN RSA PRIVATE KEY-----)');
+        setUploadedFileName('');
+        return;
+      }
+
+      // Ensure the key has proper newlines (not escaped)
+      // Some editors might add escaped newlines
+      text = text.replace(/\\n/g, '\n');
+
+      // Trim any extra whitespace but preserve internal structure
+      text = text.trim();
+
+      // Validate the key has both header and footer
+      const hasHeader = isPKCS8 ?
+        text.startsWith('-----BEGIN PRIVATE KEY-----') :
+        text.startsWith('-----BEGIN RSA PRIVATE KEY-----');
+      const hasFooter = isPKCS8 ?
+        text.endsWith('-----END PRIVATE KEY-----') :
+        text.endsWith('-----END RSA PRIVATE KEY-----');
+
+      if (!hasHeader || !hasFooter) {
+        setError('Invalid PEM file. Missing header or footer. Please copy the entire key including BEGIN and END lines.');
+        setUploadedFileName('');
+        return;
+      }
+
+      // Store as base64 for database
       const base64 = btoa(text);
       setInputSigningKeyPrivate(base64);
       setUploadedFileName(file.name);
       setError('');
+
+      console.log('✅ Private key uploaded successfully:', {
+        format: isPKCS8 ? 'PKCS#8' : 'PKCS#1',
+        length: text.length,
+        hasNewlines: text.includes('\n')
+      });
     } catch (err) {
-      setError('Failed to read file');
+      console.error('Failed to read file:', err);
+      setError('Failed to read file. Please make sure it\'s a valid text file.');
       setUploadedFileName('');
     }
 
@@ -298,7 +338,28 @@ export const MuxKeySetup: React.FC<MuxKeySetupProps> = ({
                   setInputSigningKeyPrivate(e.target.value);
                   setError('');
                 }}
-                placeholder="Upload a .pem file or paste base64-encoded private key"
+                onPaste={(e) => {
+                  // Allow paste to happen first
+                  setTimeout(() => {
+                    const text = e.clipboardData.getData('text');
+
+                    // Check if they pasted a raw PEM (not base64 encoded)
+                    if (text.includes('-----BEGIN PRIVATE KEY-----') || text.includes('-----BEGIN RSA PRIVATE KEY-----')) {
+                      try {
+                        // They pasted the raw PEM - encode it for them
+                        let cleanedText = text.trim();
+                        cleanedText = cleanedText.replace(/\\n/g, '\n');
+                        const base64 = btoa(cleanedText);
+                        setInputSigningKeyPrivate(base64);
+                        setUploadedFileName('Pasted key');
+                        console.log('✅ Auto-encoded pasted PEM key');
+                      } catch (err) {
+                        console.error('Failed to encode pasted PEM:', err);
+                      }
+                    }
+                  }, 0);
+                }}
+                placeholder="Upload a .pem file or paste the private key (will be automatically formatted)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-xs pr-10 min-h-[100px]"
                 style={{ fontFamily: 'monospace' }}
               />
