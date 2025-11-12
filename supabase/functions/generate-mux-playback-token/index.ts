@@ -54,17 +54,23 @@ function pkcs1ToPkcs8(pkcs1Der: Uint8Array): Uint8Array {
     0x05, 0x00
   ]);
 
-  const pkcs8Length = 4 + oidSequence.length + 2 + pkcs1Der.length;
-  const pkcs8Der = new Uint8Array(pkcs8Length + 2);
+  const octetStringLength = pkcs1Der.length > 127 ? 4 : 2;
+  const innerLength = 3 + oidSequence.length + octetStringLength + pkcs1Der.length;
+  const outerLengthBytes = innerLength > 127 ? 3 : 1;
+
+  const totalLength = 1 + outerLengthBytes + innerLength;
+  const pkcs8Der = new Uint8Array(totalLength);
 
   let offset = 0;
+
   pkcs8Der[offset++] = 0x30;
-  if (pkcs8Length > 127) {
+
+  if (innerLength > 127) {
     pkcs8Der[offset++] = 0x82;
-    pkcs8Der[offset++] = (pkcs8Length >> 8) & 0xff;
-    pkcs8Der[offset++] = pkcs8Length & 0xff;
+    pkcs8Der[offset++] = (innerLength >> 8) & 0xff;
+    pkcs8Der[offset++] = innerLength & 0xff;
   } else {
-    pkcs8Der[offset++] = pkcs8Length;
+    pkcs8Der[offset++] = innerLength;
   }
 
   pkcs8Der[offset++] = 0x02;
@@ -75,6 +81,7 @@ function pkcs1ToPkcs8(pkcs1Der: Uint8Array): Uint8Array {
   offset += oidSequence.length;
 
   pkcs8Der[offset++] = 0x04;
+
   if (pkcs1Der.length > 127) {
     pkcs8Der[offset++] = 0x82;
     pkcs8Der[offset++] = (pkcs1Der.length >> 8) & 0xff;
@@ -85,7 +92,7 @@ function pkcs1ToPkcs8(pkcs1Der: Uint8Array): Uint8Array {
 
   pkcs8Der.set(pkcs1Der, offset);
 
-  return pkcs8Der.slice(0, offset + pkcs1Der.length);
+  return pkcs8Der;
 }
 
 Deno.serve(async (req: Request) => {
