@@ -635,7 +635,7 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
       // Load document runs (generated documents)
       const { data: documentRuns } = await supabase
         .from('document_runs')
-        .select('*, document_templates(*)')
+        .select('*')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -644,7 +644,7 @@ Completed: ${exp.completed_at ? new Date(exp.completed_at).toLocaleDateString() 
       const { data: templates } = await supabase
         .from('document_templates')
         .select('*')
-        .or(`is_system.eq.true,created_by.eq.${(await supabase.auth.getUser()).data.user?.id}`)
+        .or(`scope.eq.system,created_by.eq.${(await supabase.auth.getUser()).data.user?.id}`)
         .order('created_at', { ascending: false });
 
       // Load project exports

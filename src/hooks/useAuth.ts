@@ -25,6 +25,7 @@ export interface User {
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     console.log('🔄 Auth hook initializing...');
@@ -74,10 +75,13 @@ export const useAuth = () => {
 
           console.log('📊 Database user data:', dbUser);
 
-          // Fetch customer subscription data
+          // Fetch customer subscription data and plan limits in parallel
           let customerData = null;
+          let planLimits = null;
+
           if (dbUser?.customer_id) {
             try {
+              // Fetch customer data
               const customerResult = await Promise.race([
                 supabase
                   .from('customers')
@@ -91,30 +95,25 @@ export const useAuth = () => {
 
               customerData = customerResult?.data;
               console.log('📦 Customer subscription data:', customerData);
-            } catch (error) {
-              console.error('⏱️ Customer data query timed out or failed:', error);
-            }
-          }
 
-          // Get plan limits from subscription_plans table
-          let planLimits = null;
-          if (customerData?.subscription_plan) {
-            try {
-              const planResult = await Promise.race([
-                supabase
-                  .from('subscription_plans')
-                  .select('*')
-                  .eq('plan_code', customerData.subscription_plan)
-                  .maybeSingle(),
-                new Promise((_, reject) =>
-                  setTimeout(() => reject(new Error('Plan query timeout')), 1000)
-                )
-              ]) as any;
+              // Fetch plan limits if we have a subscription plan
+              if (customerData?.subscription_plan) {
+                const planResult = await Promise.race([
+                  supabase
+                    .from('subscription_plans')
+                    .select('*')
+                    .eq('plan_code', customerData.subscription_plan)
+                    .maybeSingle(),
+                  new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Plan query timeout')), 1000)
+                  )
+                ]) as any;
 
-              planLimits = planResult?.data;
-              console.log('📋 Plan limits:', planLimits);
+                planLimits = planResult?.data;
+                console.log('📋 Plan limits:', planLimits);
+              }
             } catch (error) {
-              console.error('⏱️ Plan query timed out or failed:', error);
+              console.error('⏱️ Database query timed out in auth state change, using session data only');
             }
           }
 
@@ -146,15 +145,18 @@ export const useAuth = () => {
 
           setUser(userData);
           setLoading(false);
+          setIsInitialized(true);
         } else {
           console.log('ℹ️ No session found');
           setUser(null);
           setLoading(false);
+          setIsInitialized(true);
         }
       } catch (error) {
         console.error('💥 Auth initialization failed:', error);
         setUser(null);
         setLoading(false);
+        setIsInitialized(true);
       }
     };
 
@@ -163,6 +165,12 @@ export const useAuth = () => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔄 Auth state change:', event);
+
+      // Skip initial SIGNED_IN event during mount - initAuth already handles it
+      if (!isInitialized && event === 'SIGNED_IN') {
+        console.log('⏭️ Skipping initial SIGNED_IN during mount');
+        return;
+      }
 
       if (event === 'SIGNED_IN' && session?.user) {
         // Add timeout to prevent hanging
