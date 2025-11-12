@@ -387,7 +387,14 @@ export const InterviewPage: React.FC = () => {
 
           if (!videoError && videoData && videoData.length > 0) {
             console.log('✅ Setting intro video:', videoData[0]);
+            console.log('🎬 Video details:', {
+              video_type: videoData[0].video_type,
+              mux_playback_id: videoData[0].mux_playback_id,
+              mux_status: videoData[0].mux_status,
+              video_url: videoData[0].video_url
+            });
             setIntroVideo(videoData[0]);
+            setShowIntroVideo(true);
           } else {
             console.log('ℹ️ No intro video found for this session');
           }
@@ -469,7 +476,14 @@ export const InterviewPage: React.FC = () => {
 
           if (!videoError && videoData && videoData.length > 0) {
             console.log('✅ Setting intro video:', videoData[0]);
+            console.log('🎬 Video details:', {
+              video_type: videoData[0].video_type,
+              mux_playback_id: videoData[0].mux_playback_id,
+              mux_status: videoData[0].mux_status,
+              video_url: videoData[0].video_url
+            });
             setIntroVideo(videoData[0]);
+            setShowIntroVideo(true);
           } else {
             console.log('ℹ️ No intro video found for this session');
           }

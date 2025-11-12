@@ -76,7 +76,6 @@ Deno.serve(async (req: Request) => {
       const errorText = await muxResponse.text();
       console.error('Mux API error:', errorText);
 
-      // Update video status to error
       await supabase
         .from('project_intro_videos')
         .update({
@@ -92,10 +91,9 @@ Deno.serve(async (req: Request) => {
     const assetId = muxData.data.id;
     const playbackId = muxData.data.playback_ids?.[0]?.id;
 
-    // Poll for asset status since we don't have webhooks set up
     const pollAssetStatus = async () => {
       for (let i = 0; i < 60; i++) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
         const statusResponse = await fetch(`https://api.mux.com/video/v1/assets/${assetId}`, {
           headers: {
@@ -108,10 +106,13 @@ Deno.serve(async (req: Request) => {
           const status = statusData.data.status;
 
           if (status === 'ready') {
+            const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg`;
+
             await supabase
               .from('project_intro_videos')
               .update({
                 mux_status: 'ready',
+                thumbnail_url: thumbnailUrl,
               })
               .eq('id', videoId);
             break;
@@ -138,7 +139,6 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', videoId);
 
-    // Start polling in background
     pollAssetStatus().catch(console.error);
 
     return new Response(

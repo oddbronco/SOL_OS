@@ -600,9 +600,9 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
               const videoAssignments = assignments.filter(a => a.video_id === video.id);
               return (
                 <Card key={video.id} className={video.is_active ? 'border-2 border-primary-500' : ''}>
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-6">
                     <div
-                      className="flex-shrink-0 w-32 h-20 bg-gray-100 rounded-lg overflow-hidden relative group cursor-pointer"
+                      className="flex-shrink-0 w-48 h-32 bg-gray-100 rounded-lg overflow-hidden relative group cursor-pointer"
                       onClick={() => {
                         setSelectedVideo(video);
                         setShowPreviewModal(true);
@@ -613,6 +613,12 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                           src={getEmbedUrl(video.video_url)}
                           className="w-full h-full pointer-events-none"
                           title={video.title}
+                        />
+                      ) : video.mux_playback_id && video.thumbnail_url ? (
+                        <img
+                          src={video.thumbnail_url}
+                          alt={video.title}
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <video
