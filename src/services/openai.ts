@@ -85,25 +85,30 @@ class OpenAIService {
     await this.ensureApiKey();
 
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-chat`;
+
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          openai_api_key: this.apiKey
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData?.error?.message || response.statusText;
+        const errorMessage = errorData?.error || errorData?.details || response.statusText;
         throw new Error(`OpenAI API error: ${errorMessage}`);
       }
 
       return response.json();
     } catch (error) {
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error('Network error: Unable to reach OpenAI API. Please check your internet connection or if the OpenAI API is accessible from your network.');
+        throw new Error('Network error: Unable to reach OpenAI API. Please check your internet connection.');
       }
       throw error;
     }
@@ -192,8 +197,8 @@ Generate comprehensive interview questions that will gather ALL information need
 
     try {
       const response = await this.makeRequest('/chat/completions', {
-        model: 'gpt-4',
         messages,
+        model: 'gpt-4',
         temperature: 0.7,
         max_tokens: 2500,
       });
@@ -342,8 +347,8 @@ Analyze this stakeholder response and provide insights.`;
 
     try {
       const response = await this.makeRequest('/chat/completions', {
-        model: 'gpt-4',
         messages,
+        model: 'gpt-4',
         temperature: 0.3,
         max_tokens: 1000,
       });
@@ -435,8 +440,8 @@ Generate a ${data.documentType.replace('_', ' ')} document.`;
 
     try {
       const response = await this.makeRequest('/chat/completions', {
-        model: 'gpt-4',
         messages,
+        model: 'gpt-4',
         temperature: 0.5,
         max_tokens: 3000,
       });
@@ -478,8 +483,8 @@ Generate a concise project description (1-2 sentences) based on this information
 
     try {
       const response = await this.makeRequest('/chat/completions', {
-        model: 'gpt-4o-mini',
         messages,
+        model: 'gpt-4o-mini',
         temperature: 0.3,
         max_tokens: 400,
       });
@@ -542,8 +547,8 @@ IMPORTANT: Return only valid JSON, no other text.`;
 
     try {
       const response = await this.makeRequest('/chat/completions', {
-        model: 'gpt-4o-mini',
         messages,
+        model: 'gpt-4o-mini',
         temperature: 0.3,
         max_tokens: 1000,
       });
