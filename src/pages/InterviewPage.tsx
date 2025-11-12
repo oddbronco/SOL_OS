@@ -394,7 +394,6 @@ export const InterviewPage: React.FC = () => {
               video_url: videoData[0].video_url
             });
             setIntroVideo(videoData[0]);
-            setShowIntroVideo(true);
           } else {
             console.log('ℹ️ No intro video found for this session');
           }
@@ -483,7 +482,6 @@ export const InterviewPage: React.FC = () => {
               video_url: videoData[0].video_url
             });
             setIntroVideo(videoData[0]);
-            setShowIntroVideo(true);
           } else {
             console.log('ℹ️ No intro video found for this session');
           }
@@ -1026,6 +1024,12 @@ export const InterviewPage: React.FC = () => {
                     {introVideo.description && (
                       <p className="text-sm text-gray-600">{introVideo.description}</p>
                     )}
+                    {introVideo.mux_status && introVideo.mux_status !== 'ready' && (
+                      <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                        <Video className="h-3 w-3 animate-pulse" />
+                        Video is processing... {introVideo.mux_status === 'pending' ? 'Uploading' : 'Transcoding'}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1034,6 +1038,14 @@ export const InterviewPage: React.FC = () => {
                     className="relative aspect-video bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl overflow-hidden group cursor-pointer shadow-lg mb-6"
                     onClick={() => setShowIntroVideo(true)}
                   >
+                    {/* Show Mux thumbnail if available, otherwise gradient background */}
+                    {introVideo.mux_playback_id && (
+                      <img
+                        src={`https://image.mux.com/${introVideo.mux_playback_id}/thumbnail.jpg`}
+                        alt={introVideo.title}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/20"></div>
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div
