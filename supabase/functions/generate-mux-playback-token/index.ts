@@ -47,6 +47,47 @@ function pemToDer(pem: string): Uint8Array {
   return base64Decode(pemContents);
 }
 
+function pkcs1ToPkcs8(pkcs1Der: Uint8Array): Uint8Array {
+  const oidSequence = new Uint8Array([
+    0x30, 0x0d,
+    0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
+    0x05, 0x00
+  ]);
+
+  const pkcs8Length = 4 + oidSequence.length + 2 + pkcs1Der.length;
+  const pkcs8Der = new Uint8Array(pkcs8Length + 2);
+
+  let offset = 0;
+  pkcs8Der[offset++] = 0x30;
+  if (pkcs8Length > 127) {
+    pkcs8Der[offset++] = 0x82;
+    pkcs8Der[offset++] = (pkcs8Length >> 8) & 0xff;
+    pkcs8Der[offset++] = pkcs8Length & 0xff;
+  } else {
+    pkcs8Der[offset++] = pkcs8Length;
+  }
+
+  pkcs8Der[offset++] = 0x02;
+  pkcs8Der[offset++] = 0x01;
+  pkcs8Der[offset++] = 0x00;
+
+  pkcs8Der.set(oidSequence, offset);
+  offset += oidSequence.length;
+
+  pkcs8Der[offset++] = 0x04;
+  if (pkcs1Der.length > 127) {
+    pkcs8Der[offset++] = 0x82;
+    pkcs8Der[offset++] = (pkcs1Der.length >> 8) & 0xff;
+    pkcs8Der[offset++] = pkcs1Der.length & 0xff;
+  } else {
+    pkcs8Der[offset++] = pkcs1Der.length;
+  }
+
+  pkcs8Der.set(pkcs1Der, offset);
+
+  return pkcs8Der.slice(0, offset + pkcs1Der.length);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -82,7 +123,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Project customer not found');
     }
 
-    console.log('🔍 Looking up customer:', projectCustomerId);
+    console.log('\ud83d\udd0d Looking up customer:', projectCustomerId);
 
     const { data: customer, error: customerError } = await supabase
       .from('customers')
@@ -90,19 +131,19 @@ Deno.serve(async (req: Request) => {
       .eq('customer_id', projectCustomerId)
       .maybeSingle();
 
-    console.log('👤 Customer lookup result:', { customer, customerError });
+    console.log('\ud83d\udc64 Customer lookup result:', { customer, customerError });
 
     if (customerError) {
-      console.error('❌ Customer query error:', customerError);
+      console.error('\u274c Customer query error:', customerError);
       throw new Error(`Customer query failed: ${customerError.message}`);
     }
 
     if (!customer?.owner_id) {
-      console.error('❌ Customer found but no owner_id:', customer);
+      console.error('\u274c Customer found but no owner_id:', customer);
       throw new Error('Customer owner not found');
     }
 
-    console.log('✅ Found customer owner:', customer.owner_id);
+    console.log('\u2705 Found customer owner:', customer.owner_id);
 
     const { data: settings } = await supabase
       .from('user_settings')
@@ -131,19 +172,28 @@ Deno.serve(async (req: Request) => {
       privateKeyPem = privateKeyPem.replace(/\\n/g, '\n');
     }
 
-    console.log('🔑 Private key format check:', {
+    const isPKCS1 = privateKeyPem.includes('RSA PRIVATE KEY');
+    const isPKCS8 = privateKeyPem.includes('PRIVATE KEY') && !isPKCS1;
+
+    console.log('\ud83d\udd11 Private key format check:', {
       hasNewlines: privateKeyPem.includes('\n'),
       length: privateKeyPem.length,
       startsWithBegin: privateKeyPem.startsWith('-----BEGIN'),
-      keyType: privateKeyPem.includes('RSA PRIVATE KEY') ? 'PKCS#1' :
-               privateKeyPem.includes('PRIVATE KEY') ? 'PKCS#8' : 'unknown'
+      keyType: isPKCS1 ? 'PKCS#1' : isPKCS8 ? 'PKCS#8' : 'unknown'
     });
 
-    const der = pemToDer(privateKeyPem);
+    let der = pemToDer(privateKeyPem);
 
-    console.log('📦 DER conversion:', {
+    if (isPKCS1) {
+      console.log('\ud83d\udd04 Converting PKCS#1 to PKCS#8');
+      der = pkcs1ToPkcs8(der);
+    }
+
+    console.log('\ud83d\udce6 DER conversion:', {
       derLength: der.length,
-      expectedApprox: '~1200-1300 bytes for RSA-2048'
+      expectedApprox: '~1200-1300 bytes for RSA-2048',
+      firstByte: der[0],
+      secondByte: der[1]
     });
 
     const privateKey = await crypto.subtle.importKey(
@@ -188,7 +238,7 @@ Deno.serve(async (req: Request) => {
     const encodedSignature = arrayBufferToBase64url(signatureBuffer);
     const jwt = `${signingInput}.${encodedSignature}`;
 
-    console.log('✅ JWT generated successfully');
+    console.log('\u2705 JWT generated successfully');
 
     return new Response(
       JSON.stringify({
@@ -203,7 +253,7 @@ Deno.serve(async (req: Request) => {
       },
     );
   } catch (error: any) {
-    console.error('❌ Error generating Mux playback token:', error);
+    console.error('\u274c Error generating Mux playback token:', error);
     console.error('Error details:', {
       message: error.message,
       stack: error.stack,
