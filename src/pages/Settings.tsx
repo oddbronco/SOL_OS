@@ -183,6 +183,56 @@ export const Settings: React.FC = () => {
     }
   };
 
+
+  const handleSaveChanges = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      // Update auth metadata first (this is what the app reads)
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: {
+          full_name: profileData.fullName,
+          company_name: companyData.companyName
+        }
+      });
+
+      if (metadataError) {
+        console.error('❌ Auth metadata update failed:', metadataError);
+        throw metadataError;
+      }
+
+      console.log('✅ Auth metadata updated successfully');
+
+      // Try to update users table (secondary, won't break if it fails)
+      const { error: profileError } = await supabase
+        .from('users')
+        .update({
+          full_name: profileData.fullName,
+          company_name: companyData.companyName,
+          phone: profileData.phone,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user?.id);
+
+      if (profileError) {
+        console.warn('⚠️ Users table update failed (non-critical):', profileError);
+      }
+
+      console.log('✅ Profile updated successfully');
+      alert('Profile updated successfully!');
+
+      // Small delay then reload to refresh auth context
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (error) {
+      console.error('💥 Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
   const handleUpgradePlan = async () => {
     if (!selectedPlan || !phoneNumber) return;
     
