@@ -541,16 +541,21 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
         projectDescription: project.description,
         stakeholders: stakeholders.map(s => ({ role: s.role, department: s.department }))
       });
-      
+
       // Add questions to database
       for (const question of questions) {
-        await addQuestion(project.id, question);
+        await addQuestion({
+          project_id: project.id,
+          text: question.text,
+          category: question.category,
+          target_roles: question.target_roles || []
+        });
       }
-      
+
       // Reload questions
       const updatedQuestions = await getProjectQuestions(project.id);
       setQuestions(updatedQuestions);
-      
+
       alert(`Generated ${questions.length} questions successfully!`);
     } catch (error) {
       console.error('Failed to generate questions:', error);
