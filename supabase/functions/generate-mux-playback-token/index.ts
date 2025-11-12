@@ -82,15 +82,27 @@ Deno.serve(async (req: Request) => {
       throw new Error('Project customer not found');
     }
 
+    console.log('🔍 Looking up customer:', projectCustomerId);
+
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('owner_id')
       .eq('customer_id', projectCustomerId)
       .maybeSingle();
 
-    if (customerError || !customer?.owner_id) {
+    console.log('👤 Customer lookup result:', { customer, customerError });
+
+    if (customerError) {
+      console.error('❌ Customer query error:', customerError);
+      throw new Error(`Customer query failed: ${customerError.message}`);
+    }
+
+    if (!customer?.owner_id) {
+      console.error('❌ Customer found but no owner_id:', customer);
       throw new Error('Customer owner not found');
     }
+
+    console.log('✅ Found customer owner:', customer.owner_id);
 
     const { data: settings } = await supabase
       .from('user_settings')
