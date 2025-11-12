@@ -229,7 +229,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectId, onB
             </div>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Due Date</span>
+                <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Target Completion</span>
                 <span className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {new Date(project.due_date).toLocaleDateString()}
                 </span>
@@ -491,7 +491,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectId, onB
           </div>
           
           <Input
-            label="Due Date"
+            label="Target Project Completion"
             type="date"
             value={editData.due_date}
             onChange={(e) => setEditData({ ...editData, due_date: e.target.value })}

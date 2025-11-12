@@ -14,6 +14,7 @@ interface ChatRequest {
   model?: string;
   temperature?: number;
   max_tokens?: number;
+  response_format?: { type: string };
   openai_api_key: string;
 }
 
@@ -26,7 +27,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { messages, model = "gpt-4o", temperature = 0.7, max_tokens = 2000, openai_api_key }: ChatRequest = await req.json();
+    const { messages, model = "gpt-4o", temperature = 0.7, max_tokens = 2000, response_format, openai_api_key }: ChatRequest = await req.json();
 
     if (!openai_api_key) {
       return new Response(
@@ -59,6 +60,7 @@ Deno.serve(async (req: Request) => {
         messages,
         temperature,
         max_tokens,
+        ...(response_format && { response_format }),
       }),
     });
 

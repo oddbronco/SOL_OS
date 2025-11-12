@@ -432,8 +432,8 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
                   options={[
                     { value: 'created_desc', label: 'Newest First' },
                     { value: 'created_asc', label: 'Oldest First' },
-                    { value: 'due_desc', label: 'Due Date (Latest)' },
-                    { value: 'due_asc', label: 'Due Date (Earliest)' },
+                    { value: 'due_desc', label: 'Target Completion (Latest)' },
+                    { value: 'due_asc', label: 'Target Completion (Earliest)' },
                     { value: 'name_asc', label: 'Name (A-Z)' },
                     { value: 'name_desc', label: 'Name (Z-A)' }
                   ]}
@@ -449,7 +449,7 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Due Date Range</label>
+                  <label className="block text-sm font-medium text-gray-700">Target Completion Date Range</label>
                   <div className="grid grid-cols-2 gap-2">
                     <Input
                       type="date"
@@ -614,7 +614,7 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
           )}
           
           <Input
-            label="Due Date"
+            label="Target Project Completion"
             type="date"
             value={newProject.dueDate}
             onChange={(e) => setNewProject({ ...newProject, dueDate: e.target.value })}

@@ -101,14 +101,15 @@ Format:
 
   const apiKey = settingsData.openai_api_key;
 
-  const apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+  const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-chat`;
+
+  const apiResponse = await fetch(functionUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -116,14 +117,18 @@ Format:
         },
         { role: 'user', content: prompt }
       ],
+      model: 'gpt-4o',
       temperature: 0.1,  // Very low for consistent, deterministic output
       max_tokens: 3000,
-      response_format: { type: "json_object" }  // Force strict JSON mode
+      response_format: { type: "json_object" },  // Force strict JSON mode
+      openai_api_key: apiKey
     })
   });
 
   if (!apiResponse.ok) {
-    throw new Error(`OpenAI API error: ${apiResponse.statusText}`);
+    const errorData = await apiResponse.json().catch(() => ({}));
+    const errorMessage = errorData?.error || apiResponse.statusText;
+    throw new Error(`OpenAI API error: ${errorMessage}`);
   }
 
   const apiData = await apiResponse.json();
