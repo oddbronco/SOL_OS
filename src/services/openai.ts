@@ -116,7 +116,7 @@ class OpenAIService {
 
   async generateQuestions(context: {
     projectDescription: string;
-    transcription: string;
+    transcription?: string;
     stakeholders: Array<{ role: string; department: string }>;
     documentTypes?: string[];
     existingQuestions?: string[];
@@ -181,9 +181,7 @@ IMPORTANT: Return only valid JSON, no other text.`;
 
     const userPrompt = `Project: ${context.projectDescription}
 
-Meeting Transcript:
-${context.transcription}
-
+${context.transcription ? `Meeting Transcript:\n${context.transcription}\n` : ''}
 Stakeholders:
 ${context.stakeholders.map(s => `- ${s.role} (${s.department})`).join('\n')}
 

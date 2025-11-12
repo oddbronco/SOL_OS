@@ -537,29 +537,50 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
   const handleGenerateQuestions = async () => {
     setGeneratingQuestions(true);
     try {
+      if (!project.description || project.description.trim().length < 10) {
+        alert('Please provide a project description (at least 10 characters) before generating questions.');
+        setGeneratingQuestions(false);
+        return;
+      }
+
+      if (stakeholders.length === 0) {
+        alert('Please add at least one stakeholder before generating questions.');
+        setGeneratingQuestions(false);
+        return;
+      }
+
       const questions = await openAIService.generateQuestions({
         projectDescription: project.description,
+        transcription: project.transcript || '',
         stakeholders: stakeholders.map(s => ({ role: s.role, department: s.department }))
       });
 
+      if (!questions || questions.length === 0) {
+        alert('No questions were generated. Please try again or add questions manually.');
+        return;
+      }
+
       // Add questions to database
+      let successCount = 0;
       for (const question of questions) {
-        await addQuestion({
+        const result = await addQuestion({
           project_id: project.id,
           text: question.text,
           category: question.category,
           target_roles: question.target_roles || []
         });
+        if (result) successCount++;
       }
 
       // Reload questions
       const updatedQuestions = await getProjectQuestions(project.id);
       setQuestions(updatedQuestions);
 
-      alert(`Generated ${questions.length} questions successfully!`);
+      alert(`Successfully generated and saved ${successCount} out of ${questions.length} questions!`);
     } catch (error) {
       console.error('Failed to generate questions:', error);
-      alert('Failed to generate questions. Please check your OpenAI API key in Settings.');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to generate questions: ${errorMsg}\n\nPlease check your OpenAI API key in Settings.`);
     } finally {
       setGeneratingQuestions(false);
       setShowApiKeyWarning(false);
