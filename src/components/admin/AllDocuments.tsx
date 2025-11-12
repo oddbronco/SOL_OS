@@ -211,7 +211,7 @@ export const AllDocuments: React.FC = () => {
           <div className="text-sm text-gray-600">Document Types</div>
         </Card>
         <Card padding="sm" className="text-center">
-          <div className="text-2xl font-bold text-orange-600">{totalWordCount.toLocaleString()}</div>
+          <div className="text-2xl font-bold text-coral-600">{totalWordCount.toLocaleString()}</div>
           <div className="text-sm text-gray-600">Total Words</div>
         </Card>
       </div>

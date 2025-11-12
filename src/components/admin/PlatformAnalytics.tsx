@@ -261,7 +261,7 @@ export const PlatformAnalytics: React.FC = () => {
         </Card>
 
         <Card padding="sm" className="text-center">
-          <Users className="h-8 w-8 mx-auto mb-2 text-orange-500" />
+          <Users className="h-8 w-8 mx-auto mb-2 text-coral-500" />
           <div className="text-2xl font-bold text-gray-900">{stats.totalStakeholders}</div>
           <div className="text-sm text-gray-600">Stakeholders</div>
           <div className="text-xs text-blue-600 mt-1">{stats.avgProjectCompletion}% avg completion</div>
@@ -416,8 +416,8 @@ export const PlatformAnalytics: React.FC = () => {
           </div>
 
           <div className="text-center">
-            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <CheckCircle className="h-8 w-8 text-orange-600" />
+            <div className="w-16 h-16 bg-coral-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle className="h-8 w-8 text-coral-600" />
             </div>
             <div className="text-2xl font-bold text-gray-900">{stats.avgProjectCompletion}%</div>
             <div className="text-sm text-gray-600">Avg Completion</div>

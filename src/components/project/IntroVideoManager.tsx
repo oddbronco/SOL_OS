@@ -712,7 +712,7 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
                               variant="primary"
                               size="sm"
                               disabled={false}
-                              className="bg-orange-600 hover:bg-orange-700"
+                              className="bg-coral-600 hover:bg-coral-700"
                             >
                               🔄 Process with Mux
                             </Button>

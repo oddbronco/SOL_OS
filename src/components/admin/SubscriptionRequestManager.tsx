@@ -226,7 +226,7 @@ export const SubscriptionRequestManager: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="grid grid-cols-3 gap-4 flex-shrink-0">
           <Card padding="sm" className="text-center">
-            <div className="text-2xl font-bold text-orange-600">{pendingCount}</div>
+            <div className="text-2xl font-bold text-coral-600">{pendingCount}</div>
             <div className="text-sm text-gray-600">Pending</div>
           </Card>
           <Card padding="sm" className="text-center">

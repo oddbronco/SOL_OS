@@ -677,10 +677,10 @@ export const InterviewPage: React.FC = () => {
 
   if (sessionState === 'expired') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-coral-50 to-slate-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center shadow-xl">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Clock className="h-8 w-8 text-orange-600" />
+          <div className="w-16 h-16 bg-coral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Clock className="h-8 w-8 text-coral-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Session Expired</h2>
           <p className="text-gray-600 mb-4">

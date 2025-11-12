@@ -133,8 +133,8 @@ export const EnhancedQuestionsList: React.FC<EnhancedQuestionsListProps> = ({
           : 'from-blue-50 to-indigo-50 border-blue-200';
       case 'warning':
         return isDark
-          ? 'from-yellow-900/20 to-orange-900/20 border-yellow-500/30'
-          : 'from-yellow-50 to-orange-50 border-yellow-200';
+          ? 'from-yellow-900/20 to-coral-900/20 border-yellow-500/30'
+          : 'from-yellow-50 to-coral-50 border-yellow-200';
       default:
         return isDark
           ? 'from-gray-800/50 to-gray-900/50 border-gray-700'

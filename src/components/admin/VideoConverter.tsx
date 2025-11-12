@@ -233,7 +233,7 @@ export const VideoConverter: React.FC = () => {
           <Button
             onClick={convertAllVideos}
             disabled={converting}
-            className="bg-orange-600 hover:bg-orange-700"
+            className="bg-coral-600 hover:bg-coral-700"
           >
             {converting ? 'Converting...' : `Convert All ${webmVideos.length} Videos`}
           </Button>

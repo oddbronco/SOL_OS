@@ -1475,11 +1475,11 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                         }));
                         setEditingQuestion(0);
                       }}
-                      className="p-6 border-2 border-gray-300 rounded-lg text-left hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer"
+                      className="p-6 border-2 border-gray-300 rounded-lg text-left hover:border-coral-500 hover:bg-coral-50 transition-all cursor-pointer"
                     >
                       <div className="flex items-start gap-4">
-                        <div className="p-3 bg-orange-100 rounded-lg">
-                          <Edit className="w-6 h-6 text-orange-600" />
+                        <div className="p-3 bg-coral-100 rounded-lg">
+                          <Edit className="w-6 h-6 text-coral-600" />
                         </div>
                         <div className="flex-1">
                           <h4 className="font-semibold text-gray-900 mb-1">Manual Entry</h4>

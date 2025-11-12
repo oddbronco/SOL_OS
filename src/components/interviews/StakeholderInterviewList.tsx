@@ -80,8 +80,8 @@ export const StakeholderInterviewList: React.FC<StakeholderInterviewListProps> =
           : 'from-blue-50 to-indigo-50 border-blue-200';
       case 'pending':
         return isDark
-          ? 'from-yellow-900/30 to-orange-900/30 border-yellow-500/40'
-          : 'from-yellow-50 to-orange-50 border-yellow-200';
+          ? 'from-yellow-900/30 to-coral-900/30 border-yellow-500/40'
+          : 'from-yellow-50 to-coral-50 border-yellow-200';
       default:
         return isDark
           ? 'from-gray-800 to-gray-900 border-gray-700'
