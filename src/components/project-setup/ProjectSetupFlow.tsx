@@ -41,12 +41,13 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
   onBack,
   onComplete
 }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   // Project data state
   const [projectData, setProjectData] = useState({
@@ -151,12 +152,47 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
 
   // Load existing project data on mount - only once when component mounts
   useEffect(() => {
-    if (projectId && user) {
-      loadProjectData();
-      loadCollections();
+    console.log('🔄 ProjectSetupFlow effect triggered', {
+      projectId,
+      userId: user?.id,
+      authLoading,
+      hasAttemptedLoad
+    });
+
+    // Don't attempt to load if we already have
+    if (hasAttemptedLoad) {
+      console.log('⏭️ Already attempted load, skipping');
+      return;
     }
+
+    if (!projectId) {
+      console.log('⚠️ No projectId, setting dataLoaded');
+      setError('No project ID provided');
+      setDataLoaded(true);
+      setHasAttemptedLoad(true);
+      return;
+    }
+
+    // Wait for auth to complete
+    if (authLoading) {
+      console.log('⏳ Auth still loading, waiting...');
+      return;
+    }
+
+    if (!user) {
+      console.log('❌ No user after auth completed');
+      setError('User not authenticated');
+      setDataLoaded(true);
+      setHasAttemptedLoad(true);
+      return;
+    }
+
+    console.log('✅ Ready to load project data');
+    setHasAttemptedLoad(true);
+    loadProjectData();
+    loadCollections();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, user?.id]);
+  }, [projectId, user?.id, authLoading, hasAttemptedLoad]);
 
   const loadCollections = async () => {
     if (!user) return;
@@ -180,6 +216,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       console.error('❌ No projectId provided');
       setError('Project ID is required');
       setLoading(false);
+      setDataLoaded(true); // Allow UI to show error
       return;
     }
 
@@ -187,6 +224,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       console.error('❌ User not authenticated');
       setError('User not authenticated');
       setLoading(false);
+      setDataLoaded(true); // Allow UI to show error
       return;
     }
 
@@ -859,13 +897,18 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
             {!error ? (
               <>
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading project setup...</p>
+                <p className="text-gray-600">
+                  {authLoading ? 'Authenticating...' : 'Loading project setup...'}
+                </p>
+                <p className="text-gray-400 text-sm mt-2">
+                  Project: {projectName}
+                </p>
               </>
             ) : (
               <div className="max-w-md mx-auto p-6 bg-red-50 border border-red-200 rounded-lg">
                 <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Project</h3>
-                <p className="text-red-800 text-sm mb-4">{error}</p>
+                <p className="text-red-800 text-sm mb-4 whitespace-pre-wrap">{error}</p>
                 <Button
                   variant="outline"
                   onClick={onBack}
