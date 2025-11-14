@@ -13,6 +13,7 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@mux/mux-player-react": "^3.8.0",
     "@supabase/supabase-js": "^2.52.0",
     "@types/react-router-dom": "^5.3.3",
     "hls.js": "^1.6.14",

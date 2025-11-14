@@ -9,8 +9,8 @@ import {
   Lock, CheckCircle, User, Calendar, Clock, XCircle, Video, ChevronRight, Shield,
   Mic, FileText, Upload, Square, Trash2, Play, Check
 } from 'lucide-react';
-import Hls from 'hls.js';
-import { getMuxPlaybackUrl, getMuxPlaybackToken } from '../utils/muxPlaybackToken';
+import MuxPlayer from '@mux/mux-player-react';
+import { getMuxPlaybackToken } from '../utils/muxPlaybackToken';
 import { useInterviews } from '../hooks/useInterviews';
 
 type SessionState = 'active' | 'expired' | 'locked' | 'closed' | 'not_found';
@@ -88,8 +88,7 @@ export const InterviewPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   // Refs
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
+  const [muxToken, setMuxToken] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -117,101 +116,15 @@ export const InterviewPage: React.FC = () => {
     return url;
   };
 
-  // Video initialization
+  // Fetch Mux playback token when video changes
   useEffect(() => {
-    console.log('🎬 Video useEffect triggered', {
-      introVideo: !!introVideo,
-      hasVideoRef: !!videoRef.current,
-      videoType: introVideo?.video_type,
-      playbackId: introVideo?.mux_playback_id
-    });
-
-    // Small delay to ensure DOM is ready
-    const timeoutId = setTimeout(() => {
-      const initVideo = async () => {
-        if (!introVideo) {
-          console.log('⚠️ No introVideo, skipping initialization');
-          return;
-        }
-        if (!videoRef.current) {
-          console.log('⚠️ No videoRef.current, skipping initialization');
-          console.log('🔍 Checking if video element exists in DOM:', document.querySelector('video'));
-          return;
-        }
-        if (introVideo.video_type === 'upload' && introVideo.mux_playback_id) {
-        try {
-          console.log('🎬 Initializing video playback for:', introVideo.mux_playback_id);
-          console.log('🎬 Video details:', {
-            id: introVideo.id,
-            title: introVideo.title,
-            playbackId: introVideo.mux_playback_id,
-            assetId: introVideo.mux_asset_id
-          });
-
-          // Try to get token (may return null if not configured)
-          const token = await getMuxPlaybackToken(introVideo.mux_playback_id);
-          const playbackUrl = getMuxPlaybackUrl(introVideo.mux_playback_id, token || undefined);
-          console.log('🎬 Final playback URL:', playbackUrl);
-          console.log('🎬 Using signed URL:', !!token);
-
-          if (Hls.isSupported()) {
-            console.log('✅ HLS.js is supported');
-            if (hlsRef.current) {
-              console.log('🔄 Destroying previous HLS instance');
-              hlsRef.current.destroy();
-            }
-            const hls = new Hls({
-              maxBufferLength: 30,
-              maxMaxBufferLength: 60,
-              enableWorker: true,
-              debug: true,
-              xhrSetup: (xhr, url) => {
-                console.log('🌐 XHR request to:', url);
-              }
-            });
-            hlsRef.current = hls;
-            hls.loadSource(playbackUrl);
-            hls.attachMedia(videoRef.current);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              console.log('✅ Video manifest parsed - ready to play');
-            });
-            hls.on(Hls.Events.ERROR, (event, data) => {
-              console.error('❌ HLS error:', {
-                type: data.type,
-                details: data.details,
-                fatal: data.fatal,
-                response: data.response
-              });
-              if (data.fatal) {
-                console.error('💥 Fatal HLS error - attempting recovery');
-                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                  console.log('🔄 Network error - trying to recover');
-                  hls.startLoad();
-                } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                  console.log('🔄 Media error - trying to recover');
-                  hls.recoverMediaError();
-                }
-              }
-            });
-          } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-            console.log('🍎 Native HLS support detected (Safari)');
-            videoRef.current.src = playbackUrl;
-          } else {
-            console.error('❌ No HLS support detected in browser');
-          }
-          } catch (error) {
-            console.error('❌ Failed to load video:', error);
-            console.error('❌ Stack trace:', error.stack);
-          }
-        }
-      };
-      initVideo();
-    }, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (hlsRef.current) hlsRef.current.destroy();
-    };
+    if (introVideo?.video_type === 'upload' && introVideo.mux_playback_id) {
+      console.log('🎬 Fetching Mux token for playback ID:', introVideo.mux_playback_id);
+      getMuxPlaybackToken(introVideo.mux_playback_id).then(token => {
+        console.log('✅ Mux token received:', !!token);
+        setMuxToken(token);
+      });
+    }
   }, [introVideo]);
 
   // Load session data
@@ -676,31 +589,22 @@ export const InterviewPage: React.FC = () => {
                 </div>
               </div>
               <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
-                {(() => {
-                  console.log('🎬 Rendering video element', {
-                    video_type: introVideo.video_type,
-                    mux_playback_id: introVideo.mux_playback_id,
-                    video_url: introVideo.video_url
-                  });
-                  return null;
-                })()}
-                {introVideo.video_type === 'upload' ? (
-                  <video
-                    ref={videoRef}
-                    controls
-                    preload="metadata"
-                    playsInline
-                    crossOrigin="anonymous"
-                    className="absolute inset-0 w-full h-full object-contain"
-                    onLoadedMetadata={() => console.log('✅ Video metadata loaded')}
-                    onCanPlay={() => console.log('✅ Video can play')}
-                    onError={(e) => console.error('❌ Video error:', e)}
-                    onPlay={() => console.log('▶️ Video started playing')}
-                    onPause={() => console.log('⏸️ Video paused')}
+                {introVideo.video_type === 'upload' && introVideo.mux_playback_id ? (
+                  <MuxPlayer
+                    playbackId={introVideo.mux_playback_id}
+                    tokens={{ playback: muxToken || undefined }}
+                    streamType="on-demand"
+                    style={{ width: '100%', height: '100%' }}
+                    onLoadStart={() => console.log('🎬 Mux player loading...')}
+                    onLoadedMetadata={() => console.log('✅ Mux player metadata loaded')}
+                    onCanPlay={() => console.log('✅ Mux player can play')}
+                    onError={(e) => console.error('❌ Mux player error:', e)}
+                    onPlay={() => console.log('▶️ Mux player started playing')}
+                    onPause={() => console.log('⏸️ Mux player paused')}
                   />
-                ) : (
+                ) : introVideo.video_type === 'external' ? (
                   <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
-                )}
+                ) : null}
               </div>
               <Button onClick={scrollToQuestions} className="w-full" size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
                 Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
