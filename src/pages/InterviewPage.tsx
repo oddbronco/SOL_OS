@@ -299,21 +299,31 @@ export const InterviewPage: React.FC = () => {
       });
       setResponses(responseMap);
 
-      // Auto-set current question to first unanswered question
-      const firstUnanswered = questionsData.find(q => !responseMap[q.id] || responseMap[q.id].length === 0);
-      if (firstUnanswered) {
-        console.log('📍 Setting current question to first unanswered:', firstUnanswered.text);
-        setCurrentQuestionId(firstUnanswered.id);
-        setHasStarted(true);
-        // Scroll to the current question after a short delay
-        setTimeout(() => {
-          questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setTimeout(() => scrollToQuestion(firstUnanswered.id), 300);
-        }, 500);
-      } else if (questionsData.length > 0) {
-        // All questions answered, but still show the interface
-        console.log('✅ All questions answered');
-        setHasStarted(true);
+      // Auto-set current question to first unanswered question if any responses exist
+      const hasAnyResponses = Object.values(responseMap).some(resps => resps.length > 0);
+
+      if (hasAnyResponses) {
+        // User has started - find where they left off
+        const firstUnanswered = questionsData.find(q => !responseMap[q.id] || responseMap[q.id].length === 0);
+        if (firstUnanswered) {
+          console.log('📍 Resuming at first unanswered:', firstUnanswered.text);
+          setCurrentQuestionId(firstUnanswered.id);
+          setHasStarted(true);
+          // Scroll to the current question after a short delay
+          setTimeout(() => {
+            questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => scrollToQuestion(firstUnanswered.id), 300);
+          }, 500);
+        } else {
+          // All questions answered
+          console.log('✅ All questions answered');
+          setHasStarted(true);
+          setCurrentQuestionId(null);
+        }
+      } else {
+        // No responses yet - they haven't started, keep hasStarted = false to show video
+        console.log('🎬 No responses yet, showing intro video');
+        setHasStarted(false);
         setCurrentQuestionId(null);
       }
     } catch (error) {
