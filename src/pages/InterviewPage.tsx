@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { InlineInterviewFlow } from '../components/interviews/InlineInterviewFlow';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { Lock, MessageSquare, CheckCircle, User, Calendar, Clock, XCircle, AlertCircle, Ban, Video, Play, ChevronRight, Sparkles, Shield } from 'lucide-react';
+import {
+  Lock, CheckCircle, User, Calendar, Clock, XCircle, Video, ChevronRight, Shield,
+  Mic, FileText, Upload, Square, Trash2, Play, Check
+} from 'lucide-react';
 import Hls from 'hls.js';
-import { getMuxPlaybackToken, getMuxPlaybackUrl } from '../utils/muxPlaybackToken';
+import { getMuxPlaybackUrl } from '../utils/muxPlaybackToken';
+import { useInterviews } from '../hooks/useInterviews';
 
 type SessionState = 'active' | 'expired' | 'locked' | 'closed' | 'not_found';
 
@@ -22,35 +25,41 @@ interface IntroVideo {
   mux_status?: string;
 }
 
+interface Question {
+  id: string;
+  text: string;
+  category: string;
+  target_roles: string[];
+}
+
+interface Response {
+  id?: string;
+  response_type: 'text' | 'audio' | 'video' | 'file';
+  response_text?: string;
+  file_url?: string;
+  file_name?: string;
+  file_size?: number;
+  duration_seconds?: number;
+  created_at?: string;
+}
+
 export const InterviewPage: React.FC = () => {
-  // Use React Router's useParams to get URL parameters
   const { sessionToken: tokenFromParams, projectId: projectIdFromParams, stakeholderId: stakeholderIdFromParams } = useParams<{
     sessionToken?: string;
     projectId?: string;
     stakeholderId?: string;
   }>();
 
-  console.log('🔍 InterviewPage Loading...');
-  console.log('📍 URL:', window.location.href);
-  console.log('📍 Hostname:', window.location.hostname);
-  console.log('📍 Pathname:', window.location.pathname);
-  console.log('🔑 Token from params:', tokenFromParams);
-  console.log('📋 Project/Stakeholder from params:', { projectIdFromParams, stakeholderIdFromParams });
-
   const [searchParams] = useSearchParams();
   const passwordFromUrl = searchParams.get('pwd');
   const projectIdFromQuery = searchParams.get('project');
   const stakeholderIdFromQuery = searchParams.get('stakeholder');
 
-  // Determine session token and identifiers
   const sessionToken = tokenFromParams || null;
   const projectId = projectIdFromParams || projectIdFromQuery;
   const stakeholderId = stakeholderIdFromParams || stakeholderIdFromQuery;
 
-  console.log('🎫 Final session token:', sessionToken);
-  console.log('🔐 Password from URL:', passwordFromUrl);
-  console.log('📋 Final identifiers:', { projectId, stakeholderId });
-
+  // State
   const [session, setSession] = useState<any>(null);
   const [stakeholder, setStakeholder] = useState<any>(null);
   const [project, setProject] = useState<any>(null);
@@ -58,25 +67,41 @@ export const InterviewPage: React.FC = () => {
   const [password, setPassword] = useState(passwordFromUrl || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showQuestions, setShowQuestions] = useState(false);
   const [sessionState, setSessionState] = useState<SessionState>('active');
   const [failedAttempts, setFailedAttempts] = useState(0);
-  const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
   const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
-  const [showIntroVideo, setShowIntroVideo] = useState(false);
-  const [videoWatched, setVideoWatched] = useState(false);
-  const [projectBranding, setProjectBranding] = useState<{
-    logo_url?: string;
-    primary_color?: string;
-    secondary_color?: string;
-    text_color?: string;
-  }>({});
+  const [projectBranding, setProjectBranding] = useState<any>({});
+  
+  // Questions and responses
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [responses, setResponses] = useState<Record<string, Response[]>>({});
+  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  
+  // Response input
+  const [responseType, setResponseType] = useState<'text' | 'audio' | 'video' | 'file'>('text');
+  const [textResponse, setTextResponse] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [saving, setSaving] = useState(false);
+
+  // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const retryCountRef = useRef<number>(0);
-  const MAX_RETRIES = 2;
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const questionsRef = useRef<HTMLDivElement>(null);
 
-  // Convert YouTube/Vimeo URLs to embed format
+  const {
+    getStakeholderQuestionAssignments,
+    submitResponse,
+    uploadFile
+  } = useInterviews();
+
   const getEmbedUrl = (url: string): string => {
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       const videoId = url.includes('youtu.be')
@@ -84,617 +109,307 @@ export const InterviewPage: React.FC = () => {
         : new URL(url).searchParams.get('v');
       return `https://www.youtube.com/embed/${videoId}`;
     }
-
     if (url.includes('vimeo.com')) {
       const videoId = url.split('/').pop();
       return `https://player.vimeo.com/video/${videoId}`;
     }
-
     return url;
   };
 
-  // Initialize video player when intro video is shown (single consolidated effect)
+  // Video initialization
   useEffect(() => {
     const initVideo = async () => {
-      if (!showIntroVideo || !introVideo || !videoRef.current) {
-        console.log('⏭️ Skipping video init - missing video or ref or not showing');
-        return;
-      }
-
-      const video = videoRef.current;
-
-      // Clean up previous HLS instance
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-
-      // Handle external videos (YouTube/Vimeo) separately - they use iframe
-      if (introVideo.video_type === 'external') {
-        console.log('🌐 External video - iframe will handle playback');
-        return;
-      }
-
-      // Handle uploaded videos with Mux streaming
+      if (!introVideo || !videoRef.current) return;
       if (introVideo.video_type === 'upload' && introVideo.mux_playback_id) {
-        console.log('🎬 Initializing HLS player for Mux stream');
-
-        // Fetch signed playback token
         try {
-          const token = await getMuxPlaybackToken(introVideo.mux_playback_id);
-
-          if (!token) {
-            console.warn('⚠️ No signed token available - check Mux credentials in Settings');
-            // Don't proceed with unsigned URL if asset requires signing
-            if (introVideo.video_url) {
-              console.log('📹 Falling back to direct MP4:', introVideo.video_url);
-              video.src = introVideo.video_url;
-            }
-            return;
-          }
-
-          const hlsUrl = getMuxPlaybackUrl(introVideo.mux_playback_id, token);
-          console.log('🔐 Using signed playback URL');
-
+          const playbackUrl = await getMuxPlaybackUrl(introVideo.mux_playback_id);
           if (Hls.isSupported()) {
-            const hls = new Hls({
-              enableWorker: true,
-              lowLatencyMode: true,
-              backBufferLength: 90,
-              manifestLoadingTimeOut: 20000,
-              manifestLoadingMaxRetry: 4,
-              levelLoadingTimeOut: 20000,
-              xhrSetup: (xhr) => {
-                xhr.withCredentials = false;
-              }
-            });
-
-            hls.loadSource(hlsUrl);
-            hls.attachMedia(video);
-
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              console.log('✅ HLS manifest loaded successfully');
-            });
-
-            hls.on(Hls.Events.ERROR, async (_event, data) => {
-              console.error('❌ HLS error:', data);
-              if (data.fatal) {
-                console.error('Fatal HLS error:', data.type, data.details);
-
-                // Try to re-fetch token on auth errors (with retry limit)
-                if (data.type === Hls.ErrorTypes.NETWORK_ERROR &&
-                    (data.details === 'manifestLoadError' || data.details === 'manifestParsingError')) {
-
-                  if (retryCountRef.current < MAX_RETRIES) {
-                    retryCountRef.current++;
-                    console.log(`🔄 Retry attempt ${retryCountRef.current}/${MAX_RETRIES} with fresh token...`);
-
-                    try {
-                      const newToken = await getMuxPlaybackToken(introVideo.mux_playback_id!);
-                      if (newToken) {
-                        const newUrl = getMuxPlaybackUrl(introVideo.mux_playback_id!, newToken);
-                        hls.stopLoad();
-                        hls.loadSource(newUrl);
-                        return;
-                      }
-                    } catch (retryError) {
-                      console.error('❌ Token retry failed:', retryError);
-                    }
-                  } else {
-                    console.error(`❌ Max retries (${MAX_RETRIES}) exceeded. The Mux video asset may not exist or be ready.`);
-                  }
-
-                  // Final fallback to direct MP4
-                  console.log('🔄 Falling back to direct video playback');
-                  hls.destroy();
-                  if (introVideo.video_url) {
-                    video.src = introVideo.video_url;
-                    console.log('✅ Using fallback video URL:', introVideo.video_url);
-                  } else {
-                    console.error('❌ No fallback video URL available');
-                  }
-                } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                  console.log('🔧 Attempting to recover from media error');
-                  hls.recoverMediaError();
-                } else {
-                  hls.startLoad();
-                }
-              }
-            });
-
+            if (hlsRef.current) hlsRef.current.destroy();
+            const hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60, enableWorker: true });
             hlsRef.current = hls;
-          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Native HLS support (Safari)
-            video.src = hlsUrl;
-            console.log('✅ Using native HLS support (Safari)');
-          } else {
-            console.error('❌ HLS not supported');
-            if (introVideo.video_url) {
-              video.src = introVideo.video_url;
-            }
+            hls.loadSource(playbackUrl);
+            hls.attachMedia(videoRef.current);
+          } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+            videoRef.current.src = playbackUrl;
           }
         } catch (error) {
-          console.error('❌ Failed to initialize Mux playback:', error);
-          // Fallback to direct MP4
-          if (introVideo.video_url) {
-            console.log('📹 Using fallback video URL');
-            video.src = introVideo.video_url;
-          }
+          console.error('Failed to load video:', error);
         }
-      } else if (introVideo.video_url) {
-        // Direct MP4 file - just set the src
-        console.log('📹 Using direct video file:', introVideo.video_url);
-        video.src = introVideo.video_url;
       }
     };
-
     initVideo();
+    return () => { if (hlsRef.current) hlsRef.current.destroy(); };
+  }, [introVideo]);
 
-    return () => {
-      // Reset retry count on cleanup
-      retryCountRef.current = 0;
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, [showIntroVideo, introVideo]);
-
-  // Add SEO protection meta tags for interview pages (must be at top before any conditional returns)
-  useEffect(() => {
-    const robotsMeta = document.createElement('meta');
-    robotsMeta.name = 'robots';
-    robotsMeta.content = 'noindex, nofollow, noarchive, nosnippet, noimageindex';
-    document.head.appendChild(robotsMeta);
-
-    const googlebotMeta = document.createElement('meta');
-    googlebotMeta.name = 'googlebot';
-    googlebotMeta.content = 'noindex, nofollow';
-    document.head.appendChild(googlebotMeta);
-
-    const xRobotsMeta = document.createElement('meta');
-    xRobotsMeta.httpEquiv = 'X-Robots-Tag';
-    xRobotsMeta.content = 'noindex, nofollow';
-    document.head.appendChild(xRobotsMeta);
-
-    return () => {
-      document.head.removeChild(robotsMeta);
-      document.head.removeChild(googlebotMeta);
-      document.head.removeChild(xRobotsMeta);
-    };
-  }, []);
-
-  useEffect(() => {
-    console.log('🔍 Auto-auth check:', {
-      passwordFromUrl: !!passwordFromUrl,
-      stakeholder: !!stakeholder,
-      session: !!session,
-      authenticated,
-      autoAuthAttempted,
-      sessionState
-    });
-
-    // Auto-authenticate if password is in URL
-    if (passwordFromUrl && stakeholder && session && !authenticated && !autoAuthAttempted && sessionState === 'active') {
-      console.log('🔓 Auto-authenticating with URL password...');
-      setAutoAuthAttempted(true);
-
-      // Inline authentication logic to avoid circular dependency
-      if (passwordFromUrl === stakeholder.interview_password) {
-        console.log('✅ Auto-authentication successful');
-        setAuthenticated(true);
-        setError(null);
-        setFailedAttempts(0);
-
-        // Update session if it's still pending
-        if (session.status === 'pending') {
-          supabase
-            .from('interview_sessions')
-            .update({ status: 'in_progress' })
-            .eq('id', session.id)
-            .then(() => {
-              setSession((prev: any) => ({ ...prev, status: 'in_progress' }));
-            });
-        }
-      } else {
-        console.log('❌ Auto-authentication failed - incorrect password');
-        setError('Incorrect password in URL. Please enter your password manually.');
-      }
-    }
-  }, [passwordFromUrl, stakeholder, session, authenticated, autoAuthAttempted, sessionState]);
-
+  // Load session data
   const loadSession = useCallback(async () => {
-    console.log('🚀 loadSession called');
-    setLoading(true);
-    setError(null);
+    if (!sessionToken && (!projectId || !stakeholderId)) {
+      setError('Invalid interview link');
+      setLoading(false);
+      return;
+    }
 
     try {
-      console.log(sessionToken);
-      // Load using the newer /interview/{projectId}/{stakeholderId} format
-      if (projectId && stakeholderId) {
-        console.log('🔍 Loading using project/stakeholder IDs:', { projectId, stakeholderId });
+      setLoading(true);
+      let sessionData, stakeholderData, projectData;
 
-        // Get or create session for this project/stakeholder combination
-        const { data: existingSession, error: sessionError } = await supabase
+      if (sessionToken) {
+        const { data: session } = await supabase
           .from('interview_sessions')
-          .select('*')
-          .eq('project_id', projectId)
-          .eq('stakeholder_id', stakeholderId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        let sessionData = existingSession;
-
-        // If no session exists, create one
-        if (!existingSession && !sessionError) {
-          console.log('📝 No session found, creating new session...');
-          const { data: newSession, error: createError } = await supabase
-            .from('interview_sessions')
-            .insert({
-              project_id: projectId,
-              stakeholder_id: stakeholderId,
-              status: 'pending'
-            })
-            .select()
-            .single();
-
-          if (createError || !newSession) {
-            console.error('❌ Create session error:', createError);
-            setError('Failed to create interview session.');
-            setSessionState('not_found');
-            setLoading(false);
-            return;
-          }
-
-          sessionData = newSession;
-          console.log('✅ New session created:', sessionData);
-        }
-
-        // Check session state
-        const state = checkSessionState(sessionData);
-        setSessionState(state);
-        setSession(sessionData);
-
-        // Get project data with branding
-        const { data: projectData, error: projectError } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', projectId)
-          .maybeSingle();
-
-        if (projectError || !projectData) {
-          console.error('❌ Project error:', projectError);
-          setError('Project not found.');
-          setSessionState('not_found');
-          setLoading(false);
-          return;
-        }
-
-        setProject(projectData);
-
-        // Set project branding
-        setProjectBranding({
-          logo_url: projectData.brand_logo_url || undefined,
-          primary_color: projectData.brand_primary_color || '#3B82F6',
-          secondary_color: projectData.brand_secondary_color || '#10B981',
-          text_color: projectData.brand_text_color || '#FFFFFF'
-        });
-
-        // Load intro video if available using priority system (session > stakeholder > project)
-        if (sessionData?.id) {
-          console.log('🎬 Loading intro video for session:', sessionData.id);
-          const { data: videoData, error: videoError } = await supabase
-            .rpc('get_intro_video_for_session', { session_id: sessionData.id });
-
-          console.log('🎬 Intro video result:', {
-            success: !videoError,
-            videoCount: videoData?.length || 0,
-            video: videoData?.[0],
-            error: videoError
-          });
-
-          if (videoError) {
-            console.error('❌ Error loading intro video:', videoError);
-          }
-
-          if (!videoError && videoData && videoData.length > 0) {
-            console.log('✅ Setting intro video:', videoData[0]);
-            console.log('🎬 Video details:', {
-              video_type: videoData[0].video_type,
-              mux_playback_id: videoData[0].mux_playback_id,
-              mux_status: videoData[0].mux_status,
-              video_url: videoData[0].video_url
-            });
-            setIntroVideo(videoData[0]);
-          } else {
-            console.log('ℹ️ No intro video found for this session');
-          }
-        }
-
-      } else if (sessionToken) {
-        // Handle original /interview/{sessionToken} format
-        console.log('🔍 Loading interview session:', sessionToken);
-
-        // First get the session
-        const { data: sessionData, error: sessionError } = await supabase
-          .from('interview_sessions')
-          .select('*')
+          .select(`*, stakeholder:stakeholders(*), project:projects(*)`)
           .eq('session_token', sessionToken)
           .maybeSingle();
-
-        console.log('📊 Session data:', sessionData);
-        console.log('📊 Session error:', sessionError);
-
-        if (sessionError || !sessionData) {
-          console.error('❌ Session error:', sessionError);
-          setError('Interview session not found.');
-          setSessionState('not_found');
-          setLoading(false);
-          return;
-        }
-
-        console.log('✅ Session loaded:', sessionData);
-
-        // Check session state
-        const state = checkSessionState(sessionData);
-        console.log('🔍 Session state:', state);
-        setSessionState(state);
-        setSession(sessionData);
-
-        // Load project with branding
-        console.log('🔍 Fetching project with ID:', sessionData.project_id);
-        const { data: projectData, error: projectError } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', sessionData.project_id)
-          .maybeSingle();
-
-        if (projectError || !projectData) {
-          console.error('❌ Project error:', projectError);
-          setError('Project not found.');
-          setSessionState('not_found');
-          setLoading(false);
-          return;
-        }
-
-        console.log('✅ Project loaded:', projectData);
-        setProject(projectData);
-
-        // Set project branding
-        setProjectBranding({
-          logo_url: projectData.brand_logo_url || undefined,
-          primary_color: projectData.brand_primary_color || '#3B82F6',
-          secondary_color: projectData.brand_secondary_color || '#10B981',
-          text_color: projectData.brand_text_color || '#FFFFFF'
-        });
-
-        // Load intro video if available
-        if (sessionData?.id) {
-          console.log('🎬 Loading intro video for session:', sessionData.id);
-          const { data: videoData, error: videoError } = await supabase
-            .rpc('get_intro_video_for_session', { session_id: sessionData.id });
-
-          console.log('🎬 Intro video result:', {
-            success: !videoError,
-            videoCount: videoData?.length || 0,
-            video: videoData?.[0],
-            error: videoError
-          });
-
-          if (videoError) {
-            console.error('❌ Error loading intro video:', videoError);
-          }
-
-          if (!videoError && videoData && videoData.length > 0) {
-            console.log('✅ Setting intro video:', videoData[0]);
-            console.log('🎬 Video details:', {
-              video_type: videoData[0].video_type,
-              mux_playback_id: videoData[0].mux_playback_id,
-              mux_status: videoData[0].mux_status,
-              video_url: videoData[0].video_url
-            });
-            setIntroVideo(videoData[0]);
-          } else {
-            console.log('ℹ️ No intro video found for this session');
-          }
-        }
-
-        // Then get the stakeholder
-        const { data: stakeholderData, error: stakeholderError } = await supabase
-          .from('stakeholders')
-          .select('*')
-          .eq('id', sessionData.stakeholder_id)
-          .maybeSingle();
-
-        if (stakeholderError || !stakeholderData) {
-          console.error('❌ Stakeholder error:', stakeholderError);
-          setError('Stakeholder not found.');
-          setSessionState('not_found');
-          setLoading(false);
-          return;
-        }
-
-        console.log('✅ Stakeholder loaded:', stakeholderData);
-        setStakeholder(stakeholderData);
+        if (!session) { setSessionState('not_found'); setLoading(false); return; }
+        sessionData = session;
+        stakeholderData = session.stakeholder;
+        projectData = session.project;
       } else {
-        console.error('❌ No session token or identifiers provided');
-        setError('Invalid interview link.');
+        const [{ data: session }, { data: stakeholderRes }, { data: projectRes }] = await Promise.all([
+          supabase.from('interview_sessions').select('*').eq('project_id', projectId).eq('stakeholder_id', stakeholderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('stakeholders').select('*').eq('id', stakeholderId).single(),
+          supabase.from('projects').select('*').eq('id', projectId).single()
+        ]);
+        sessionData = session;
+        stakeholderData = stakeholderRes;
+        projectData = projectRes;
+      }
+
+      if (!sessionData || !stakeholderData || !projectData) {
         setSessionState('not_found');
         setLoading(false);
         return;
       }
 
-      console.log('✅ Session loaded successfully');
-      setLoading(false);
-    } catch (err) {
-      console.error('❌ Load session error:', err);
-      setError('Failed to load interview session.');
-      setSessionState('not_found');
-      setLoading(false);
-    }
-  }, [sessionToken, projectId, stakeholderId]);
+      const expiresAt = sessionData.expires_at ? new Date(sessionData.expires_at) : null;
+      if (expiresAt && expiresAt < new Date()) setSessionState('expired');
+      else if (sessionData.status === 'cancelled') setSessionState('closed');
+      else setSessionState('active');
 
-  const handleAuthentication = async (inputPassword: string) => {
-    if (!stakeholder || !inputPassword || !session) return;
+      setSession(sessionData);
+      setStakeholder(stakeholderData);
+      setProject(projectData);
 
-    // Don't allow authentication if session is not active
-    if (sessionState !== 'active') {
-      setError('This interview session is no longer available.');
-      return;
-    }
+      const { data: branding } = await supabase.from('project_branding').select('*').eq('project_id', projectData.id).maybeSingle();
+      if (branding) setProjectBranding(branding);
 
-    console.log('🔐 Authenticating with password...');
+      const { data: videoAssignment } = await supabase.from('project_intro_video_assignments').select(`intro_video:project_intro_videos(*)`).eq('project_id', projectData.id).eq('stakeholder_id', stakeholderData.id).maybeSingle();
+      if (videoAssignment?.intro_video) setIntroVideo(videoAssignment.intro_video);
 
-    try {
-      // Check if we've exceeded max attempts
-      if (failedAttempts >= 5) {
-        setError('Too many failed attempts. Please contact support.');
-        setSessionState('locked');
-        return;
-      }
+      await loadQuestions(projectData.id, stakeholderData.id, sessionData.id);
 
-      // Verify password
-      if (inputPassword === stakeholder.interview_password) {
-        console.log('✅ Authentication successful - setting authenticated to true');
-        setAuthenticated(true);
-        setError(null);
-        setFailedAttempts(0);
-
-        // Update session if it's still pending
-        if (session.status === 'pending') {
-          await supabase
-            .from('interview_sessions')
-            .update({ status: 'in_progress' })
-            .eq('id', session.id);
-
-          setSession((prev: any) => ({ ...prev, status: 'in_progress' }));
-        }
-
-        console.log('✅ Authentication state updated');
+      if (sessionData.access_password) {
+        setAuthenticated(passwordFromUrl === sessionData.access_password);
       } else {
-        const newAttempts = failedAttempts + 1;
-        setFailedAttempts(newAttempts);
-        setError(`Incorrect password. ${5 - newAttempts} attempts remaining.`);
-
-        if (newAttempts >= 5) {
-          setSessionState('locked');
-        }
+        setAuthenticated(true);
       }
     } catch (err) {
-      console.error('❌ Authentication error:', err);
-      setError('Authentication failed. Please try again.');
-    }
-  };
-
-  // Hash IP for privacy
-  const hashIp = async (ip: string): Promise<string> => {
-    const msgBuffer = new TextEncoder().encode(ip);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
-
-  // Get client IP (in production, this would come from a header set by your proxy/CDN)
-  const getClientIp = (): string => {
-    // In a real implementation, you'd get this from headers like X-Forwarded-For
-    // For now, we'll use a placeholder
-    return 'client-ip-placeholder';
-  };
-
-  // Check session security state
-  const checkSessionState = (sessionData: any): SessionState => {
-    if (!sessionData) return 'not_found';
-
-    // Check if locked
-    if (sessionData.is_locked) return 'locked';
-
-    // Check if closed (completed)
-    if (sessionData.is_closed) return 'closed';
-
-    // Check if expired
-    const expiresAt = new Date(sessionData.expires_at);
-    if (expiresAt < new Date()) return 'expired';
-
-    return 'active';
-  };
-
-  // Record access attempt to session
-  const recordAccess = useCallback(async (sessionId: string, success: boolean) => {
-    try {
-      const ip = getClientIp();
-      const ipHash = await hashIp(ip);
-
-      const { data, error } = await supabase.rpc('record_session_access', {
-        p_session_token: sessionToken || '',
-        p_ip_hash: ipHash,
-        p_success: success
-      });
-
-      if (error) {
-        console.error('Error recording access:', error);
-        return null;
-      }
-
-      return data;
-    } catch (err) {
-      console.error('Error in recordAccess:', err);
-      return null;
-    }
-  }, [sessionToken]);
-
-  const markVideoAsWatched = useCallback(async () => {
-    if (!videoWatched && session?.id && introVideo?.id) {
-      setVideoWatched(true);
-      // Could track this in the database if needed
-      console.log('✅ Video watched');
-    }
-  }, [videoWatched, session, introVideo]);
-
-  useEffect(() => {
-    if (sessionToken || (projectId && stakeholderId)) {
-      loadSession();
-    } else {
-      setError('Invalid interview link.');
-      setSessionState('not_found');
+      console.error('Failed to load session:', err);
+      setError('Failed to load interview session');
+    } finally {
       setLoading(false);
     }
-  }, [sessionToken, projectId, stakeholderId, loadSession]);
+  }, [sessionToken, projectId, stakeholderId, passwordFromUrl]);
 
-  // Also load stakeholder separately if we have the ID from project/stakeholder route
-  useEffect(() => {
-    const loadStakeholder = async () => {
-      if (stakeholderId && !stakeholder) {
-        const { data, error } = await supabase
-          .from('stakeholders')
-          .select('*')
-          .eq('id', stakeholderId)
-          .maybeSingle();
+  const loadQuestions = async (projectId: string, stakeholderId: string, sessionId: string) => {
+    try {
+      const assignments = await getStakeholderQuestionAssignments(projectId, stakeholderId, sessionId);
+      const questionsData = assignments.map((a: any) => ({
+        id: a.question_id,
+        text: a.question?.text || '',
+        category: a.question?.category || 'general',
+        target_roles: a.question?.target_roles || []
+      }));
+      setQuestions(questionsData);
+      await loadAllResponses(questionsData, stakeholderId, sessionId);
+    } catch (error) {
+      console.error('Failed to load questions:', error);
+    }
+  };
 
-        if (!error && data) {
-          setStakeholder(data);
+  const loadAllResponses = async (questionsData: Question[], stakeholderId: string, sessionId: string) => {
+    try {
+      const { data } = await supabase.from('interview_responses').select('*').eq('stakeholder_id', stakeholderId).eq('interview_session_id', sessionId);
+      const responseMap: Record<string, Response[]> = {};
+      questionsData.forEach(q => responseMap[q.id] = []);
+      data?.forEach(resp => {
+        if (!responseMap[resp.question_id]) responseMap[resp.question_id] = [];
+        responseMap[resp.question_id].push(resp);
+      });
+      setResponses(responseMap);
+    } catch (error) {
+      console.error('Failed to load responses:', error);
+    }
+  };
+
+  useEffect(() => { loadSession(); }, [loadSession]);
+
+  const handleAuthenticate = () => {
+    if (password === session.access_password) {
+      setAuthenticated(true);
+      setFailedAttempts(0);
+    } else {
+      setFailedAttempts(prev => prev + 1);
+      if (failedAttempts >= 2) setSessionState('locked');
+    }
+  };
+
+  const scrollToQuestions = () => {
+    questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (questions.length > 0 && !currentQuestionId) {
+      setCurrentQuestionId(questions[0].id);
+      scrollToQuestion(questions[0].id);
+    }
+  };
+
+  const scrollToQuestion = (questionId: string) => {
+    const element = document.getElementById(`question-${questionId}`);
+    if (element) {
+      const offset = 120;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    }
+  };
+
+  // Recording functions
+  const cleanupRecording = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+  };
+
+  const startRecording = async (type: 'audio' | 'video') => {
+    try {
+      chunksRef.current = [];
+      setRecordingBlob(null);
+      setRecordingDuration(0);
+      const constraints = type === 'video' ? { video: true, audio: true } : { audio: true };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: type === 'video' ? 'video/webm;codecs=vp8,opus' : 'audio/webm;codecs=opus'
+      });
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: type === 'video' ? 'video/webm' : 'audio/webm' });
+        setRecordingBlob(blob);
+        streamRef.current?.getTracks().forEach(track => track.stop());
+      };
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      timerRef.current = setInterval(() => setRecordingDuration(prev => prev + 1), 1000);
+    } catch (error) {
+      alert('Could not access your camera/microphone. Please check permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+    if (timerRef.current) clearInterval(timerRef.current);
+    setIsRecording(false);
+  };
+
+  const discardRecording = () => {
+    cleanupRecording();
+    setRecordingBlob(null);
+    setRecordingDuration(0);
+    setIsRecording(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const newFiles = files.slice(0, 3 - uploadedFiles.length);
+    setUploadedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const saveResponse = async (questionId: string) => {
+    if (!session || !stakeholder || !project) return;
+    setSaving(true);
+    try {
+      let savedAny = false;
+      if (responseType === 'text' && textResponse.trim()) {
+        await submitResponse(project.id, stakeholder.id, questionId, { response_type: 'text', response_text: textResponse }, session.id);
+        savedAny = true;
+        setTextResponse('');
+      } else if ((responseType === 'video' || responseType === 'audio') && recordingBlob) {
+        const file = new File([recordingBlob], `${responseType}-${Date.now()}.webm`, { type: recordingBlob.type });
+        const fileUrl = await uploadFile(file, project.id);
+        await submitResponse(project.id, stakeholder.id, questionId, {
+          response_type: responseType, file_url: fileUrl, file_name: file.name, file_size: file.size, duration_seconds: recordingDuration
+        }, session.id);
+        savedAny = true;
+        discardRecording();
+      } else if (responseType === 'file' && uploadedFiles.length > 0) {
+        for (const file of uploadedFiles) {
+          const fileUrl = await uploadFile(file, project.id);
+          await submitResponse(project.id, stakeholder.id, questionId, {
+            response_type: 'file', file_url: fileUrl, file_name: file.name, file_size: file.size
+          }, session.id);
+        }
+        savedAny = true;
+        setUploadedFiles([]);
+      }
+      if (savedAny) {
+        await loadQuestions(project.id, stakeholder.id, session.id);
+        await loadSession();
+        // Move to next question
+        const currentIndex = questions.findIndex(q => q.id === questionId);
+        if (currentIndex < questions.length - 1) {
+          const nextQuestion = questions[currentIndex + 1];
+          setCurrentQuestionId(nextQuestion.id);
+          setTimeout(() => scrollToQuestion(nextQuestion.id), 300);
         }
       }
-    };
+    } catch (error) {
+      alert('Failed to save response. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    loadStakeholder();
-  }, [stakeholderId, stakeholder]);
+  const completeInterview = async () => {
+    if (!session) return;
+    try {
+      await supabase.from('interview_sessions').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', session.id);
+      await loadSession();
+    } catch (error) {
+      console.error('Error completing interview:', error);
+    }
+  };
 
-  // Render error states based on session state (but only if we don't have a session - otherwise it's an auth error)
-  if (sessionState === 'not_found' && !session) {
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const primaryColor = projectBranding.primary_color || '#3B82F6';
+  const secondaryColor = projectBranding.secondary_color || '#10B981';
+  const textColor = projectBranding.text_color || '#FFFFFF';
+
+  const completedQuestions = Object.keys(responses).filter(qId => responses[qId].length > 0).length;
+  const progress = questions.length > 0 ? Math.round((completedQuestions / questions.length) * 100) : 0;
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center shadow-xl">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <XCircle className="h-8 w-8 text-red-600" />
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <Card className="text-center p-8 max-w-md">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading your interview...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (sessionState === 'not_found') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <Card className="text-center p-8 max-w-md">
+          <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Interview Not Found</h2>
-          <p className="text-gray-600 mb-4">
-            {error || 'The interview session you\'re looking for doesn\'t exist or has been removed.'}
-          </p>
-          <p className="text-sm text-gray-500">
-            Please check your link or contact the project administrator.
-          </p>
+          <p className="text-gray-600">This interview session could not be found.</p>
         </Card>
       </div>
     );
@@ -702,20 +417,11 @@ export const InterviewPage: React.FC = () => {
 
   if (sessionState === 'expired') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-coral-50 to-slate-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center shadow-xl">
-          <div className="w-16 h-16 bg-coral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Clock className="h-8 w-8 text-coral-600" />
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <Card className="text-center p-8 max-w-md">
+          <Clock className="h-16 w-16 text-orange-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Session Expired</h2>
-          <p className="text-gray-600 mb-4">
-            This interview session has expired and is no longer accepting responses.
-          </p>
-          {session?.expires_at && (
-            <p className="text-sm text-gray-500">
-              Expired on {new Date(session.expires_at).toLocaleDateString()}
-            </p>
-          )}
+          <p className="text-gray-600">This interview session has expired.</p>
         </Card>
       </div>
     );
@@ -723,490 +429,304 @@ export const InterviewPage: React.FC = () => {
 
   if (sessionState === 'locked') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-red-50 to-slate-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center shadow-xl">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Ban className="h-8 w-8 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Session Locked</h2>
-          <p className="text-gray-600 mb-4">
-            This interview session has been locked due to too many failed authentication attempts.
-          </p>
-          <p className="text-sm text-gray-500">
-            Please contact the project administrator to unlock your session.
-          </p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <Card className="text-center p-8 max-w-md">
+          <Lock className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Locked</h2>
+          <p className="text-gray-600">Too many failed attempts. Please contact support.</p>
         </Card>
       </div>
     );
   }
 
-  if (sessionState === 'closed') {
+  if (!authenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-slate-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center shadow-xl">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="h-8 w-8 text-green-600" />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <Card className="p-8 max-w-md w-full">
+          <div className="text-center mb-6">
+            <Shield className="h-16 w-16 text-primary-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Protected Interview</h2>
+            <p className="text-gray-600">Please enter the access password</p>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Interview Complete</h2>
-          <p className="text-gray-600 mb-4">
-            Thank you for completing this interview. Your responses have been recorded.
-          </p>
-          <p className="text-sm text-gray-500">
-            You can now close this window.
-          </p>
-        </Card>
-      </div>
-    );
-  }
-
-  // Show authentication form if not authenticated
-  if (!authenticated && session && stakeholder) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center p-4"
-        style={{
-          background: projectBranding.primary_color
-            ? `linear-gradient(135deg, ${projectBranding.primary_color}15 0%, ${projectBranding.secondary_color}15 100%)`
-            : 'linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%)'
-        }}
-      >
-        <Card className="max-w-md w-full shadow-2xl border-0">
-          {/* Logo */}
-          {projectBranding.logo_url && (
-            <div className="flex justify-center mb-6">
-              <img
-                src={projectBranding.logo_url}
-                alt="Project logo"
-                className="h-20 object-contain"
-              />
-            </div>
-          )}
-
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
-              style={{
-                backgroundColor: projectBranding.primary_color || '#3B82F6',
-                color: projectBranding.text_color || '#FFFFFF'
-              }}
-            >
-              <Shield className="h-8 w-8" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Secure Interview Access
-            </h1>
-            <p className="text-gray-600">
-              Welcome, <span className="font-semibold">{stakeholder.name}</span>
-            </p>
-            <p className="text-sm text-gray-500 mt-1">
-              {project.name}
-            </p>
-          </div>
-
-          {/* Authentication Form */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Access Password
-              </label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAuthentication(password);
-                  }
-                }}
-                placeholder="Enter your password"
-                className="w-full"
-                autoFocus
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            )}
-
-            <Button
-              onClick={() => handleAuthentication(password)}
-              disabled={!password}
-              className="w-full"
-              size="lg"
-              style={{
-                backgroundColor: projectBranding.primary_color || '#3B82F6',
-                color: projectBranding.text_color || '#FFFFFF',
-                borderColor: projectBranding.primary_color || '#3B82F6'
-              }}
-            >
-              <Lock className="h-4 w-4 mr-2" />
-              Access Interview
-            </Button>
-
-            <div className="text-center pt-4 border-t">
-              <p className="text-xs text-gray-500">
-                Need help? Contact your project administrator
-              </p>
-            </div>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" onKeyPress={(e) => e.key === 'Enter' && handleAuthenticate()} />
+            {failedAttempts > 0 && <p className="text-sm text-red-600">Incorrect password. {3 - failedAttempts} attempts remaining.</p>}
+            <Button onClick={handleAuthenticate} className="w-full">Access Interview</Button>
           </div>
         </Card>
       </div>
     );
   }
 
-  // Show loading state
-  console.log('🔍 Loading check:', { loading, hasSession: !!session, hasStakeholder: !!stakeholder, hasProject: !!project });
-
-  if (loading || !session || !stakeholder || !project) {
-    console.log('⏳ Showing loading state because:', {
-      loading,
-      noSession: !session,
-      noStakeholder: !stakeholder,
-      noProject: !project
-    });
-
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{
-          background: projectBranding.primary_color
-            ? `linear-gradient(135deg, ${projectBranding.primary_color}15 0%, ${projectBranding.secondary_color}15 100%)`
-            : 'linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%)'
-        }}
-      >
-        <div className="text-center">
-          <div
-            className="animate-spin rounded-full h-16 w-16 border-4 border-t-transparent mx-auto mb-4 shadow-lg"
-            style={{
-              borderColor: projectBranding.primary_color ? `${projectBranding.primary_color}30` : '#DBEAFE',
-              borderTopColor: 'transparent'
-            }}
-          ></div>
-          <p className="text-gray-600 font-medium">Loading your interview...</p>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+      {/* Fixed Header with Progress */}
+      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center gap-4">
+            {projectBranding.logo_url && (
+              <img src={projectBranding.logo_url} alt="Logo" className="h-10 object-contain" />
+            )}
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">{completedQuestions} of {questions.length} answered</span>
+                <span className="text-2xl font-bold" style={{ color: primaryColor }}>{progress}%</span>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, backgroundColor: primaryColor }} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    );
-  }
 
-  console.log('🎨 Rendering main interview UI', {
-    authenticated,
-    hasSession: !!session,
-    hasStakeholder: !!stakeholder,
-    hasProject: !!project,
-    sessionStatus: session?.status
-  });
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* Welcome Card */}
+        <Card className="overflow-hidden border-0 shadow-xl">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8">
+            <div className="flex items-start gap-6">
+              <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg" style={{ backgroundColor: primaryColor }}>
+                <User className="h-10 w-10" style={{ color: textColor }} />
+              </div>
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, {stakeholder.name}!</h1>
+                <p className="text-lg text-gray-700 mb-3">{stakeholder.role} {stakeholder.department && `• ${stakeholder.department}`}</p>
+                <p className="text-gray-600 mb-4">Thank you for participating in <span className="font-semibold">{project.name}</span></p>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-2"><Calendar className="h-4 w-4" />{new Date(session.created_at).toLocaleDateString()}</div>
+                  <div className="flex items-center gap-2"><Clock className="h-4 w-4" />~15-20 minutes</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
 
-  const primaryColor = projectBranding.primary_color || '#3B82F6';
-  const secondaryColor = projectBranding.secondary_color || '#10B981';
-  const textColor = projectBranding.text_color || '#FFFFFF';
+        {/* Video Card */}
+        {introVideo && (
+          <Card className="overflow-hidden border-0 shadow-xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>
+                  <Video className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">{introVideo.title}</h3>
+                  {introVideo.description && <p className="text-sm text-gray-600">{introVideo.description}</p>}
+                </div>
+              </div>
+              <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
+                {introVideo.video_type === 'upload' ? (
+                  <video ref={videoRef} controls preload="metadata" playsInline crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-contain" />
+                ) : (
+                  <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+                )}
+              </div>
+              <Button onClick={scrollToQuestions} className="w-full" size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
+                Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
+              </Button>
+            </div>
+          </Card>
+        )}
 
-  // If showing questions, render ONLY the interview flow
-  if (showQuestions && session && stakeholder && project) {
-    return (
-      <InlineInterviewFlow
-        session={session}
-        stakeholder={stakeholder}
-        project={project}
-        onBack={() => setShowQuestions(false)}
-        onSuccess={async () => {
-          await loadSession();
-        }}
-        onComplete={async () => {
-          await loadSession();
-          setShowQuestions(false);
-        }}
-        primaryColor={projectBranding.primary_color}
-        textColor={projectBranding.text_color}
-      />
-    );
-  }
-
-  // Otherwise, render the landing page
-  return (
-    <div
-      className="min-h-screen py-8 px-4"
-      style={{
-        background: `linear-gradient(135deg, ${primaryColor}08 0%, ${secondaryColor}08 100%)`
-      }}
-    >
-      <div className="max-w-5xl mx-auto">
-        {/* Header with Logo */}
-        {projectBranding.logo_url && (
-          <div className="flex justify-center mb-8 animate-fade-in">
-            <img
-              src={projectBranding.logo_url}
-              alt="Project logo"
-              className="h-16 object-contain"
-            />
+        {!introVideo && (
+          <div className="text-center py-8">
+            <Button onClick={scrollToQuestions} size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
+              Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
+            </Button>
           </div>
         )}
 
-        {/* Welcome Hero Section */}
-        <Card className="mb-8 overflow-hidden shadow-xl border-0 animate-slide-up">
-          <div
-            className="p-8 relative overflow-hidden"
-            style={{
-              background: `linear-gradient(135deg, ${primaryColor}15 0%, ${secondaryColor}15 100%)`
-            }}
-          >
-            <div className="flex items-start gap-6 relative z-10">
-              <div
-                className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg"
-                style={{
-                  backgroundColor: primaryColor,
-                  color: textColor
-                }}
-              >
-                <User className="h-10 w-10" />
-              </div>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  Welcome, {stakeholder.name}!
-                </h1>
-                <p className="text-lg text-gray-700 mb-3">
-                  {stakeholder.role} {stakeholder.department ? `• ${stakeholder.department}` : ''}
-                </p>
-                <p className="text-gray-600 mb-4">
-                  Thank you for participating in the <span className="font-semibold">{project.name}</span> interview.
-                  Your insights will help shape the future of this project.
-                </p>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <Calendar className="h-4 w-4" />
-                    <span>Started {new Date(session.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <Clock className="h-4 w-4" />
-                    <span>~15-20 minutes</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Decorative element */}
-            <div
-              className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full opacity-20"
-              style={{ backgroundColor: primaryColor }}
-            ></div>
+        {/* Questions Section */}
+        <div ref={questionsRef} className="space-y-6">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Your Questions</h2>
+            <p className="text-gray-600">Click any question below to answer it</p>
           </div>
-        </Card>
 
-        {/* Progress Card */}
-        <Card className="mb-8 shadow-lg border-0 animate-slide-up" style={{ animationDelay: '100ms' }}>
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Your Progress</h3>
-                <p className="text-sm text-gray-600">
-                  {session.answered_questions || 0} of {session.total_questions || 0} questions answered
-                </p>
-              </div>
-              <div className="text-right">
-                <div
-                  className="text-3xl font-bold mb-1"
-                  style={{ color: primaryColor }}
+          <div className="space-y-4">
+            {questions.map((question, index) => {
+              const questionResponses = responses[question.id] || [];
+              const isActive = currentQuestionId === question.id;
+              const isAnswered = questionResponses.length > 0;
+
+              return (
+                <Card
+                  key={question.id}
+                  id={`question-${question.id}`}
+                  className={`transition-all duration-300 cursor-pointer hover:shadow-lg ${isActive ? 'ring-2 ring-offset-2 shadow-2xl' : ''}`}
+                  style={isActive ? { ringColor: primaryColor } : {}}
+                  onClick={() => { setCurrentQuestionId(question.id); scrollToQuestion(question.id); }}
                 >
-                  {session.completion_percentage || 0}%
-                </div>
-                <Badge
-                  variant={session.status === 'completed' ? 'success' : 'info'}
-                  className="text-xs"
-                >
-                  {session.status.replace('_', ' ')}
-                </Badge>
-              </div>
-            </div>
+                  <div className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-lg transition-all duration-300 ${isAnswered ? 'scale-110' : ''}`} style={{ backgroundColor: isAnswered ? primaryColor : '#E5E7EB', color: isAnswered ? textColor : '#6B7280' }}>
+                        {isAnswered ? <Check className="h-6 w-6" /> : index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="info" size="sm">{question.category}</Badge>
+                          {isAnswered && <Badge variant="success" size="sm"><CheckCircle className="h-3 w-3 mr-1" />Answered</Badge>}
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-3">{question.text}</h3>
 
-            {/* Progress Bar */}
-            <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-              <div
-                className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out shadow-sm"
-                style={{
-                  width: `${session.completion_percentage || 0}%`,
-                  background: `linear-gradient(90deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
-                }}
-              >
-                {session.completion_percentage > 10 && (
-                  <div className="absolute inset-0 animate-pulse bg-white opacity-20"></div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
+                        {isActive && (
+                          <div className="mt-6 space-y-6 animate-fadeIn">
+                            {/* Response Type Selector */}
+                            <div className="grid grid-cols-4 gap-3">
+                              {[
+                                { type: 'text', icon: FileText, label: 'Text' },
+                                { type: 'audio', icon: Mic, label: 'Audio' },
+                                { type: 'video', icon: Video, label: 'Video' },
+                                { type: 'file', icon: Upload, label: 'File' }
+                              ].map(({ type, icon: Icon, label }) => (
+                                <button
+                                  key={type}
+                                  onClick={(e) => { e.stopPropagation(); setResponseType(type as any); }}
+                                  className={`p-4 rounded-xl border-2 transition-all hover:scale-105 ${responseType === type ? 'bg-blue-50 border-blue-500' : 'border-gray-200 hover:border-gray-300'}`}
+                                >
+                                  <Icon className={`h-6 w-6 mx-auto mb-2 ${responseType === type ? 'text-blue-600' : 'text-gray-400'}`} />
+                                  <p className={`text-xs font-medium ${responseType === type ? 'text-blue-700' : 'text-gray-600'}`}>{label}</p>
+                                </button>
+                              ))}
+                            </div>
 
-        {/* Combined Introduction Video & CTA Section */}
-        {!showQuestions && (
-          <Card className="shadow-xl border-0 overflow-hidden animate-slide-up" style={{ animationDelay: '200ms' }}>
-            {/* Video Section */}
-            {introVideo && (
-              <div className="p-6 pb-0">
-                <div className="flex items-center gap-3 mb-4">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md"
-                    style={{
-                      backgroundColor: `${primaryColor}20`,
-                      color: primaryColor
-                    }}
-                  >
-                    <Video className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{introVideo.title}</h3>
-                    {introVideo.description && (
-                      <p className="text-sm text-gray-600">{introVideo.description}</p>
-                    )}
-                    {introVideo.mux_status && introVideo.mux_status !== 'ready' && (
-                      <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
-                        <Video className="h-3 w-3 animate-pulse" />
-                        Video is processing... {introVideo.mux_status === 'pending' ? 'Uploading' : 'Transcoding'}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                            {/* Response Input */}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              {responseType === 'text' && (
+                                <textarea
+                                  value={textResponse}
+                                  onChange={(e) => setTextResponse(e.target.value)}
+                                  placeholder="Share your thoughts here..."
+                                  className="w-full h-48 p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none resize-none text-base transition-all"
+                                  style={{ fontSize: '16px' }}
+                                />
+                              )}
 
-                {!showIntroVideo ? (
-                  <div
-                    className="relative aspect-video bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl overflow-hidden group cursor-pointer shadow-lg mb-6"
-                    onClick={() => setShowIntroVideo(true)}
-                  >
-                    {/* Show Mux thumbnail if available, otherwise gradient background */}
-                    {introVideo.mux_playback_id && (
-                      <img
-                        src={`https://image.mux.com/${introVideo.mux_playback_id}/thumbnail.jpg`}
-                        alt={introVideo.title}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-black/20"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div
-                        className="w-24 h-24 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-all duration-300 backdrop-blur-sm"
-                        style={{
-                          backgroundColor: `${primaryColor}E6`,
-                          color: textColor
-                        }}
-                      >
-                        <Play className="h-12 w-12 ml-2" />
+                              {(responseType === 'audio' || responseType === 'video') && (
+                                <div className="space-y-4">
+                                  {!recordingBlob ? (
+                                    isRecording ? (
+                                      <div className="text-center py-12 bg-red-50 rounded-xl">
+                                        <div className="w-24 h-24 mx-auto mb-4 relative">
+                                          <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75" />
+                                          <div className="absolute inset-0 rounded-full bg-red-500 flex items-center justify-center">
+                                            <Square className="h-10 w-10 text-white" />
+                                          </div>
+                                        </div>
+                                        <p className="text-3xl font-mono font-bold text-gray-900 mb-2">{formatDuration(recordingDuration)}</p>
+                                        <p className="text-gray-600 mb-8">Recording in progress...</p>
+                                        <Button onClick={(e) => { e.stopPropagation(); stopRecording(); }} variant="danger" size="lg">
+                                          <Square className="h-5 w-5 mr-2" />Stop Recording
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div className="text-center py-12">
+                                        <Button onClick={(e) => { e.stopPropagation(); startRecording(responseType); }} size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
+                                          {responseType === 'video' ? <Video className="h-5 w-5 mr-2" /> : <Mic className="h-5 w-5 mr-2" />}
+                                          Start {responseType === 'video' ? 'Video' : 'Audio'} Recording
+                                        </Button>
+                                      </div>
+                                    )
+                                  ) : (
+                                    <div className="bg-green-50 rounded-xl p-8 text-center">
+                                      <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+                                      <p className="text-xl font-semibold text-gray-900 mb-2">Recording Complete!</p>
+                                      <p className="text-gray-600 mb-6">Duration: {formatDuration(recordingDuration)}</p>
+                                      <Button onClick={(e) => { e.stopPropagation(); discardRecording(); }} variant="outline" size="sm">
+                                        <Trash2 className="h-4 w-4 mr-2" />Discard & Re-record
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {responseType === 'file' && (
+                                <div className="space-y-4">
+                                  <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} className="hidden" />
+                                  <Button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} variant="outline" className="w-full" disabled={uploadedFiles.length >= 3}>
+                                    <Upload className="h-5 w-5 mr-2" />Choose Files (Max 3)
+                                  </Button>
+                                  {uploadedFiles.length > 0 && (
+                                    <div className="space-y-2">
+                                      {uploadedFiles.map((file, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                          <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
+                                          <button onClick={(e) => { e.stopPropagation(); setUploadedFiles(prev => prev.filter((_, i) => i !== idx)); }} className="ml-2 p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors">
+                                            <Trash2 className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Save Button */}
+                            <Button
+                              onClick={(e) => { e.stopPropagation(); saveResponse(question.id); }}
+                              disabled={saving || (responseType === 'text' && !textResponse.trim()) || ((responseType === 'audio' || responseType === 'video') && !recordingBlob) || (responseType === 'file' && uploadedFiles.length === 0)}
+                              className="w-full"
+                              size="lg"
+                              style={{ backgroundColor: primaryColor, color: textColor }}
+                            >
+                              {saving ? (
+                                <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />Saving...</>
+                              ) : (
+                                <><CheckCircle className="h-5 w-5 mr-2" />Save & Continue</>
+                              )}
+                            </Button>
+
+                            {questionResponses.length > 0 && (
+                              <div className="pt-4 border-t">
+                                <p className="text-sm font-medium text-gray-700 mb-3">Previous Responses ({questionResponses.length})</p>
+                                <div className="space-y-2">
+                                  {questionResponses.map((resp, idx) => (
+                                    <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm">
+                                      <Badge variant="success" size="sm" className="mb-2">{resp.response_type}</Badge>
+                                      {resp.response_text && <p className="text-gray-700">{resp.response_text}</p>}
+                                      {resp.file_name && <p className="text-gray-600">{resp.file_name}</p>}
+                                      {resp.created_at && <p className="text-xs text-gray-500 mt-2">{new Date(resp.created_at).toLocaleString()}</p>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                      <p className="text-white text-lg font-medium mb-1">Click to watch introduction</p>
-                      <p className="text-white/80 text-sm">Learn more about this interview</p>
-                    </div>
                   </div>
-                ) : (
-                  <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
-                    {introVideo.video_type === 'upload' ? (
-                      <video
-                        ref={videoRef}
-                        key={introVideo.mux_playback_id || introVideo.video_url}
-                        controls
-                        preload="metadata"
-                        playsInline
-                        crossOrigin="anonymous"
-                        className="absolute inset-0 w-full h-full object-contain"
-                        onPlay={() => {
-                          markVideoAsWatched();
-                        }}
-                      />
-                    ) : (
-                      <iframe
-                        src={getEmbedUrl(introVideo.video_url)}
-                        className="absolute inset-0 w-full h-full"
-                        allow="autoplay; fullscreen; picture-in-picture"
-                        allowFullScreen
-                        title={introVideo.title}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                </Card>
+              );
+            })}
+          </div>
+        </div>
 
-            {/* CTA Section */}
-            <div
-              className="p-8 text-center relative overflow-hidden"
-              style={{
-                background: `linear-gradient(135deg, ${primaryColor}12 0%, ${secondaryColor}12 100%)`
-              }}
-            >
-              <div className="relative z-10">
-                <div
-                  className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg"
-                  style={{
-                    backgroundColor: primaryColor,
-                    color: textColor
-                  }}
-                >
-                  <Sparkles className="h-10 w-10" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-3">Ready to Share Your Insights?</h2>
-                <p className="text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-                  {introVideo && !videoWatched
-                    ? 'Watch the introduction video above to learn more, then click the button below when you\'re ready to begin.'
-                    : 'You can answer questions using text, audio, or video responses. Take your time and provide as much detail as you\'d like.'}
-                </p>
-                <Button
-                  onClick={() => setShowQuestions(true)}
-                  size="lg"
-                  icon={ChevronRight}
-                  className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all duration-300"
-                  style={{
-                    backgroundColor: primaryColor,
-                    color: textColor,
-                    borderColor: primaryColor
-                  }}
-                >
-                  Begin Interview
-                </Button>
-              </div>
+        {/* Complete Section */}
+        {progress === 100 && session.status !== 'completed' && (
+          <Card className="text-center p-12 bg-gradient-to-br from-green-50 to-emerald-50 border-0 shadow-2xl">
+            <CheckCircle className="h-20 w-20 text-green-600 mx-auto mb-6" />
+            <h3 className="text-3xl font-bold text-gray-900 mb-3">Congratulations!</h3>
+            <p className="text-lg text-gray-600 mb-8">You've answered all questions. Ready to submit?</p>
+            <Button onClick={completeInterview} size="lg" className="bg-green-600 hover:bg-green-700 text-white px-12">
+              Complete Interview
+            </Button>
+          </Card>
+        )}
 
-              {/* Decorative elements */}
-              <div
-                className="absolute -left-8 -top-8 w-32 h-32 rounded-full opacity-20 blur-2xl"
-                style={{ backgroundColor: primaryColor }}
-              ></div>
-              <div
-                className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full opacity-20 blur-2xl"
-                style={{ backgroundColor: secondaryColor }}
-              ></div>
-            </div>
+        {session.status === 'completed' && (
+          <Card className="text-center p-12 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 shadow-2xl">
+            <CheckCircle className="h-20 w-20 text-green-600 mx-auto mb-6" />
+            <h3 className="text-3xl font-bold text-gray-900 mb-3">Interview Completed!</h3>
+            <p className="text-lg text-gray-600">Thank you for your valuable insights.</p>
           </Card>
         )}
       </div>
 
       <style>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out;
-        }
-
-        .animate-slide-up {
-          animation: slide-up 0.6s ease-out;
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
       `}</style>
     </div>
   );
