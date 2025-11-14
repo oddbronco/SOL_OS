@@ -144,7 +144,7 @@ Deno.serve(async (req: Request) => {
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('owner_id')
-      .eq('id', projectCustomerId)
+      .eq('customer_id', projectCustomerId)
       .maybeSingle();
 
     console.log('👤 Customer lookup result:', { customer, customerError });
