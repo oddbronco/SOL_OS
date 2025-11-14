@@ -10,7 +10,7 @@ import {
   Mic, FileText, Upload, Square, Trash2, Play, Check
 } from 'lucide-react';
 import Hls from 'hls.js';
-import { getMuxPlaybackUrl } from '../utils/muxPlaybackToken';
+import { getMuxPlaybackUrl, getMuxPlaybackToken } from '../utils/muxPlaybackToken';
 import { useInterviews } from '../hooks/useInterviews';
 
 type SessionState = 'active' | 'expired' | 'locked' | 'closed' | 'not_found';
@@ -655,7 +655,19 @@ export const InterviewPage: React.FC = () => {
               </div>
               <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
                 {introVideo.video_type === 'upload' ? (
-                  <video ref={videoRef} controls preload="metadata" playsInline crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-contain" />
+                  <video
+                    ref={videoRef}
+                    controls
+                    preload="metadata"
+                    playsInline
+                    crossOrigin="anonymous"
+                    className="absolute inset-0 w-full h-full object-contain"
+                    onLoadedMetadata={() => console.log('✅ Video metadata loaded')}
+                    onCanPlay={() => console.log('✅ Video can play')}
+                    onError={(e) => console.error('❌ Video error:', e)}
+                    onPlay={() => console.log('▶️ Video started playing')}
+                    onPause={() => console.log('⏸️ Video paused')}
+                  />
                 ) : (
                   <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
                 )}
