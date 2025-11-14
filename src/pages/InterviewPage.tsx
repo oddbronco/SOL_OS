@@ -119,9 +119,26 @@ export const InterviewPage: React.FC = () => {
 
   // Video initialization
   useEffect(() => {
-    const initVideo = async () => {
-      if (!introVideo || !videoRef.current) return;
-      if (introVideo.video_type === 'upload' && introVideo.mux_playback_id) {
+    console.log('🎬 Video useEffect triggered', {
+      introVideo: !!introVideo,
+      hasVideoRef: !!videoRef.current,
+      videoType: introVideo?.video_type,
+      playbackId: introVideo?.mux_playback_id
+    });
+
+    // Small delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      const initVideo = async () => {
+        if (!introVideo) {
+          console.log('⚠️ No introVideo, skipping initialization');
+          return;
+        }
+        if (!videoRef.current) {
+          console.log('⚠️ No videoRef.current, skipping initialization');
+          console.log('🔍 Checking if video element exists in DOM:', document.querySelector('video'));
+          return;
+        }
+        if (introVideo.video_type === 'upload' && introVideo.mux_playback_id) {
         try {
           console.log('🎬 Initializing video playback for:', introVideo.mux_playback_id);
           console.log('🎬 Video details:', {
@@ -182,14 +199,19 @@ export const InterviewPage: React.FC = () => {
           } else {
             console.error('❌ No HLS support detected in browser');
           }
-        } catch (error) {
-          console.error('❌ Failed to load video:', error);
-          console.error('❌ Stack trace:', error.stack);
+          } catch (error) {
+            console.error('❌ Failed to load video:', error);
+            console.error('❌ Stack trace:', error.stack);
+          }
         }
-      }
+      };
+      initVideo();
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (hlsRef.current) hlsRef.current.destroy();
     };
-    initVideo();
-    return () => { if (hlsRef.current) hlsRef.current.destroy(); };
   }, [introVideo]);
 
   // Load session data
@@ -654,6 +676,14 @@ export const InterviewPage: React.FC = () => {
                 </div>
               </div>
               <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
+                {(() => {
+                  console.log('🎬 Rendering video element', {
+                    video_type: introVideo.video_type,
+                    mux_playback_id: introVideo.mux_playback_id,
+                    video_url: introVideo.video_url
+                  });
+                  return null;
+                })()}
                 {introVideo.video_type === 'upload' ? (
                   <video
                     ref={videoRef}
