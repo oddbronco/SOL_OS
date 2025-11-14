@@ -298,6 +298,24 @@ export const InterviewPage: React.FC = () => {
         responseMap[resp.question_id].push(resp);
       });
       setResponses(responseMap);
+
+      // Auto-set current question to first unanswered question
+      const firstUnanswered = questionsData.find(q => !responseMap[q.id] || responseMap[q.id].length === 0);
+      if (firstUnanswered) {
+        console.log('📍 Setting current question to first unanswered:', firstUnanswered.text);
+        setCurrentQuestionId(firstUnanswered.id);
+        setHasStarted(true);
+        // Scroll to the current question after a short delay
+        setTimeout(() => {
+          questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => scrollToQuestion(firstUnanswered.id), 300);
+        }, 500);
+      } else if (questionsData.length > 0) {
+        // All questions answered, but still show the interface
+        console.log('✅ All questions answered');
+        setHasStarted(true);
+        setCurrentQuestionId(null);
+      }
     } catch (error) {
       console.error('Failed to load responses:', error);
     }
@@ -319,10 +337,13 @@ export const InterviewPage: React.FC = () => {
     setHasStarted(true);
     setTimeout(() => {
       if (questions.length > 0) {
-        setCurrentQuestionId(questions[0].id);
+        // Find first unanswered question
+        const firstUnanswered = questions.find(q => !responses[q.id] || responses[q.id].length === 0);
+        const targetQuestion = firstUnanswered || questions[0];
+        setCurrentQuestionId(targetQuestion.id);
         setTimeout(() => {
           questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          scrollToQuestion(questions[0].id);
+          scrollToQuestion(targetQuestion.id);
         }, 100);
       }
     }, 300);
@@ -650,9 +671,30 @@ export const InterviewPage: React.FC = () => {
                           {isAnswered && <Badge variant="success" size="sm"><CheckCircle className="h-3 w-3 mr-1" />Answered</Badge>}
                         </div>
                         <h3 className="text-xl font-semibold text-gray-900 mb-3">{question.text}</h3>
+
                         {isLocked && (
-                          <div className="mt-2">
-                            <Badge variant="success" size="sm"><CheckCircle className="h-3 w-3 mr-1" />Answer Submitted</Badge>
+                          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                              <p className="font-medium text-green-900">Answer Submitted</p>
+                            </div>
+                            {questionResponses.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                {questionResponses.map((resp, idx) => (
+                                  <div key={idx} className="text-sm text-gray-700">
+                                    {resp.response_type === 'text' && resp.response_text && (
+                                      <p className="bg-white p-3 rounded border border-green-100">{resp.response_text}</p>
+                                    )}
+                                    {(resp.response_type === 'audio' || resp.response_type === 'video' || resp.response_type === 'file') && resp.file_name && (
+                                      <div className="flex items-center gap-2 bg-white p-3 rounded border border-green-100">
+                                        <Badge variant="info" size="sm">{resp.response_type}</Badge>
+                                        <span>{resp.file_name}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 
