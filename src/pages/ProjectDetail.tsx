@@ -466,9 +466,13 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
 
   const handleCreateAIRound = async (assignments: any[]) => {
     try {
-      console.log('Creating AI interview round with assignments:', assignments);
+      console.log('🎯 Creating AI interview round with assignments:', assignments);
+
+      const createdSessions: InterviewSession[] = [];
 
       for (const assignment of assignments) {
+        console.log(`📝 Creating session for ${assignment.stakeholderName}...`);
+
         const session = await createInterviewSession(
           projectId,
           assignment.stakeholderId,
@@ -476,21 +480,41 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack 
           assignment.interviewType
         );
 
-        if (session && assignment.questionIds.length > 0) {
+        if (!session) {
+          console.error(`❌ Failed to create session for ${assignment.stakeholderName}`);
+          continue;
+        }
+
+        console.log(`✅ Session created: ${session.id} for ${assignment.stakeholderName}`);
+        createdSessions.push(session);
+
+        if (assignment.questionIds && assignment.questionIds.length > 0) {
+          console.log(`🔗 Assigning ${assignment.questionIds.length} questions to session ${session.id}...`);
+
           await assignQuestionsToStakeholder(
             projectId,
             assignment.stakeholderId,
             assignment.questionIds,
             session.id
           );
+
+          console.log(`✅ Questions assigned to ${assignment.stakeholderName}`);
+        } else {
+          console.warn(`⚠️ No questions to assign for ${assignment.stakeholderName}`);
         }
       }
 
-      await loadProjectData();
-      alert(`Successfully created ${assignments.length} interview sessions!`);
+      console.log(`✅ Created ${createdSessions.length} interview sessions, reloading data...`);
+
+      // Force reload to ensure we get the latest data
+      await loadProjectData(true);
+
+      console.log('✅ Data reloaded, interview sessions count:', interviewSessions.length);
+
+      alert(`Successfully created ${createdSessions.length} interview sessions!`);
     } catch (error) {
-      console.error('Error creating AI round:', error);
-      alert('Failed to create interview round');
+      console.error('❌ Error creating AI round:', error);
+      alert('Failed to create interview round: ' + (error instanceof Error ? error.message : 'Unknown error'));
       throw error;
     }
   };
