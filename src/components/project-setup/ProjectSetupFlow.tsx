@@ -53,7 +53,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     description: '',
     stakeholders: [] as Stakeholder[],
     questions: [] as Question[],
-    status: 'Setup'
+    status: 'Setup',
+    selectedDocumentTypes: [] as string[]
   });
 
   // UI state
@@ -1324,20 +1325,21 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                   <div
                     key={docType.id}
                     onClick={() => {
-                      const newSelection = projectData.selectedDocumentTypes.includes(docType.id)
-                        ? projectData.selectedDocumentTypes.filter(id => id !== docType.id)
-                        : [...projectData.selectedDocumentTypes, docType.id];
-                      
+                      const currentSelection = projectData.selectedDocumentTypes || [];
+                      const newSelection = currentSelection.includes(docType.id)
+                        ? currentSelection.filter(id => id !== docType.id)
+                        : [...currentSelection, docType.id];
+
                       setProjectData(prev => ({ ...prev, selectedDocumentTypes: newSelection }));
                     }}
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      projectData.selectedDocumentTypes.includes(docType.id)
+                      (projectData.selectedDocumentTypes || []).includes(docType.id)
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-gray-200 hover:border-green-300 hover:bg-primary-50'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      {projectData.selectedDocumentTypes.includes(docType.id) ? (
+                      {(projectData.selectedDocumentTypes || []).includes(docType.id) ? (
                         <CheckCircle className="h-5 w-5 text-primary-600" />
                       ) : (
                         <div className="w-5 h-5 border-2 border-gray-300 rounded"></div>
@@ -1364,7 +1366,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                 </div>
               </div>
 
-              {projectData.selectedDocumentTypes.length === 0 && (
+              {(projectData.selectedDocumentTypes || []).length === 0 && (
                 <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <div className="flex items-center">
                     <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
@@ -1375,12 +1377,12 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                 </div>
               )}
 
-              {projectData.selectedDocumentTypes.length > 0 && (
+              {(projectData.selectedDocumentTypes || []).length > 0 && (
                 <div className="mt-4 p-4 bg-primary-50 border border-green-200 rounded-lg">
                   <div className="flex items-center">
                     <CheckCircle className="h-5 w-5 text-primary-600 mr-2" />
                     <p className="text-sm text-primary-800">
-                      {projectData.selectedDocumentTypes.length} document type{projectData.selectedDocumentTypes.length > 1 ? 's' : ''} selected. 
+                      {(projectData.selectedDocumentTypes || []).length} document type{(projectData.selectedDocumentTypes || []).length > 1 ? 's' : ''} selected. 
                       Questions will be tailored to gather information for these documents.
                     </p>
                   </div>
@@ -1492,10 +1494,10 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                 </Button>
                 <Button 
                   onClick={() => setCurrentStep(4)}
-                  disabled={projectData.stakeholders.length === 0 || projectData.selectedDocumentTypes.length === 0}
-                  className={!(projectData.stakeholders.length > 0 && projectData.selectedDocumentTypes.length > 0) ? 'opacity-50 cursor-not-allowed' : ''}
+                  disabled={projectData.stakeholders.length === 0 || (projectData.selectedDocumentTypes || []).length === 0}
+                  className={!(projectData.stakeholders.length > 0 && (projectData.selectedDocumentTypes || []).length > 0) ? 'opacity-50 cursor-not-allowed' : ''}
                 >
-                  {projectData.selectedDocumentTypes.length === 0 
+                  {(projectData.selectedDocumentTypes || []).length === 0 
                     ? 'Select Documents First' 
                     : 'Continue to Questions'
                   }
@@ -1786,7 +1788,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
                 </div>
                 <div className="bg-white border border-gray-300 rounded-lg p-6 text-center">
                   <FileText className="h-8 w-8 text-primary-600 mx-auto mb-2" />
-                  <h3 className="font-semibold text-gray-900">{projectData.selectedDocumentTypes.length} Document Types</h3>
+                  <h3 className="font-semibold text-gray-900">{(projectData.selectedDocumentTypes || []).length} Document Types</h3>
                   <p className="text-sm text-gray-600">Selected for Generation</p>
                 </div>
                 <div className="bg-white border border-gray-300 rounded-lg p-6 text-center">
