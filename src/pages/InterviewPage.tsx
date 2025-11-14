@@ -124,32 +124,67 @@ export const InterviewPage: React.FC = () => {
       if (introVideo.video_type === 'upload' && introVideo.mux_playback_id) {
         try {
           console.log('🎬 Initializing video playback for:', introVideo.mux_playback_id);
+          console.log('🎬 Video details:', {
+            id: introVideo.id,
+            title: introVideo.title,
+            playbackId: introVideo.mux_playback_id,
+            assetId: introVideo.mux_asset_id
+          });
+
+          // Try to get token (may return null if not configured)
           const token = await getMuxPlaybackToken(introVideo.mux_playback_id);
           const playbackUrl = getMuxPlaybackUrl(introVideo.mux_playback_id, token || undefined);
-          console.log('🎬 Playback URL:', playbackUrl);
+          console.log('🎬 Final playback URL:', playbackUrl);
+          console.log('🎬 Using signed URL:', !!token);
 
           if (Hls.isSupported()) {
-            if (hlsRef.current) hlsRef.current.destroy();
+            console.log('✅ HLS.js is supported');
+            if (hlsRef.current) {
+              console.log('🔄 Destroying previous HLS instance');
+              hlsRef.current.destroy();
+            }
             const hls = new Hls({
               maxBufferLength: 30,
               maxMaxBufferLength: 60,
               enableWorker: true,
-              debug: false
+              debug: true,
+              xhrSetup: (xhr, url) => {
+                console.log('🌐 XHR request to:', url);
+              }
             });
             hlsRef.current = hls;
             hls.loadSource(playbackUrl);
             hls.attachMedia(videoRef.current);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              console.log('✅ Video ready to play');
+              console.log('✅ Video manifest parsed - ready to play');
             });
             hls.on(Hls.Events.ERROR, (event, data) => {
-              console.error('❌ HLS error:', data);
+              console.error('❌ HLS error:', {
+                type: data.type,
+                details: data.details,
+                fatal: data.fatal,
+                response: data.response
+              });
+              if (data.fatal) {
+                console.error('💥 Fatal HLS error - attempting recovery');
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                  console.log('🔄 Network error - trying to recover');
+                  hls.startLoad();
+                } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                  console.log('🔄 Media error - trying to recover');
+                  hls.recoverMediaError();
+                }
+              }
             });
           } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+            console.log('🍎 Native HLS support detected (Safari)');
             videoRef.current.src = playbackUrl;
+          } else {
+            console.error('❌ No HLS support detected in browser');
           }
         } catch (error) {
           console.error('❌ Failed to load video:', error);
+          console.error('❌ Stack trace:', error.stack);
         }
       }
     };

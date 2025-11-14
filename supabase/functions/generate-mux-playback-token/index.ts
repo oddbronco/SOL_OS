@@ -103,17 +103,26 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  console.log('🎬 Mux playback token request received');
+  console.log('📋 Request method:', req.method);
+  console.log('🌐 Request origin:', req.headers.get('origin'));
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const { playbackId } = await req.json();
+    const body = await req.json();
+    console.log('📦 Request body:', body);
+    const { playbackId } = body;
 
     if (!playbackId) {
+      console.error('❌ Missing playbackId in request');
       throw new Error('Missing playbackId parameter');
     }
+
+    console.log('🔍 Looking up video with playbackId:', playbackId);
 
     const { data: video, error: videoError } = await supabase
       .from('project_intro_videos')
