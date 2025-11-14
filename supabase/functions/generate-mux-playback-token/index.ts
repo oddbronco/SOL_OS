@@ -139,27 +139,27 @@ Deno.serve(async (req: Request) => {
       throw new Error('Project customer not found');
     }
 
-    console.log('\ud83d\udd0d Looking up customer:', projectCustomerId);
+    console.log('🔍 Looking up customer:', projectCustomerId);
 
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('owner_id')
-      .eq('customer_id', projectCustomerId)
+      .eq('id', projectCustomerId)
       .maybeSingle();
 
-    console.log('\ud83d\udc64 Customer lookup result:', { customer, customerError });
+    console.log('👤 Customer lookup result:', { customer, customerError });
 
     if (customerError) {
-      console.error('\u274c Customer query error:', customerError);
+      console.error('❌ Customer query error:', customerError);
       throw new Error(`Customer query failed: ${customerError.message}`);
     }
 
     if (!customer?.owner_id) {
-      console.error('\u274c Customer found but no owner_id:', customer);
+      console.error('❌ Customer found but no owner_id:', customer);
       throw new Error('Customer owner not found');
     }
 
-    console.log('\u2705 Found customer owner:', customer.owner_id);
+    console.log('✅ Found customer owner:', customer.owner_id);
 
     const { data: settings } = await supabase
       .from('user_settings')
@@ -191,7 +191,7 @@ Deno.serve(async (req: Request) => {
     const isPKCS1 = privateKeyPem.includes('RSA PRIVATE KEY');
     const isPKCS8 = privateKeyPem.includes('PRIVATE KEY') && !isPKCS1;
 
-    console.log('\ud83d\udd11 Private key format check:', {
+    console.log('🔑 Private key format check:', {
       hasNewlines: privateKeyPem.includes('\n'),
       length: privateKeyPem.length,
       startsWithBegin: privateKeyPem.startsWith('-----BEGIN'),
@@ -201,11 +201,11 @@ Deno.serve(async (req: Request) => {
     let der = pemToDer(privateKeyPem);
 
     if (isPKCS1) {
-      console.log('\ud83d\udd04 Converting PKCS#1 to PKCS#8');
+      console.log('🔄 Converting PKCS#1 to PKCS#8');
       der = pkcs1ToPkcs8(der);
     }
 
-    console.log('\ud83d\udce6 DER conversion:', {
+    console.log('📦 DER conversion:', {
       derLength: der.length,
       expectedApprox: '~1200-1300 bytes for RSA-2048',
       firstByte: der[0],
@@ -254,7 +254,7 @@ Deno.serve(async (req: Request) => {
     const encodedSignature = arrayBufferToBase64url(signatureBuffer);
     const jwt = `${signingInput}.${encodedSignature}`;
 
-    console.log('\u2705 JWT generated successfully');
+    console.log('✅ JWT generated successfully');
 
     return new Response(
       JSON.stringify({
@@ -269,7 +269,7 @@ Deno.serve(async (req: Request) => {
       },
     );
   } catch (error: any) {
-    console.error('\u274c Error generating Mux playback token:', error);
+    console.error('❌ Error generating Mux playback token:', error);
     console.error('Error details:', {
       message: error.message,
       stack: error.stack,
