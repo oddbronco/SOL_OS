@@ -904,6 +904,28 @@ export const InterviewPage: React.FC = () => {
   const secondaryColor = projectBranding.secondary_color || '#10B981';
   const textColor = projectBranding.text_color || '#FFFFFF';
 
+  // If showing questions, render ONLY the interview flow
+  if (showQuestions && session && stakeholder && project) {
+    return (
+      <InlineInterviewFlow
+        session={session}
+        stakeholder={stakeholder}
+        project={project}
+        onBack={() => setShowQuestions(false)}
+        onSuccess={async () => {
+          await loadSession();
+        }}
+        onComplete={async () => {
+          await loadSession();
+          setShowQuestions(false);
+        }}
+        primaryColor={projectBranding.primary_color}
+        textColor={projectBranding.text_color}
+      />
+    );
+  }
+
+  // Otherwise, render the landing page
   return (
     <div
       className="min-h-screen py-8 px-4"
@@ -1154,25 +1176,6 @@ export const InterviewPage: React.FC = () => {
               ></div>
             </div>
           </Card>
-        )}
-
-        {/* Interview Flow */}
-        {showQuestions && session && stakeholder && project && (
-          <InlineInterviewFlow
-            session={session}
-            stakeholder={stakeholder}
-            project={project}
-            onBack={() => setShowQuestions(false)}
-            onSuccess={async () => {
-              await loadSession();
-            }}
-            onComplete={async () => {
-              await loadSession();
-              setShowQuestions(false);
-            }}
-            primaryColor={projectBranding.primary_color}
-            textColor={projectBranding.text_color}
-          />
         )}
       </div>
 
