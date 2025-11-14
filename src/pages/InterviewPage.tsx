@@ -194,7 +194,7 @@ export const InterviewPage: React.FC = () => {
       const { data: branding } = await supabase.from('project_branding').select('*').eq('project_id', projectData.id).maybeSingle();
       if (branding) setProjectBranding(branding);
 
-      const { data: videoAssignment } = await supabase.from('project_intro_video_assignments').select(`intro_video:project_intro_videos(*)`).eq('project_id', projectData.id).eq('stakeholder_id', stakeholderData.id).maybeSingle();
+      const { data: videoAssignment } = await supabase.from('intro_video_assignments').select(`intro_video:project_intro_videos(*)`).eq('project_id', projectData.id).eq('stakeholder_id', stakeholderData.id).maybeSingle();
       console.log('🎥 Video assignment:', videoAssignment);
       if (videoAssignment?.intro_video) setIntroVideo(videoAssignment.intro_video);
 
