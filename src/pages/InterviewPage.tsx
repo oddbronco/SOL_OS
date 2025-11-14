@@ -76,6 +76,7 @@ export const InterviewPage: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [responses, setResponses] = useState<Record<string, Response[]>>({});
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  const [hasStarted, setHasStarted] = useState(false);
   
   // Response input
   const [responseType, setResponseType] = useState<'text' | 'audio' | 'video' | 'file'>('text');
@@ -221,17 +222,22 @@ export const InterviewPage: React.FC = () => {
 
       // Fall back to default active video
       if (!videoData) {
-        const { data: defaultVideo } = await supabase
+        const { data: defaultVideo, error: videoError } = await supabase
           .from('project_intro_videos')
           .select('*')
           .eq('project_id', projectData.id)
           .eq('is_active', true)
           .maybeSingle();
-        console.log('🎥 Default video:', defaultVideo);
+        console.log('🎥 Default video query:', { defaultVideo, videoError, projectId: projectData.id });
         if (defaultVideo) videoData = defaultVideo;
       }
 
-      if (videoData) setIntroVideo(videoData);
+      if (videoData) {
+        console.log('🎥 Setting intro video:', videoData);
+        setIntroVideo(videoData);
+      } else {
+        console.log('❌ No intro video found for project');
+      }
 
       await loadQuestions(projectData.id, stakeholderData.id, sessionData.id);
 
@@ -295,10 +301,13 @@ export const InterviewPage: React.FC = () => {
   };
 
   const scrollToQuestions = () => {
-    questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (questions.length > 0 && !currentQuestionId) {
+    setHasStarted(true);
+    if (questions.length > 0) {
       setCurrentQuestionId(questions[0].id);
-      scrollToQuestion(questions[0].id);
+      setTimeout(() => {
+        questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scrollToQuestion(questions[0].id);
+      }, 100);
     }
   };
 
@@ -562,14 +571,16 @@ export const InterviewPage: React.FC = () => {
                   <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
                 )}
               </div>
-              <Button onClick={scrollToQuestions} className="w-full" size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
-                Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
-              </Button>
+              {!hasStarted && (
+                <Button onClick={scrollToQuestions} className="w-full" size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
+                  Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
+                </Button>
+              )}
             </div>
           </Card>
         )}
 
-        {!introVideo && (
+        {!introVideo && !hasStarted && (
           <div className="text-center py-8">
             <Button onClick={scrollToQuestions} size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
               Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
@@ -579,18 +590,23 @@ export const InterviewPage: React.FC = () => {
 
         {/* Questions Section */}
         <div ref={questionsRef} className="space-y-6">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Your Questions</h2>
-            <p className="text-gray-600">Click any question below to answer it</p>
-          </div>
+          {hasStarted && (
+            <>
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Your Questions</h2>
+                <p className="text-gray-600">Answer one question at a time</p>
+              </div>
 
-          <div className="space-y-4">
-            {questions.map((question, index) => {
-              const questionResponses = responses[question.id] || [];
-              const isActive = currentQuestionId === question.id;
-              const isAnswered = questionResponses.length > 0;
+              <div className="space-y-4">
+                {questions.map((question, index) => {
+                  const questionResponses = responses[question.id] || [];
+                  const isActive = currentQuestionId === question.id;
+                  const isAnswered = questionResponses.length > 0;
 
-              return (
+                  // Only show current question or answered questions
+                  if (!isActive && !isAnswered) return null;
+
+                  return (
                 <Card
                   key={question.id}
                   id={`question-${question.id}`}
@@ -739,9 +755,11 @@ export const InterviewPage: React.FC = () => {
                     </div>
                   </div>
                 </Card>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Complete Section */}
