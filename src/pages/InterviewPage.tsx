@@ -148,7 +148,16 @@ export const InterviewPage: React.FC = () => {
 
       const { data: sessionData, error: sessionError } = await sessionQuery.maybeSingle();
 
-      if (sessionError || !sessionData) {
+      if (sessionError) {
+        console.error('❌ Session query error:', sessionError);
+        setError(`Database error: ${sessionError.message}`);
+        setSessionState('not_found');
+        setLoading(false);
+        return;
+      }
+
+      if (!sessionData) {
+        console.error('❌ No session data found');
         setSessionState('not_found');
         setLoading(false);
         return;
