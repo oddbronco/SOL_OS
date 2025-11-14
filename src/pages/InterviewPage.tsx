@@ -127,12 +127,23 @@ export const InterviewPage: React.FC = () => {
 
       let sessionQuery = supabase
         .from('interview_sessions')
-        .select('*, project:projects(*), stakeholder:stakeholders(*)')
-        .eq('project_id', projectId)
-        .eq('stakeholder_id', stakeholderId);
+        .select('*, project:projects(*), stakeholder:stakeholders(*)');
 
+      // If we have a session token, use it to find the session
       if (sessionToken) {
         sessionQuery = sessionQuery.eq('session_token', sessionToken);
+      }
+      // Otherwise, use project_id and stakeholder_id
+      else if (projectId && stakeholderId) {
+        sessionQuery = sessionQuery
+          .eq('project_id', projectId)
+          .eq('stakeholder_id', stakeholderId);
+      }
+      // If we have neither, we can't find the session
+      else {
+        setSessionState('not_found');
+        setLoading(false);
+        return;
       }
 
       const { data: sessionData, error: sessionError } = await sessionQuery.maybeSingle();
