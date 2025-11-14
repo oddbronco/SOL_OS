@@ -175,8 +175,15 @@ export const InterviewPage: React.FC = () => {
 
       console.log('✅ Session loaded:', { sessionData, stakeholderData, projectData });
 
-      const { data: branding } = await supabase.from('project_branding').select('*').eq('project_id', projectData.id).maybeSingle();
-      if (branding) setProjectBranding(branding);
+      // Extract branding from project data
+      if (projectData) {
+        setProjectBranding({
+          logo_url: projectData.brand_logo_url,
+          primary_color: projectData.brand_primary_color,
+          secondary_color: projectData.brand_secondary_color,
+          text_color: projectData.brand_text_color
+        });
+      }
 
       const { data: videoAssignment } = await supabase.from('project_intro_video_assignments').select(`intro_video:project_intro_videos(*)`).eq('project_id', projectData.id).eq('stakeholder_id', stakeholderData.id).maybeSingle();
       console.log('🎥 Video assignment:', videoAssignment);
