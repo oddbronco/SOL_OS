@@ -516,6 +516,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
         throw new Error('Please provide a longer transcript (at least 50 characters) for AI analysis.');
       }
 
+      console.log('📝 Transcript length:', projectData.transcript.length, 'characters');
+
       const [stakeholders, description] = await Promise.all([
         openAIService.extractStakeholdersFromTranscript(projectData.transcript),
         openAIService.generateProjectDescription({
@@ -524,18 +526,21 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
         })
       ]);
 
+      console.log('🎯 Extraction results:', { stakeholderCount: stakeholders?.length, hasDescription: !!description });
+
       if (!stakeholders || stakeholders.length === 0) {
         console.warn('⚠️ No stakeholders extracted, allowing manual addition');
         setError('No stakeholders were automatically detected. You can add them manually in the next step.');
         // Continue with empty stakeholders array
       }
 
+      let finalDescription = description;
       if (!description || description.trim().length === 0) {
         console.warn('⚠️ No description generated, using default');
-        description = `${projectName} project`;
+        finalDescription = `${projectName} project`;
       }
 
-      const updates = { stakeholders: stakeholders || [], description };
+      const updates = { stakeholders: stakeholders || [], description: finalDescription };
       await saveProjectData(updates);
       setProjectData(prev => ({ ...prev, ...updates }));
 
@@ -545,7 +550,17 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     } catch (err) {
       console.error('💥 AI extraction failed:', err);
       const errorMsg = err instanceof Error ? err.message : 'Failed to extract stakeholders';
-      setError(`AI Analysis Error: ${errorMsg}\n\nYou can skip AI analysis and add stakeholders manually.`);
+
+      // Provide more helpful error messages
+      if (errorMsg.includes('API key')) {
+        setError(`OpenAI API Key Required: Please configure your OpenAI API key in Settings > Integrations before using AI features.\n\nYou can skip this step and add stakeholders manually.`);
+      } else if (errorMsg.includes('quota') || errorMsg.includes('billing')) {
+        setError(`OpenAI Quota Exceeded: Your OpenAI account has reached its usage limit. Please check your OpenAI billing settings.\n\nYou can skip this step and add stakeholders manually.`);
+      } else if (errorMsg.includes('rate limit')) {
+        setError(`OpenAI Rate Limit: Too many requests. Please wait a moment and try again.\n\nYou can skip this step and add stakeholders manually.`);
+      } else {
+        setError(`AI Analysis Error: ${errorMsg}\n\nYou can skip this step and add stakeholders manually.`);
+      }
     } finally {
       setLoading(false);
     }

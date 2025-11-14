@@ -86,6 +86,7 @@ class OpenAIService {
 
     try {
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-chat`;
+      console.log('🔄 Making OpenAI request via edge function:', { functionUrl, model: data.model });
 
       const response = await fetch(functionUrl, {
         method: 'POST',
@@ -99,14 +100,20 @@ class OpenAIService {
         }),
       });
 
+      console.log('📡 OpenAI response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData?.error || errorData?.details || response.statusText;
+        console.error('❌ OpenAI API error:', { status: response.status, errorData });
         throw new Error(`OpenAI API error: ${errorMessage}`);
       }
 
-      return response.json();
+      const result = await response.json();
+      console.log('✅ OpenAI request successful');
+      return result;
     } catch (error) {
+      console.error('💥 OpenAI request failed:', error);
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
         throw new Error('Network error: Unable to reach OpenAI API. Please check your internet connection.');
       }
@@ -194,12 +201,20 @@ Generate comprehensive interview questions that will gather ALL information need
     ];
 
     try {
+      console.log('🎯 Generating questions with context:', {
+        descLength: context.projectDescription.length,
+        transcriptLength: context.transcription?.length || 0,
+        stakeholderCount: context.stakeholders?.length || 0
+      });
+
       const response = await this.makeRequest('/chat/completions', {
         messages,
         model: 'gpt-4',
         temperature: 0.7,
         max_tokens: 2500,
       });
+
+      console.log('📥 Raw OpenAI response received');
 
       if (!response || !response.choices || !response.choices[0] || !response.choices[0].message) {
         console.error('Invalid OpenAI response structure:', response);
@@ -220,11 +235,13 @@ Generate comprehensive interview questions that will gather ALL information need
       }
       
       try {
-        return JSON.parse(cleanedContent);
+        const questions = JSON.parse(cleanedContent);
+        console.log('✅ Successfully parsed', questions.length, 'questions');
+        return questions;
       } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        console.error('Raw content:', content);
-        console.error('Cleaned content:', cleanedContent);
+        console.error('❌ JSON parse error:', parseError);
+        console.error('📄 Raw content:', content);
+        console.error('🧹 Cleaned content:', cleanedContent);
         
         // Fallback: return some default questions
         console.warn('⚠️ Could not parse AI response, returning fallback questions');
