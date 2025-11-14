@@ -43,11 +43,9 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
 }) => {
   const { user, loading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dataLoaded, setDataLoaded] = useState(false);
-  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   // Project data state
   const [projectData, setProjectData] = useState({
@@ -150,49 +148,59 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     return [...standardTypes, ...customTypes];
   };
 
-  // Load existing project data on mount - only once when component mounts
+  // Load existing project data on mount
   useEffect(() => {
-    console.log('🔄 ProjectSetupFlow effect triggered', {
-      projectId,
-      userId: user?.id,
-      authLoading,
-      hasAttemptedLoad
-    });
+    let mounted = true;
 
-    // Don't attempt to load if we already have
-    if (hasAttemptedLoad) {
-      console.log('⏭️ Already attempted load, skipping');
-      return;
-    }
+    const initializeData = async () => {
+      console.log('🔄 ProjectSetupFlow initializing...', {
+        projectId,
+        userId: user?.id,
+        authLoading
+      });
 
-    if (!projectId) {
-      console.log('⚠️ No projectId, setting dataLoaded');
-      setError('No project ID provided');
-      setDataLoaded(true);
-      setHasAttemptedLoad(true);
-      return;
-    }
+      // Wait for auth to complete
+      if (authLoading) {
+        console.log('⏳ Waiting for auth...');
+        return;
+      }
 
-    // Wait for auth to complete
-    if (authLoading) {
-      console.log('⏳ Auth still loading, waiting...');
-      return;
-    }
+      if (!user) {
+        console.error('❌ No user found');
+        setError('Please log in to continue');
+        setLoading(false);
+        return;
+      }
 
-    if (!user) {
-      console.log('❌ No user after auth completed');
-      setError('User not authenticated');
-      setDataLoaded(true);
-      setHasAttemptedLoad(true);
-      return;
-    }
+      if (!projectId) {
+        console.error('❌ No projectId');
+        setError('No project ID provided');
+        setLoading(false);
+        return;
+      }
 
-    console.log('✅ Ready to load project data');
-    setHasAttemptedLoad(true);
-    loadProjectData();
-    loadCollections();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, user?.id, authLoading, hasAttemptedLoad]);
+      // Load data
+      console.log('✅ Loading project data...');
+      try {
+        await Promise.all([
+          loadProjectData(),
+          loadCollections()
+        ]);
+      } catch (err) {
+        console.error('❌ Error during initialization:', err);
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Failed to load project');
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeData();
+
+    return () => {
+      mounted = false;
+    };
+  }, [projectId, user?.id, authLoading]);
 
   const loadCollections = async () => {
     if (!user) return;
@@ -212,25 +220,7 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
   };
 
   const loadProjectData = async () => {
-    if (!projectId) {
-      console.error('❌ No projectId provided');
-      setError('Project ID is required');
-      setLoading(false);
-      setDataLoaded(true); // Allow UI to show error
-      return;
-    }
-
-    if (!user) {
-      console.error('❌ User not authenticated');
-      setError('User not authenticated');
-      setLoading(false);
-      setDataLoaded(true); // Allow UI to show error
-      return;
-    }
-
     try {
-      setLoading(true);
-      setError(null);
       console.log('🔄 Loading project setup data for:', projectId);
 
       // Load project basic info
@@ -289,12 +279,10 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
       setCurrentStep(step);
 
       console.log('✅ Project data loaded, starting at step:', step);
-      setDataLoaded(true);
 
     } catch (err) {
       console.error('💥 Error loading project data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load project data');
-      setDataLoaded(true); // Mark as loaded even on error so UI shows
+      throw err; // Let the caller handle the error
     } finally {
       setLoading(false);
     }
@@ -888,8 +876,8 @@ export const ProjectSetupFlow: React.FC<ProjectSetupFlowProps> = ({
     { id: 'user_stories', title: 'User Stories', description: 'User-focused feature descriptions and acceptance criteria' }
   ];
 
-  // Show loading screen only until initial data is loaded
-  if (!dataLoaded) {
+  // Show loading screen while initializing
+  if (loading) {
     return (
       <div style={{ backgroundColor: '#ffffff', minHeight: '100vh' }}>
         <div className="flex items-center justify-center h-screen">
