@@ -216,7 +216,7 @@ export const InterviewPage: React.FC = () => {
   const loadQuestions = async (projectId: string, stakeholderId: string, sessionId: string) => {
     try {
       console.log('📝 Loading questions for:', { projectId, stakeholderId, sessionId });
-      const assignments = await getStakeholderQuestionAssignments(projectId, stakeholderId, sessionId);
+      const assignments = await getStakeholderQuestionAssignments(stakeholderId, sessionId);
       console.log('📝 Got assignments:', assignments);
       const questionsData = assignments.map((a: any) => ({
         id: a.question_id,
