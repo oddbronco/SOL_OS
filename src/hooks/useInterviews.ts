@@ -140,6 +140,13 @@ export const useInterviews = () => {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);
 
+      // Get stakeholder's password
+      const { data: stakeholderData } = await supabase
+        .from('stakeholders')
+        .select('interview_password')
+        .eq('id', stakeholderId)
+        .single();
+
       // Count existing interviews for default naming
       const { data: existingSessions } = await supabase
         .from('interview_sessions')
@@ -158,7 +165,8 @@ export const useInterviews = () => {
           session_token: sessionToken,
           expires_at: expiresAt.toISOString(),
           interview_name: defaultName,
-          interview_type: interviewType || 'other'
+          interview_type: interviewType || 'other',
+          access_password: stakeholderData?.interview_password || null
         })
         .select()
         .single();
