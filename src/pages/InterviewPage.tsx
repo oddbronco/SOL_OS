@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import {
-  Lock, CheckCircle, User, Calendar, Clock, XCircle, Video, ChevronRight, Shield,
+  Lock, CheckCircle, User, Calendar, Clock, XCircle, Video, ChevronRight, ChevronLeft, Shield,
   Mic, FileText, Upload, Square, Trash2, Play, Check
 } from 'lucide-react';
 import Hls from 'hls.js';
@@ -71,12 +71,13 @@ export const InterviewPage: React.FC = () => {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [introVideo, setIntroVideo] = useState<IntroVideo | null>(null);
   const [projectBranding, setProjectBranding] = useState<any>({});
-  
+  const [interviewStarted, setInterviewStarted] = useState(false);
+
   // Questions and responses
   const [questions, setQuestions] = useState<Question[]>([]);
   const [responses, setResponses] = useState<Record<string, Response[]>>({});
-  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
-  
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
   // Response input
   const [responseType, setResponseType] = useState<'text' | 'audio' | 'video' | 'file'>('text');
   const [textResponse, setTextResponse] = useState('');
@@ -94,7 +95,6 @@ export const InterviewPage: React.FC = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const questionsRef = useRef<HTMLDivElement>(null);
 
   const {
     getStakeholderQuestionAssignments,
@@ -102,11 +102,9 @@ export const InterviewPage: React.FC = () => {
     uploadFile
   } = useInterviews();
 
-  const getEmbedUrl = (url: string): string => {
+  const getEmbedUrl = (url: string) => {
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      const videoId = url.includes('youtu.be')
-        ? url.split('/').pop()?.split('?')[0]
-        : new URL(url).searchParams.get('v');
+      const videoId = url.includes('youtu.be') ? url.split('/').pop() : new URL(url).searchParams.get('v');
       return `https://www.youtube.com/embed/${videoId}`;
     }
     if (url.includes('vimeo.com')) {
@@ -116,65 +114,39 @@ export const InterviewPage: React.FC = () => {
     return url;
   };
 
-  // Video initialization
-  useEffect(() => {
-    const initVideo = async () => {
-      if (!introVideo || !videoRef.current) return;
-      if (introVideo.video_type === 'upload' && introVideo.mux_playback_id) {
-        try {
-          const playbackUrl = await getMuxPlaybackUrl(introVideo.mux_playback_id);
-          if (Hls.isSupported()) {
-            if (hlsRef.current) hlsRef.current.destroy();
-            const hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60, enableWorker: true });
-            hlsRef.current = hls;
-            hls.loadSource(playbackUrl);
-            hls.attachMedia(videoRef.current);
-          } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-            videoRef.current.src = playbackUrl;
-          }
-        } catch (error) {
-          console.error('Failed to load video:', error);
-        }
-      }
-    };
-    initVideo();
-    return () => { if (hlsRef.current) hlsRef.current.destroy(); };
-  }, [introVideo]);
-
-  // Load session data
   const loadSession = useCallback(async () => {
-    if (!sessionToken && (!projectId || !stakeholderId)) {
-      setError('Invalid interview link');
+    if (!projectId || !stakeholderId) {
+      setError('Missing required parameters');
       setLoading(false);
+      setSessionState('not_found');
       return;
     }
 
     try {
-      setLoading(true);
-      let sessionData, stakeholderData, projectData;
+      console.log('Loading session for:', { projectId, stakeholderId, sessionToken });
+
+      let sessionQuery = supabase
+        .from('interview_sessions')
+        .select('*, project:projects(*), stakeholder:stakeholders(*)')
+        .eq('project_id', projectId)
+        .eq('stakeholder_id', stakeholderId);
 
       if (sessionToken) {
-        const { data: session } = await supabase
-          .from('interview_sessions')
-          .select(`*, stakeholder:stakeholders(*), project:projects(*)`)
-          .eq('session_token', sessionToken)
-          .maybeSingle();
-        if (!session) { setSessionState('not_found'); setLoading(false); return; }
-        sessionData = session;
-        stakeholderData = session.stakeholder;
-        projectData = session.project;
-      } else {
-        const [{ data: session }, { data: stakeholderRes }, { data: projectRes }] = await Promise.all([
-          supabase.from('interview_sessions').select('*').eq('project_id', projectId).eq('stakeholder_id', stakeholderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-          supabase.from('stakeholders').select('*').eq('id', stakeholderId).single(),
-          supabase.from('projects').select('*').eq('id', projectId).single()
-        ]);
-        sessionData = session;
-        stakeholderData = stakeholderRes;
-        projectData = projectRes;
+        sessionQuery = sessionQuery.eq('session_token', sessionToken);
       }
 
-      if (!sessionData || !stakeholderData || !projectData) {
+      const { data: sessionData, error: sessionError } = await sessionQuery.maybeSingle();
+
+      if (sessionError || !sessionData) {
+        setSessionState('not_found');
+        setLoading(false);
+        return;
+      }
+
+      const projectData = sessionData.project;
+      const stakeholderData = sessionData.stakeholder;
+
+      if (!projectData || !stakeholderData) {
         setSessionState('not_found');
         setLoading(false);
         return;
@@ -183,6 +155,7 @@ export const InterviewPage: React.FC = () => {
       const expiresAt = sessionData.expires_at ? new Date(sessionData.expires_at) : null;
       if (expiresAt && expiresAt < new Date()) setSessionState('expired');
       else if (sessionData.status === 'cancelled') setSessionState('closed');
+      else if (sessionData.status === 'completed') setInterviewStarted(true);
       else setSessionState('active');
 
       setSession(sessionData);
@@ -196,7 +169,9 @@ export const InterviewPage: React.FC = () => {
 
       const { data: videoAssignment } = await supabase.from('project_intro_video_assignments').select(`intro_video:project_intro_videos(*)`).eq('project_id', projectData.id).eq('stakeholder_id', stakeholderData.id).maybeSingle();
       console.log('🎥 Video assignment:', videoAssignment);
-      if (videoAssignment?.intro_video) setIntroVideo(videoAssignment.intro_video);
+      if (videoAssignment?.intro_video) {
+        setIntroVideo(videoAssignment.intro_video);
+      }
 
       await loadQuestions(projectData.id, stakeholderData.id, sessionData.id);
 
@@ -238,14 +213,42 @@ export const InterviewPage: React.FC = () => {
       const responseMap: Record<string, Response[]> = {};
       questionsData.forEach(q => responseMap[q.id] = []);
       data?.forEach(resp => {
-        if (!responseMap[resp.question_id]) responseMap[resp.question_id] = [];
-        responseMap[resp.question_id].push(resp);
+        if (responseMap[resp.question_id]) {
+          responseMap[resp.question_id].push(resp);
+        }
       });
       setResponses(responseMap);
     } catch (error) {
       console.error('Failed to load responses:', error);
     }
   };
+
+  useEffect(() => {
+    if (introVideo && videoRef.current && introVideo.mux_playback_id && introVideo.video_type === 'upload') {
+      const playbackId = introVideo.mux_playback_id;
+      const domain = import.meta.env.VITE_APP_DOMAIN || window.location.origin;
+
+      getMuxPlaybackUrl(playbackId, domain).then(url => {
+        if (url && videoRef.current) {
+          if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(videoRef.current);
+            hlsRef.current = hls;
+          } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+            videoRef.current.src = url;
+          }
+        }
+      });
+
+      return () => {
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+      };
+    }
+  }, [introVideo]);
 
   useEffect(() => { loadSession(); }, [loadSession]);
 
@@ -259,25 +262,47 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  const scrollToQuestions = () => {
-    questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (questions.length > 0 && !currentQuestionId) {
-      setCurrentQuestionId(questions[0].id);
-      scrollToQuestion(questions[0].id);
+  const startInterview = () => {
+    setInterviewStarted(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goToNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setTextResponse('');
+      setUploadedFiles([]);
+      setRecordingBlob(null);
+      setResponseType('text');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const scrollToQuestion = (questionId: string) => {
-    const element = document.getElementById(`question-${questionId}`);
-    if (element) {
-      const offset = 120;
-      const elementPosition = element.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - offset;
-      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  const goToPreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+      setTextResponse('');
+      setUploadedFiles([]);
+      setRecordingBlob(null);
+      setResponseType('text');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  // Recording functions
+  const handleCompleteInterview = async () => {
+    try {
+      await supabase
+        .from('interview_sessions')
+        .update({ status: 'completed' })
+        .eq('id', session.id);
+      await loadSession();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      console.error('Error completing interview:', error);
+      alert('Failed to complete interview. Please try again.');
+    }
+  };
+
   const cleanupRecording = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
@@ -330,19 +355,22 @@ export const InterviewPage: React.FC = () => {
     setUploadedFiles(prev => [...prev, ...newFiles]);
   };
 
-  const saveResponse = async (questionId: string) => {
+  const saveResponse = async () => {
     if (!session || !stakeholder || !project) return;
+    const currentQuestion = questions[currentQuestionIndex];
+    if (!currentQuestion) return;
+
     setSaving(true);
     try {
       let savedAny = false;
       if (responseType === 'text' && textResponse.trim()) {
-        await submitResponse(project.id, stakeholder.id, questionId, { response_type: 'text', response_text: textResponse }, session.id);
+        await submitResponse(project.id, stakeholder.id, currentQuestion.id, { response_type: 'text', response_text: textResponse }, session.id);
         savedAny = true;
         setTextResponse('');
       } else if ((responseType === 'video' || responseType === 'audio') && recordingBlob) {
         const file = new File([recordingBlob], `${responseType}-${Date.now()}.webm`, { type: recordingBlob.type });
         const fileUrl = await uploadFile(file, project.id);
-        await submitResponse(project.id, stakeholder.id, questionId, {
+        await submitResponse(project.id, stakeholder.id, currentQuestion.id, {
           response_type: responseType, file_url: fileUrl, file_name: file.name, file_size: file.size, duration_seconds: recordingDuration
         }, session.id);
         savedAny = true;
@@ -350,7 +378,7 @@ export const InterviewPage: React.FC = () => {
       } else if (responseType === 'file' && uploadedFiles.length > 0) {
         for (const file of uploadedFiles) {
           const fileUrl = await uploadFile(file, project.id);
-          await submitResponse(project.id, stakeholder.id, questionId, {
+          await submitResponse(project.id, stakeholder.id, currentQuestion.id, {
             response_type: 'file', file_url: fileUrl, file_name: file.name, file_size: file.size
           }, session.id);
         }
@@ -359,14 +387,6 @@ export const InterviewPage: React.FC = () => {
       }
       if (savedAny) {
         await loadQuestions(project.id, stakeholder.id, session.id);
-        await loadSession();
-        // Move to next question
-        const currentIndex = questions.findIndex(q => q.id === questionId);
-        if (currentIndex < questions.length - 1) {
-          const nextQuestion = questions[currentIndex + 1];
-          setCurrentQuestionId(nextQuestion.id);
-          setTimeout(() => scrollToQuestion(nextQuestion.id), 300);
-        }
       }
     } catch (error) {
       alert('Failed to save response. Please try again.');
@@ -375,28 +395,15 @@ export const InterviewPage: React.FC = () => {
     }
   };
 
-  const completeInterview = async () => {
-    if (!session) return;
-    try {
-      await supabase.from('interview_sessions').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', session.id);
-      await loadSession();
-    } catch (error) {
-      console.error('Error completing interview:', error);
-    }
-  };
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const primaryColor = projectBranding.primary_color || '#3B82F6';
   const secondaryColor = projectBranding.secondary_color || '#10B981';
   const textColor = projectBranding.text_color || '#FFFFFF';
 
   const completedQuestions = Object.keys(responses).filter(qId => responses[qId].length > 0).length;
   const progress = questions.length > 0 ? Math.round((completedQuestions / questions.length) * 100) : 0;
+  const currentQuestion = questions[currentQuestionIndex];
+  const currentQuestionResponses = currentQuestion ? (responses[currentQuestion.id] || []) : [];
+  const isCurrentQuestionAnswered = currentQuestionResponses.length > 0;
 
   if (loading) {
     return (
@@ -445,6 +452,18 @@ export const InterviewPage: React.FC = () => {
     );
   }
 
+  if (sessionState === 'closed') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <Card className="text-center p-8 max-w-md">
+          <XCircle className="h-16 w-16 text-gray-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Interview Closed</h2>
+          <p className="text-gray-600">This interview has been closed.</p>
+        </Card>
+      </div>
+    );
+  }
+
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
@@ -464,268 +483,321 @@ export const InterviewPage: React.FC = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      {/* Fixed Header with Progress */}
-      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
+  // Completed Interview View
+  if (session?.status === 'completed') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+        <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+          <div className="max-w-4xl mx-auto px-4 py-4">
             {projectBranding.logo_url && (
               <img src={projectBranding.logo_url} alt="Logo" className="h-10 object-contain" />
             )}
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">{completedQuestions} of {questions.length} answered</span>
-                <span className="text-2xl font-bold" style={{ color: primaryColor }}>{progress}%</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, backgroundColor: primaryColor }} />
-              </div>
-            </div>
           </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <Card className="text-center p-12 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 shadow-2xl">
+            <CheckCircle className="h-24 w-24 text-green-600 mx-auto mb-6" />
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Interview Completed!</h1>
+            <p className="text-lg text-gray-600 mb-2">Thank you for your valuable insights, {stakeholder.name}.</p>
+            <p className="text-gray-500">Your responses have been recorded successfully.</p>
+            {session.expires_at && (
+              <div className="mt-6 pt-6 border-t border-green-200">
+                <p className="text-sm text-gray-600">
+                  This session {new Date(session.expires_at) > new Date() ? 'expires' : 'expired'} on{' '}
+                  <span className="font-semibold">{new Date(session.expires_at).toLocaleDateString()}</span>
+                </p>
+              </div>
+            )}
+          </Card>
         </div>
       </div>
+    );
+  }
 
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Welcome Card */}
-        <Card className="overflow-hidden border-0 shadow-xl">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8">
-            <div className="flex items-start gap-6">
-              <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg" style={{ backgroundColor: primaryColor }}>
-                <User className="h-10 w-10" style={{ color: textColor }} />
-              </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+      {/* Fixed Header with Progress */}
+      {interviewStarted && (
+        <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+          <div className="max-w-4xl mx-auto px-4 py-4">
+            <div className="flex items-center gap-4">
+              {projectBranding.logo_url && (
+                <img src={projectBranding.logo_url} alt="Logo" className="h-10 object-contain" />
+              )}
               <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, {stakeholder.name}!</h1>
-                <p className="text-lg text-gray-700 mb-3">{stakeholder.role} {stakeholder.department && `• ${stakeholder.department}`}</p>
-                <p className="text-gray-600 mb-4">Thank you for participating in <span className="font-semibold">{project.name}</span></p>
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-2"><Calendar className="h-4 w-4" />{new Date(session.created_at).toLocaleDateString()}</div>
-                  <div className="flex items-center gap-2"><Clock className="h-4 w-4" />~15-20 minutes</div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Question {currentQuestionIndex + 1} of {questions.length}</span>
+                  <span className="text-2xl font-bold" style={{ color: primaryColor }}>{progress}%</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, backgroundColor: primaryColor }} />
                 </div>
               </div>
             </div>
-          </div>
-        </Card>
-
-        {/* Video Card */}
-        {introVideo && (
-          <Card className="overflow-hidden border-0 shadow-xl">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>
-                  <Video className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{introVideo.title}</h3>
-                  {introVideo.description && <p className="text-sm text-gray-600">{introVideo.description}</p>}
-                </div>
-              </div>
-              <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
-                {introVideo.video_type === 'upload' ? (
-                  <video ref={videoRef} controls preload="metadata" playsInline crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-contain" />
-                ) : (
-                  <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
-                )}
-              </div>
-              <Button onClick={scrollToQuestions} className="w-full" size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
-                Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {!introVideo && (
-          <div className="text-center py-8">
-            <Button onClick={scrollToQuestions} size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
-              Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
-            </Button>
-          </div>
-        )}
-
-        {/* Questions Section */}
-        <div ref={questionsRef} className="space-y-6">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Your Questions</h2>
-            <p className="text-gray-600">Click any question below to answer it</p>
-          </div>
-
-          <div className="space-y-4">
-            {questions.map((question, index) => {
-              const questionResponses = responses[question.id] || [];
-              const isActive = currentQuestionId === question.id;
-              const isAnswered = questionResponses.length > 0;
-
-              return (
-                <Card
-                  key={question.id}
-                  id={`question-${question.id}`}
-                  className={`transition-all duration-300 cursor-pointer hover:shadow-lg ${isActive ? 'ring-2 ring-offset-2 shadow-2xl' : ''}`}
-                  style={isActive ? { ringColor: primaryColor } : {}}
-                  onClick={() => { setCurrentQuestionId(question.id); scrollToQuestion(question.id); }}
-                >
-                  <div className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-lg transition-all duration-300 ${isAnswered ? 'scale-110' : ''}`} style={{ backgroundColor: isAnswered ? primaryColor : '#E5E7EB', color: isAnswered ? textColor : '#6B7280' }}>
-                        {isAnswered ? <Check className="h-6 w-6" /> : index + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="info" size="sm">{question.category}</Badge>
-                          {isAnswered && <Badge variant="success" size="sm"><CheckCircle className="h-3 w-3 mr-1" />Answered</Badge>}
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-3">{question.text}</h3>
-
-                        {isActive && (
-                          <div className="mt-6 space-y-6 animate-fadeIn">
-                            {/* Response Type Selector */}
-                            <div className="grid grid-cols-4 gap-3">
-                              {[
-                                { type: 'text', icon: FileText, label: 'Text' },
-                                { type: 'audio', icon: Mic, label: 'Audio' },
-                                { type: 'video', icon: Video, label: 'Video' },
-                                { type: 'file', icon: Upload, label: 'File' }
-                              ].map(({ type, icon: Icon, label }) => (
-                                <button
-                                  key={type}
-                                  onClick={(e) => { e.stopPropagation(); setResponseType(type as any); }}
-                                  className={`p-4 rounded-xl border-2 transition-all hover:scale-105 ${responseType === type ? 'bg-blue-50 border-blue-500' : 'border-gray-200 hover:border-gray-300'}`}
-                                >
-                                  <Icon className={`h-6 w-6 mx-auto mb-2 ${responseType === type ? 'text-blue-600' : 'text-gray-400'}`} />
-                                  <p className={`text-xs font-medium ${responseType === type ? 'text-blue-700' : 'text-gray-600'}`}>{label}</p>
-                                </button>
-                              ))}
-                            </div>
-
-                            {/* Response Input */}
-                            <div onClick={(e) => e.stopPropagation()}>
-                              {responseType === 'text' && (
-                                <textarea
-                                  value={textResponse}
-                                  onChange={(e) => setTextResponse(e.target.value)}
-                                  placeholder="Share your thoughts here..."
-                                  className="w-full h-48 p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none resize-none text-base transition-all"
-                                  style={{ fontSize: '16px' }}
-                                />
-                              )}
-
-                              {(responseType === 'audio' || responseType === 'video') && (
-                                <div className="space-y-4">
-                                  {!recordingBlob ? (
-                                    isRecording ? (
-                                      <div className="text-center py-12 bg-red-50 rounded-xl">
-                                        <div className="w-24 h-24 mx-auto mb-4 relative">
-                                          <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75" />
-                                          <div className="absolute inset-0 rounded-full bg-red-500 flex items-center justify-center">
-                                            <Square className="h-10 w-10 text-white" />
-                                          </div>
-                                        </div>
-                                        <p className="text-3xl font-mono font-bold text-gray-900 mb-2">{formatDuration(recordingDuration)}</p>
-                                        <p className="text-gray-600 mb-8">Recording in progress...</p>
-                                        <Button onClick={(e) => { e.stopPropagation(); stopRecording(); }} variant="danger" size="lg">
-                                          <Square className="h-5 w-5 mr-2" />Stop Recording
-                                        </Button>
-                                      </div>
-                                    ) : (
-                                      <div className="text-center py-12">
-                                        <Button onClick={(e) => { e.stopPropagation(); startRecording(responseType); }} size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
-                                          {responseType === 'video' ? <Video className="h-5 w-5 mr-2" /> : <Mic className="h-5 w-5 mr-2" />}
-                                          Start {responseType === 'video' ? 'Video' : 'Audio'} Recording
-                                        </Button>
-                                      </div>
-                                    )
-                                  ) : (
-                                    <div className="bg-green-50 rounded-xl p-8 text-center">
-                                      <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-                                      <p className="text-xl font-semibold text-gray-900 mb-2">Recording Complete!</p>
-                                      <p className="text-gray-600 mb-6">Duration: {formatDuration(recordingDuration)}</p>
-                                      <Button onClick={(e) => { e.stopPropagation(); discardRecording(); }} variant="outline" size="sm">
-                                        <Trash2 className="h-4 w-4 mr-2" />Discard & Re-record
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {responseType === 'file' && (
-                                <div className="space-y-4">
-                                  <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} className="hidden" />
-                                  <Button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} variant="outline" className="w-full" disabled={uploadedFiles.length >= 3}>
-                                    <Upload className="h-5 w-5 mr-2" />Choose Files (Max 3)
-                                  </Button>
-                                  {uploadedFiles.length > 0 && (
-                                    <div className="space-y-2">
-                                      {uploadedFiles.map((file, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                          <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
-                                          <button onClick={(e) => { e.stopPropagation(); setUploadedFiles(prev => prev.filter((_, i) => i !== idx)); }} className="ml-2 p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors">
-                                            <Trash2 className="h-4 w-4" />
-                                          </button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Save Button */}
-                            <Button
-                              onClick={(e) => { e.stopPropagation(); saveResponse(question.id); }}
-                              disabled={saving || (responseType === 'text' && !textResponse.trim()) || ((responseType === 'audio' || responseType === 'video') && !recordingBlob) || (responseType === 'file' && uploadedFiles.length === 0)}
-                              className="w-full"
-                              size="lg"
-                              style={{ backgroundColor: primaryColor, color: textColor }}
-                            >
-                              {saving ? (
-                                <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />Saving...</>
-                              ) : (
-                                <><CheckCircle className="h-5 w-5 mr-2" />Save & Continue</>
-                              )}
-                            </Button>
-
-                            {questionResponses.length > 0 && (
-                              <div className="pt-4 border-t">
-                                <p className="text-sm font-medium text-gray-700 mb-3">Previous Responses ({questionResponses.length})</p>
-                                <div className="space-y-2">
-                                  {questionResponses.map((resp, idx) => (
-                                    <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm">
-                                      <Badge variant="success" size="sm" className="mb-2">{resp.response_type}</Badge>
-                                      {resp.response_text && <p className="text-gray-700">{resp.response_text}</p>}
-                                      {resp.file_name && <p className="text-gray-600">{resp.file_name}</p>}
-                                      {resp.created_at && <p className="text-xs text-gray-500 mt-2">{new Date(resp.created_at).toLocaleString()}</p>}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
           </div>
         </div>
+      )}
 
-        {/* Complete Section */}
-        {progress === 100 && session.status !== 'completed' && (
-          <Card className="text-center p-12 bg-gradient-to-br from-green-50 to-emerald-50 border-0 shadow-2xl">
-            <CheckCircle className="h-20 w-20 text-green-600 mx-auto mb-6" />
-            <h3 className="text-3xl font-bold text-gray-900 mb-3">Congratulations!</h3>
-            <p className="text-lg text-gray-600 mb-8">You've answered all questions. Ready to submit?</p>
-            <Button onClick={completeInterview} size="lg" className="bg-green-600 hover:bg-green-700 text-white px-12">
-              Complete Interview
-            </Button>
-          </Card>
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* Welcome Card - Show only if interview not started */}
+        {!interviewStarted && (
+          <>
+            <Card className="overflow-hidden border-0 shadow-xl">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8">
+                <div className="flex items-start gap-6">
+                  <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg" style={{ backgroundColor: primaryColor }}>
+                    <User className="h-10 w-10" style={{ color: textColor }} />
+                  </div>
+                  <div className="flex-1">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome, {stakeholder.name}!</h1>
+                    <p className="text-lg text-gray-700 mb-3">{stakeholder.role} {stakeholder.department && `• ${stakeholder.department}`}</p>
+                    <p className="text-gray-600 mb-4">Thank you for participating in <span className="font-semibold">{project.name}</span></p>
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-2"><Calendar className="h-4 w-4" />{new Date(session.created_at).toLocaleDateString()}</div>
+                      <div className="flex items-center gap-2"><Clock className="h-4 w-4" />~15-20 minutes</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Video Card */}
+            {introVideo && (
+              <Card className="overflow-hidden border-0 shadow-xl">
+                <div className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>
+                      <Video className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">{introVideo.title}</h3>
+                      {introVideo.description && <p className="text-sm text-gray-600">{introVideo.description}</p>}
+                    </div>
+                  </div>
+                  <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
+                    {introVideo.video_type === 'upload' ? (
+                      <video ref={videoRef} controls preload="metadata" playsInline crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-contain" />
+                    ) : (
+                      <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+                    )}
+                  </div>
+                  <Button onClick={startInterview} className="w-full" size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
+                    Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            {!introVideo && (
+              <div className="text-center py-8">
+                <Button onClick={startInterview} size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
+                  Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
-        {session.status === 'completed' && (
-          <Card className="text-center p-12 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 shadow-2xl">
-            <CheckCircle className="h-20 w-20 text-green-600 mx-auto mb-6" />
-            <h3 className="text-3xl font-bold text-gray-900 mb-3">Interview Completed!</h3>
-            <p className="text-lg text-gray-600">Thank you for your valuable insights.</p>
+        {/* Sequential Question View */}
+        {interviewStarted && currentQuestion && (
+          <Card className="border-0 shadow-xl">
+            <div className="p-8">
+              <div className="flex items-start gap-4 mb-6">
+                <div className={`w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-2xl`} style={{ backgroundColor: isCurrentQuestionAnswered ? primaryColor : '#E5E7EB', color: isCurrentQuestionAnswered ? textColor : '#6B7280' }}>
+                  {isCurrentQuestionAnswered ? <Check className="h-8 w-8" /> : currentQuestionIndex + 1}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge variant="info">{currentQuestion.category}</Badge>
+                    {isCurrentQuestionAnswered && <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" />Answered</Badge>}
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">{currentQuestion.text}</h2>
+                </div>
+              </div>
+
+              {/* Response Type Selector */}
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                {[
+                  { type: 'text', icon: FileText, label: 'Text' },
+                  { type: 'audio', icon: Mic, label: 'Audio' },
+                  { type: 'video', icon: Video, label: 'Video' },
+                  { type: 'file', icon: Upload, label: 'File' }
+                ].map(({ type, icon: Icon, label }) => (
+                  <button
+                    key={type}
+                    onClick={() => setResponseType(type as any)}
+                    className={`p-4 rounded-xl border-2 transition-all hover:scale-105 ${responseType === type ? 'bg-blue-50 border-blue-500' : 'border-gray-200 hover:border-gray-300'}`}
+                  >
+                    <Icon className={`h-6 w-6 mx-auto mb-2 ${responseType === type ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <p className={`text-xs font-medium ${responseType === type ? 'text-blue-700' : 'text-gray-600'}`}>{label}</p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Response Input */}
+              <div className="space-y-4 mb-6">
+                {responseType === 'text' && (
+                  <div>
+                    <textarea
+                      value={textResponse}
+                      onChange={(e) => setTextResponse(e.target.value)}
+                      placeholder="Type your response here..."
+                      rows={6}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all resize-none"
+                    />
+                    <Button onClick={saveResponse} disabled={!textResponse.trim() || saving} className="mt-3" style={{ backgroundColor: primaryColor, color: textColor }}>
+                      {saving ? 'Saving...' : 'Save Answer'}
+                    </Button>
+                  </div>
+                )}
+
+                {responseType === 'audio' && (
+                  <div className="space-y-3">
+                    {!isRecording && !recordingBlob && (
+                      <Button onClick={() => startRecording('audio')} className="w-full" variant="secondary">
+                        <Mic className="h-5 w-5 mr-2" />Start Audio Recording
+                      </Button>
+                    )}
+                    {isRecording && (
+                      <div className="text-center space-y-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
+                          <span className="text-lg font-semibold">{Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}</span>
+                        </div>
+                        <div className="flex gap-3 justify-center">
+                          <Button onClick={stopRecording} style={{ backgroundColor: primaryColor, color: textColor }}><Square className="h-5 w-5 mr-2" />Stop</Button>
+                          <Button onClick={discardRecording} variant="secondary">Cancel</Button>
+                        </div>
+                      </div>
+                    )}
+                    {recordingBlob && !isRecording && (
+                      <div className="space-y-3">
+                        <audio src={URL.createObjectURL(recordingBlob)} controls className="w-full" />
+                        <div className="flex gap-3">
+                          <Button onClick={saveResponse} disabled={saving} className="flex-1" style={{ backgroundColor: primaryColor, color: textColor }}>
+                            {saving ? 'Saving...' : 'Save Recording'}
+                          </Button>
+                          <Button onClick={discardRecording} variant="secondary"><Trash2 className="h-5 w-5 mr-2" />Discard</Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {responseType === 'video' && (
+                  <div className="space-y-3">
+                    {!isRecording && !recordingBlob && (
+                      <Button onClick={() => startRecording('video')} className="w-full" variant="secondary">
+                        <Video className="h-5 w-5 mr-2" />Start Video Recording
+                      </Button>
+                    )}
+                    {isRecording && (
+                      <div className="text-center space-y-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
+                          <span className="text-lg font-semibold">{Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}</span>
+                        </div>
+                        <div className="flex gap-3 justify-center">
+                          <Button onClick={stopRecording} style={{ backgroundColor: primaryColor, color: textColor }}><Square className="h-5 w-5 mr-2" />Stop</Button>
+                          <Button onClick={discardRecording} variant="secondary">Cancel</Button>
+                        </div>
+                      </div>
+                    )}
+                    {recordingBlob && !isRecording && (
+                      <div className="space-y-3">
+                        <video src={URL.createObjectURL(recordingBlob)} controls className="w-full rounded-xl" />
+                        <div className="flex gap-3">
+                          <Button onClick={saveResponse} disabled={saving} className="flex-1" style={{ backgroundColor: primaryColor, color: textColor }}>
+                            {saving ? 'Saving...' : 'Save Recording'}
+                          </Button>
+                          <Button onClick={discardRecording} variant="secondary"><Trash2 className="h-5 w-5 mr-2" />Discard</Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {responseType === 'file' && (
+                  <div>
+                    <input ref={fileInputRef} type="file" onChange={handleFileUpload} multiple className="hidden" />
+                    <Button onClick={() => fileInputRef.current?.click()} className="w-full mb-3" variant="secondary">
+                      <Upload className="h-5 w-5 mr-2" />Choose Files
+                    </Button>
+                    {uploadedFiles.length > 0 && (
+                      <div className="space-y-2 mb-3">
+                        {uploadedFiles.map((file, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <span className="text-sm text-gray-700">{file.name}</span>
+                            <Button onClick={() => setUploadedFiles(prev => prev.filter((_, i) => i !== idx))} variant="secondary" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {uploadedFiles.length > 0 && (
+                      <Button onClick={saveResponse} disabled={saving} style={{ backgroundColor: primaryColor, color: textColor }}>
+                        {saving ? 'Saving...' : 'Upload Files'}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Existing Responses */}
+              {currentQuestionResponses.length > 0 && (
+                <div className="border-t pt-6">
+                  <h4 className="font-semibold text-gray-900 mb-3">Your Previous Answers:</h4>
+                  <div className="space-y-3">
+                    {currentQuestionResponses.map((resp, idx) => (
+                      <div key={idx} className="p-4 bg-gray-50 rounded-xl">
+                        <Badge variant="success" size="sm" className="mb-2">{resp.response_type}</Badge>
+                        {resp.response_text && <p className="text-gray-700">{resp.response_text}</p>}
+                        {resp.file_name && <p className="text-gray-600 text-sm">{resp.file_name}</p>}
+                        {resp.created_at && <p className="text-xs text-gray-500 mt-2">{new Date(resp.created_at).toLocaleString()}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex gap-4 mt-8 pt-6 border-t">
+                <Button
+                  onClick={goToPreviousQuestion}
+                  disabled={currentQuestionIndex === 0}
+                  variant="secondary"
+                  className="flex-1"
+                >
+                  <ChevronLeft className="h-5 w-5 mr-2" />Previous
+                </Button>
+                {currentQuestionIndex < questions.length - 1 ? (
+                  <Button
+                    onClick={goToNextQuestion}
+                    style={{ backgroundColor: primaryColor, color: textColor }}
+                    className="flex-1"
+                  >
+                    Next<ChevronRight className="h-5 w-5 ml-2" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleCompleteInterview}
+                    disabled={completedQuestions < questions.length}
+                    style={{ backgroundColor: secondaryColor, color: textColor }}
+                    className="flex-1"
+                  >
+                    Complete Interview<CheckCircle className="h-5 w-5 ml-2" />
+                  </Button>
+                )}
+              </div>
+
+              {currentQuestionIndex === questions.length - 1 && completedQuestions < questions.length && (
+                <p className="text-center text-sm text-gray-600 mt-4">
+                  Please answer all questions before completing the interview
+                </p>
+              )}
+            </div>
           </Card>
         )}
       </div>
