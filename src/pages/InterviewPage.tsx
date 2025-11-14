@@ -189,10 +189,13 @@ export const InterviewPage: React.FC = () => {
       setStakeholder(stakeholderData);
       setProject(projectData);
 
+      console.log('✅ Session loaded:', { sessionData, stakeholderData, projectData });
+
       const { data: branding } = await supabase.from('project_branding').select('*').eq('project_id', projectData.id).maybeSingle();
       if (branding) setProjectBranding(branding);
 
       const { data: videoAssignment } = await supabase.from('project_intro_video_assignments').select(`intro_video:project_intro_videos(*)`).eq('project_id', projectData.id).eq('stakeholder_id', stakeholderData.id).maybeSingle();
+      console.log('🎥 Video assignment:', videoAssignment);
       if (videoAssignment?.intro_video) setIntroVideo(videoAssignment.intro_video);
 
       await loadQuestions(projectData.id, stakeholderData.id, sessionData.id);
@@ -212,17 +215,20 @@ export const InterviewPage: React.FC = () => {
 
   const loadQuestions = async (projectId: string, stakeholderId: string, sessionId: string) => {
     try {
+      console.log('📝 Loading questions for:', { projectId, stakeholderId, sessionId });
       const assignments = await getStakeholderQuestionAssignments(projectId, stakeholderId, sessionId);
+      console.log('📝 Got assignments:', assignments);
       const questionsData = assignments.map((a: any) => ({
         id: a.question_id,
         text: a.question?.text || '',
         category: a.question?.category || 'general',
         target_roles: a.question?.target_roles || []
       }));
+      console.log('📝 Parsed questions:', questionsData);
       setQuestions(questionsData);
       await loadAllResponses(questionsData, stakeholderId, sessionId);
     } catch (error) {
-      console.error('Failed to load questions:', error);
+      console.error('❌ Failed to load questions:', error);
     }
   };
 
