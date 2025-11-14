@@ -590,18 +590,27 @@ export const InterviewPage: React.FC = () => {
               </div>
               <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
                 {introVideo.video_type === 'upload' && introVideo.mux_playback_id ? (
-                  <MuxPlayer
-                    playbackId={introVideo.mux_playback_id}
-                    tokens={{ playback: muxToken || undefined }}
-                    streamType="on-demand"
-                    style={{ width: '100%', height: '100%' }}
-                    onLoadStart={() => console.log('🎬 Mux player loading...')}
-                    onLoadedMetadata={() => console.log('✅ Mux player metadata loaded')}
-                    onCanPlay={() => console.log('✅ Mux player can play')}
-                    onError={(e) => console.error('❌ Mux player error:', e)}
-                    onPlay={() => console.log('▶️ Mux player started playing')}
-                    onPause={() => console.log('⏸️ Mux player paused')}
-                  />
+                  muxToken ? (
+                    <MuxPlayer
+                      playbackId={introVideo.mux_playback_id}
+                      tokens={{ playback: muxToken }}
+                      streamType="on-demand"
+                      style={{ width: '100%', height: '100%' }}
+                      onLoadStart={() => console.log('🎬 Mux player loading...')}
+                      onLoadedMetadata={() => console.log('✅ Mux player metadata loaded')}
+                      onCanPlay={() => console.log('✅ Mux player can play')}
+                      onError={(e) => console.error('❌ Mux player error:', e)}
+                      onPlay={() => console.log('▶️ Mux player started playing')}
+                      onPause={() => console.log('⏸️ Mux player paused')}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                        <p className="text-white text-sm">Loading video...</p>
+                      </div>
+                    </div>
+                  )
                 ) : introVideo.video_type === 'external' ? (
                   <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
                 ) : null}
