@@ -10,7 +10,6 @@ import {
   Mic, FileText, Upload, Square, Trash2, Play, Check
 } from 'lucide-react';
 import MuxPlayer from '@mux/mux-player-react';
-import { getMuxPlaybackToken } from '../utils/muxPlaybackToken';
 import { useInterviews } from '../hooks/useInterviews';
 
 type SessionState = 'active' | 'expired' | 'locked' | 'closed' | 'not_found';
@@ -88,7 +87,6 @@ export const InterviewPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   // Refs
-  const [muxToken, setMuxToken] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -116,16 +114,6 @@ export const InterviewPage: React.FC = () => {
     return url;
   };
 
-  // Fetch Mux playback token when video changes
-  useEffect(() => {
-    if (introVideo?.video_type === 'upload' && introVideo.mux_playback_id) {
-      console.log('🎬 Fetching Mux token for playback ID:', introVideo.mux_playback_id);
-      getMuxPlaybackToken(introVideo.mux_playback_id).then(token => {
-        console.log('✅ Mux token received:', !!token);
-        setMuxToken(token);
-      });
-    }
-  }, [introVideo]);
 
   // Load session data
   const loadSession = useCallback(async () => {
@@ -590,27 +578,11 @@ export const InterviewPage: React.FC = () => {
               </div>
               <div className="relative aspect-video bg-black rounded-xl overflow-hidden shadow-lg mb-6">
                 {introVideo.video_type === 'upload' && introVideo.mux_playback_id ? (
-                  muxToken ? (
-                    <MuxPlayer
-                      playbackId={introVideo.mux_playback_id}
-                      tokens={{ playback: muxToken }}
-                      streamType="on-demand"
-                      style={{ width: '100%', height: '100%' }}
-                      onLoadStart={() => console.log('🎬 Mux player loading...')}
-                      onLoadedMetadata={() => console.log('✅ Mux player metadata loaded')}
-                      onCanPlay={() => console.log('✅ Mux player can play')}
-                      onError={(e) => console.error('❌ Mux player error:', e)}
-                      onPlay={() => console.log('▶️ Mux player started playing')}
-                      onPause={() => console.log('⏸️ Mux player paused')}
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                        <p className="text-white text-sm">Loading video...</p>
-                      </div>
-                    </div>
-                  )
+                  <MuxPlayer
+                    playbackId={introVideo.mux_playback_id}
+                    streamType="on-demand"
+                    style={{ width: '100%', height: '100%' }}
+                  />
                 ) : introVideo.video_type === 'external' ? (
                   <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
                 ) : null}

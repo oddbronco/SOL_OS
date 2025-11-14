@@ -7,7 +7,6 @@ import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { VideoAssignmentModal } from './VideoAssignmentModal';
 import { triggerMuxUpload } from '../../utils/muxUpload';
-import { getMuxPlaybackToken, getMuxPlaybackUrl } from '../../utils/muxPlaybackToken';
 import Hls from 'hls.js';
 import { Video, Upload, Link as LinkIcon, Play, Trash2, CreditCard as Edit, Check, X, Camera, Square, RotateCcw, UserPlus, Users, AlertCircle } from 'lucide-react';
 
@@ -64,8 +63,6 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const retryCountRef = useRef<number>(0);
-  const MAX_RETRIES = 2;
 
   useEffect(() => {
     loadData();
@@ -108,74 +105,48 @@ export const IntroVideoManager: React.FC<IntroVideoManagerProps> = ({ projectId 
       hlsRef.current = null;
     }
 
-    // If video has Mux playback ID, use HLS streaming
+    // If video has Mux playback ID, use HLS streaming with public URL
     if (selectedVideo.mux_playback_id && selectedVideo.mux_status === 'ready') {
       console.log('🎬 Initializing HLS player for Mux stream in preview');
 
-      const initializeHls = async () => {
-        const token = await getMuxPlaybackToken(selectedVideo.mux_playback_id!);
-        const hlsUrl = getMuxPlaybackUrl(selectedVideo.mux_playback_id!, token || undefined);
-        console.log('🔐 Using', token ? 'signed' : 'unsigned', 'playback URL');
+      const hlsUrl = `https://stream.mux.com/${selectedVideo.mux_playback_id}.m3u8`;
+      console.log('🔐 Using public playback URL');
 
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 90,
-          });
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 90,
+        });
 
-          hls.loadSource(hlsUrl);
-          hls.attachMedia(video);
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(video);
 
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            console.log('✅ HLS manifest loaded');
-          });
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log('✅ HLS manifest loaded');
+        });
 
-          hls.on(Hls.Events.ERROR, async (_event, data) => {
-            console.error('❌ HLS error:', data);
-            if (data.fatal) {
-              console.error('Fatal HLS error:', data.type, data.details);
-              if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                // Try retrying with fresh token (with retry limit)
-                if ((data.details === 'manifestLoadError' || data.details === 'manifestParsingError') &&
-                    retryCountRef.current < MAX_RETRIES) {
-                  retryCountRef.current++;
-                  console.log(`🔄 Retry attempt ${retryCountRef.current}/${MAX_RETRIES} with fresh token...`);
-
-                  try {
-                    const newToken = await getMuxPlaybackToken(selectedVideo.mux_playback_id!);
-                    if (newToken) {
-                      const newUrl = getMuxPlaybackUrl(selectedVideo.mux_playback_id!, newToken);
-                      hls.stopLoad();
-                      hls.loadSource(newUrl);
-                      return;
-                    }
-                  } catch (retryError) {
-                    console.error('❌ Token retry failed:', retryError);
-                  }
-                } else if (retryCountRef.current >= MAX_RETRIES) {
-                  console.error(`❌ Max retries (${MAX_RETRIES}) exceeded. The Mux video asset may not exist or be ready.`);
-                }
-
-                console.log('🔄 Falling back to direct video playback');
-                hls.destroy();
-                if (selectedVideo.video_url && video) {
-                  video.src = selectedVideo.video_url;
-                }
-              } else {
-                hls.startLoad();
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          console.error('❌ HLS error:', data);
+          if (data.fatal) {
+            console.error('Fatal HLS error:', data.type, data.details);
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              console.log('🔄 Falling back to direct video playback');
+              hls.destroy();
+              if (selectedVideo.video_url && video) {
+                video.src = selectedVideo.video_url;
               }
+            } else {
+              hls.startLoad();
             }
-          });
+          }
+        });
 
-          hlsRef.current = hls;
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = hlsUrl;
-          console.log('✅ Using native HLS support');
-        }
-      };
-
-      initializeHls();
+        hlsRef.current = hls;
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = hlsUrl;
+        console.log('✅ Using native HLS support');
+      }
     } else {
       console.log('📹 Using direct video file:', selectedVideo.video_url);
       video.src = selectedVideo.video_url;

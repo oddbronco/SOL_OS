@@ -60,6 +60,14 @@ Deno.serve(async (req: Request) => {
 
     const basicAuth = btoa(`${settings.mux_token_id}:${settings.mux_token_secret}`);
 
+    const { data: appSettings } = await supabase
+      .from('user_settings')
+      .select('app_domain')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const corsOrigin = appSettings?.app_domain || Deno.env.get('SUPABASE_URL')?.replace('//', '//interviews.');
+
     const muxResponse = await fetch('https://api.mux.com/video/v1/assets', {
       method: 'POST',
       headers: {
@@ -69,6 +77,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         input: video.video_url,
         playback_policy: ['public'],
+        cors_origin: corsOrigin,
       }),
     });
 
