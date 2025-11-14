@@ -552,7 +552,7 @@ export const InterviewPage: React.FC = () => {
         </Card>
 
         {/* Video Card */}
-        {introVideo && (
+        {introVideo ? (
           <Card className="overflow-hidden border-0 shadow-xl">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
@@ -578,6 +578,10 @@ export const InterviewPage: React.FC = () => {
               )}
             </div>
           </Card>
+        ) : (
+          <div className="text-center py-4 text-gray-500 text-sm">
+            No intro video found for this project
+          </div>
         )}
 
         {!introVideo && !hasStarted && (
@@ -606,13 +610,16 @@ export const InterviewPage: React.FC = () => {
                   // Only show current question or answered questions
                   if (!isActive && !isAnswered) return null;
 
+                  // If question is answered, it's locked and can't be edited
+                  const isLocked = isAnswered;
+
                   return (
                 <Card
                   key={question.id}
                   id={`question-${question.id}`}
-                  className={`transition-all duration-300 cursor-pointer hover:shadow-lg ${isActive ? 'ring-2 ring-offset-2 shadow-2xl' : ''}`}
+                  className={`transition-all duration-300 ${isLocked ? 'opacity-75' : 'cursor-pointer hover:shadow-lg'} ${isActive ? 'ring-2 ring-offset-2 shadow-2xl' : ''}`}
                   style={isActive ? { ringColor: primaryColor } : {}}
-                  onClick={() => { setCurrentQuestionId(question.id); scrollToQuestion(question.id); }}
+                  onClick={() => { if (!isLocked) { setCurrentQuestionId(question.id); scrollToQuestion(question.id); } }}
                 >
                   <div className="p-6">
                     <div className="flex items-start gap-4">
@@ -625,8 +632,13 @@ export const InterviewPage: React.FC = () => {
                           {isAnswered && <Badge variant="success" size="sm"><CheckCircle className="h-3 w-3 mr-1" />Answered</Badge>}
                         </div>
                         <h3 className="text-xl font-semibold text-gray-900 mb-3">{question.text}</h3>
+                        {isLocked && (
+                          <div className="mt-2">
+                            <Badge variant="success" size="sm"><CheckCircle className="h-3 w-3 mr-1" />Answer Submitted</Badge>
+                          </div>
+                        )}
 
-                        {isActive && (
+                        {isActive && !isLocked && (
                           <div className="mt-6 space-y-6 animate-fadeIn">
                             {/* Response Type Selector */}
                             <div className="grid grid-cols-4 gap-3">
@@ -733,22 +745,6 @@ export const InterviewPage: React.FC = () => {
                                 <><CheckCircle className="h-5 w-5 mr-2" />Save & Continue</>
                               )}
                             </Button>
-
-                            {questionResponses.length > 0 && (
-                              <div className="pt-4 border-t">
-                                <p className="text-sm font-medium text-gray-700 mb-3">Previous Responses ({questionResponses.length})</p>
-                                <div className="space-y-2">
-                                  {questionResponses.map((resp, idx) => (
-                                    <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm">
-                                      <Badge variant="success" size="sm" className="mb-2">{resp.response_type}</Badge>
-                                      {resp.response_text && <p className="text-gray-700">{resp.response_text}</p>}
-                                      {resp.file_name && <p className="text-gray-600">{resp.file_name}</p>}
-                                      {resp.created_at && <p className="text-xs text-gray-500 mt-2">{new Date(resp.created_at).toLocaleString()}</p>}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
