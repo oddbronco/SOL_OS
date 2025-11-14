@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { AnswerQuestionsModal } from '../components/interviews/AnswerQuestionsModal';
+import { InlineInterviewFlow } from '../components/interviews/InlineInterviewFlow';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -1156,14 +1156,13 @@ export const InterviewPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Questions Modal */}
+        {/* Interview Flow */}
         {showQuestions && session && stakeholder && project && (
-          <AnswerQuestionsModal
-            isOpen={showQuestions}
+          <InlineInterviewFlow
             session={session}
             stakeholder={stakeholder}
             project={project}
-            onClose={() => setShowQuestions(false)}
+            onBack={() => setShowQuestions(false)}
             onSuccess={async () => {
               await loadSession();
             }}
@@ -1171,6 +1170,8 @@ export const InterviewPage: React.FC = () => {
               await loadSession();
               setShowQuestions(false);
             }}
+            primaryColor={projectBranding.primary_color}
+            textColor={projectBranding.text_color}
           />
         )}
       </div>
