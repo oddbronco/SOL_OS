@@ -123,18 +123,33 @@ export const InterviewPage: React.FC = () => {
       if (!introVideo || !videoRef.current) return;
       if (introVideo.video_type === 'upload' && introVideo.mux_playback_id) {
         try {
-          const playbackUrl = await getMuxPlaybackUrl(introVideo.mux_playback_id);
+          console.log('🎬 Initializing video playback for:', introVideo.mux_playback_id);
+          const token = await getMuxPlaybackToken(introVideo.mux_playback_id);
+          const playbackUrl = getMuxPlaybackUrl(introVideo.mux_playback_id, token || undefined);
+          console.log('🎬 Playback URL:', playbackUrl);
+
           if (Hls.isSupported()) {
             if (hlsRef.current) hlsRef.current.destroy();
-            const hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60, enableWorker: true });
+            const hls = new Hls({
+              maxBufferLength: 30,
+              maxMaxBufferLength: 60,
+              enableWorker: true,
+              debug: false
+            });
             hlsRef.current = hls;
             hls.loadSource(playbackUrl);
             hls.attachMedia(videoRef.current);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              console.log('✅ Video ready to play');
+            });
+            hls.on(Hls.Events.ERROR, (event, data) => {
+              console.error('❌ HLS error:', data);
+            });
           } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
             videoRef.current.src = playbackUrl;
           }
         } catch (error) {
-          console.error('Failed to load video:', error);
+          console.error('❌ Failed to load video:', error);
         }
       }
     };
@@ -302,13 +317,15 @@ export const InterviewPage: React.FC = () => {
 
   const scrollToQuestions = () => {
     setHasStarted(true);
-    if (questions.length > 0) {
-      setCurrentQuestionId(questions[0].id);
-      setTimeout(() => {
-        questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        scrollToQuestion(questions[0].id);
-      }, 100);
-    }
+    setTimeout(() => {
+      if (questions.length > 0) {
+        setCurrentQuestionId(questions[0].id);
+        setTimeout(() => {
+          questionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          scrollToQuestion(questions[0].id);
+        }, 100);
+      }
+    }, 300);
   };
 
   const scrollToQuestion = (questionId: string) => {
@@ -404,12 +421,18 @@ export const InterviewPage: React.FC = () => {
       if (savedAny) {
         await loadQuestions(project.id, stakeholder.id, session.id);
         await loadSession();
-        // Move to next question
+
+        // Move to next unanswered question
         const currentIndex = questions.findIndex(q => q.id === questionId);
         if (currentIndex < questions.length - 1) {
           const nextQuestion = questions[currentIndex + 1];
           setCurrentQuestionId(nextQuestion.id);
-          setTimeout(() => scrollToQuestion(nextQuestion.id), 300);
+          setTimeout(() => {
+            scrollToQuestion(nextQuestion.id);
+          }, 300);
+        } else {
+          // All questions answered - show completion option
+          setCurrentQuestionId(null);
         }
       }
     } catch (error) {
@@ -551,8 +574,8 @@ export const InterviewPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Video Card */}
-        {introVideo ? (
+        {/* Video Card - Only show before interview starts */}
+        {!hasStarted && introVideo && (
           <Card className="overflow-hidden border-0 shadow-xl">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4">
@@ -571,20 +594,15 @@ export const InterviewPage: React.FC = () => {
                   <iframe src={getEmbedUrl(introVideo.video_url)} className="absolute inset-0 w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
                 )}
               </div>
-              {!hasStarted && (
-                <Button onClick={scrollToQuestions} className="w-full" size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
-                  Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
-                </Button>
-              )}
+              <Button onClick={scrollToQuestions} className="w-full" size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
+                Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
+              </Button>
             </div>
           </Card>
-        ) : (
-          <div className="text-center py-4 text-gray-500 text-sm">
-            No intro video found for this project
-          </div>
         )}
 
-        {!introVideo && !hasStarted && (
+        {/* Begin button if no video */}
+        {!hasStarted && !introVideo && (
           <div className="text-center py-8">
             <Button onClick={scrollToQuestions} size="lg" style={{ backgroundColor: primaryColor, color: textColor }}>
               Begin Interview <ChevronRight className="h-5 w-5 ml-2" />
