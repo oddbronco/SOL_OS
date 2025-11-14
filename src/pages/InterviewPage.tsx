@@ -59,6 +59,14 @@ export const InterviewPage: React.FC = () => {
   const projectId = projectIdFromParams || projectIdFromQuery;
   const stakeholderId = stakeholderIdFromParams || stakeholderIdFromQuery;
 
+  console.log('🚀 InterviewPage mounted with params:', {
+    sessionToken,
+    projectId,
+    stakeholderId,
+    passwordFromUrl,
+    url: window.location.href
+  });
+
   // State
   const [session, setSession] = useState<any>(null);
   const [stakeholder, setStakeholder] = useState<any>(null);
@@ -115,7 +123,10 @@ export const InterviewPage: React.FC = () => {
   };
 
   const loadSession = useCallback(async () => {
-    if (!projectId || !stakeholderId) {
+    console.log('🔍 loadSession called with:', { projectId, stakeholderId, sessionToken });
+
+    if (!sessionToken && (!projectId || !stakeholderId)) {
+      console.error('❌ Missing required parameters');
       setError('Missing required parameters');
       setLoading(false);
       setSessionState('not_found');
@@ -123,7 +134,7 @@ export const InterviewPage: React.FC = () => {
     }
 
     try {
-      console.log('Loading session for:', { projectId, stakeholderId, sessionToken });
+      console.log('✅ Loading session for:', { projectId, stakeholderId, sessionToken });
 
       let sessionQuery = supabase
         .from('interview_sessions')
@@ -148,6 +159,8 @@ export const InterviewPage: React.FC = () => {
 
       const { data: sessionData, error: sessionError } = await sessionQuery.maybeSingle();
 
+      console.log('📊 Query result:', { sessionData, sessionError });
+
       if (sessionError) {
         console.error('❌ Session query error:', sessionError);
         setError(`Database error: ${sessionError.message}`);
@@ -163,10 +176,16 @@ export const InterviewPage: React.FC = () => {
         return;
       }
 
+      console.log('✅ Session data received:', sessionData);
+
       const projectData = sessionData.project;
       const stakeholderData = sessionData.stakeholder;
 
+      console.log('👤 Stakeholder:', stakeholderData);
+      console.log('📁 Project:', projectData);
+
       if (!projectData || !stakeholderData) {
+        console.error('❌ Missing project or stakeholder data');
         setSessionState('not_found');
         setLoading(false);
         return;
@@ -202,9 +221,19 @@ export const InterviewPage: React.FC = () => {
 
       await loadQuestions(projectData.id, stakeholderData.id, sessionData.id);
 
+      console.log('🔐 Password check:', {
+        hasPassword: !!sessionData.access_password,
+        passwordFromUrl,
+        sessionPassword: sessionData.access_password,
+        match: passwordFromUrl === sessionData.access_password
+      });
+
       if (sessionData.access_password) {
-        setAuthenticated(passwordFromUrl === sessionData.access_password);
+        const isAuthenticated = passwordFromUrl === sessionData.access_password;
+        console.log(isAuthenticated ? '✅ Password correct' : '❌ Password incorrect');
+        setAuthenticated(isAuthenticated);
       } else {
+        console.log('✅ No password required');
         setAuthenticated(true);
       }
     } catch (err) {
