@@ -194,9 +194,44 @@ export const InterviewPage: React.FC = () => {
       const { data: branding } = await supabase.from('project_branding').select('*').eq('project_id', projectData.id).maybeSingle();
       if (branding) setProjectBranding(branding);
 
-      const { data: videoAssignment } = await supabase.from('intro_video_assignments').select(`intro_video:project_intro_videos(*)`).eq('project_id', projectData.id).eq('stakeholder_id', stakeholderData.id).maybeSingle();
-      console.log('🎥 Video assignment:', videoAssignment);
-      if (videoAssignment?.intro_video) setIntroVideo(videoAssignment.intro_video);
+      // Try to get video assignment (by session first, then by stakeholder)
+      let videoData = null;
+      if (sessionData?.id) {
+        const { data: sessionAssignment } = await supabase
+          .from('intro_video_assignments')
+          .select(`intro_video:project_intro_videos(*)`)
+          .eq('project_id', projectData.id)
+          .eq('interview_session_id', sessionData.id)
+          .maybeSingle();
+        console.log('🎥 Session video assignment:', sessionAssignment);
+        if (sessionAssignment?.intro_video) videoData = sessionAssignment.intro_video;
+      }
+
+      if (!videoData) {
+        const { data: stakeholderAssignment } = await supabase
+          .from('intro_video_assignments')
+          .select(`intro_video:project_intro_videos(*)`)
+          .eq('project_id', projectData.id)
+          .eq('stakeholder_id', stakeholderData.id)
+          .is('interview_session_id', null)
+          .maybeSingle();
+        console.log('🎥 Stakeholder video assignment:', stakeholderAssignment);
+        if (stakeholderAssignment?.intro_video) videoData = stakeholderAssignment.intro_video;
+      }
+
+      // Fall back to default active video
+      if (!videoData) {
+        const { data: defaultVideo } = await supabase
+          .from('project_intro_videos')
+          .select('*')
+          .eq('project_id', projectData.id)
+          .eq('is_active', true)
+          .maybeSingle();
+        console.log('🎥 Default video:', defaultVideo);
+        if (defaultVideo) videoData = defaultVideo;
+      }
+
+      if (videoData) setIntroVideo(videoData);
 
       await loadQuestions(projectData.id, stakeholderData.id, sessionData.id);
 
