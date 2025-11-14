@@ -126,7 +126,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: video, error: videoError } = await supabase
       .from('project_intro_videos')
-      .select('project_id, projects(customer_id)')
+      .select('project_id, projects!inner(customer_id)')
       .eq('mux_playback_id', playbackId)
       .maybeSingle();
 
@@ -139,12 +139,12 @@ Deno.serve(async (req: Request) => {
       throw new Error('Project customer not found');
     }
 
-    console.log('🔍 Looking up customer:', projectCustomerId);
+    console.log('🔍 Looking up customer UUID:', projectCustomerId);
 
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('owner_id')
-      .eq('customer_id', projectCustomerId)
+      .eq('id', projectCustomerId)
       .maybeSingle();
 
     console.log('👤 Customer lookup result:', { customer, customerError });
