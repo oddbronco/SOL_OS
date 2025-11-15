@@ -22,6 +22,10 @@ interface ProjectUpload {
   include_in_generation: boolean;
   description?: string;
   created_at: string;
+  extraction_status?: string;
+  content_type?: string;
+  word_count?: number;
+  extraction_error?: string;
 }
 
 interface FilesTabProps {
@@ -115,11 +119,51 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
         meeting_date: '',
         include_in_generation: true
       });
+
+      // Auto-extract content if include_in_generation is true
+      if (uploadForm.include_in_generation && data) {
+        triggerAutoExtraction(data.id);
+      }
     } catch (error) {
       console.error('Error uploading file:', error);
       alert('Failed to upload file');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const triggerAutoExtraction = async (uploadId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      console.log('🔄 Auto-extracting content for uploaded file...');
+
+      // Call extraction edge function in background
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-file-content`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ uploadId }),
+        }
+      ).then(async (response) => {
+        const result = await response.json();
+        if (response.ok) {
+          console.log('✅ Auto-extraction completed:', result);
+          loadUploads(); // Refresh to show extracted content
+        } else {
+          console.warn('⚠️ Auto-extraction failed:', result.error);
+        }
+      }).catch(err => {
+        console.warn('⚠️ Auto-extraction error:', err);
+      });
+
+    } catch (error) {
+      console.warn('⚠️ Could not trigger auto-extraction:', error);
     }
   };
 
@@ -145,15 +189,22 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
 
   const toggleIncludeInGeneration = async (upload: ProjectUpload) => {
     try {
+      const newValue = !upload.include_in_generation;
+
       const { error } = await supabase
         .from('project_uploads')
-        .update({ include_in_generation: !upload.include_in_generation })
+        .update({ include_in_generation: newValue })
         .eq('id', upload.id);
 
       if (error) throw error;
       setUploads(uploads.map(u =>
-        u.id === upload.id ? { ...u, include_in_generation: !u.include_in_generation } : u
+        u.id === upload.id ? { ...u, include_in_generation: newValue } : u
       ));
+
+      // If toggling ON and content not yet extracted, auto-extract
+      if (newValue && (!upload.extraction_status || upload.extraction_status === 'pending')) {
+        triggerAutoExtraction(upload.id);
+      }
     } catch (error) {
       console.error('Error updating upload:', error);
     }

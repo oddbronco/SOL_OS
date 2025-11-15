@@ -279,10 +279,12 @@ export const FileContentExtractor: React.FC<FileContentExtractorProps> = ({ proj
           <div className="text-sm text-blue-900">
             <p className="font-medium mb-1">How Content Extraction Works</p>
             <ul className="list-disc list-inside space-y-1 text-blue-800">
-              <li><strong>Video/Audio files:</strong> Automatically transcribed using OpenAI Whisper with timestamps</li>
-              <li><strong>Text files:</strong> Full content extracted and formatted for AI</li>
+              <li><strong>Automatic:</strong> Content extraction happens automatically when you upload files with "Include in Generation" checked</li>
+              <li><strong>Video/Audio files:</strong> Transcribed using OpenAI Whisper with timestamps (may take a few minutes)</li>
+              <li><strong>Text files:</strong> Full content extracted instantly and formatted for AI</li>
               <li><strong>JSON/CSV:</strong> Structured data parsed and made available</li>
               <li><strong>Document Generation:</strong> All extracted content is included in the {`{{uploads}}`} variable</li>
+              <li><strong>Manual:</strong> You can also manually extract content by clicking the "Extract" button</li>
             </ul>
           </div>
         </div>
