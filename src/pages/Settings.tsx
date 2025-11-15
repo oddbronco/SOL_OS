@@ -20,6 +20,7 @@ export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [showApiKeySetup, setShowApiKeySetup] = useState(false);
   const [showMuxSetup, setShowMuxSetup] = useState(false);
+  const [showAssemblyAISetup, setShowAssemblyAISetup] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -32,6 +33,9 @@ export const Settings: React.FC = () => {
   const [appDomains, setAppDomains] = useState<string[]>(['interviews.solprojectos.com', 'solprojectos.com']);
   const [hasMuxKey, setHasMuxKey] = useState(false);
   const [loadingMux, setLoadingMux] = useState(true);
+  const [assemblyAIKey, setAssemblyAIKey] = useState('');
+  const [hasAssemblyAIKey, setHasAssemblyAIKey] = useState(false);
+  const [loadingAssemblyAI, setLoadingAssemblyAI] = useState(true);
   const isDark = false; // Always light mode
   const [profileData, setProfileData] = useState({
     fullName: user?.fullName || '',
@@ -71,6 +75,7 @@ export const Settings: React.FC = () => {
         description: ''
       });
       loadMuxCredentials();
+      loadAssemblyAIKey();
     }
   }, [user]);
 
@@ -107,6 +112,34 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const loadAssemblyAIKey = async () => {
+    if (!user) return;
+
+    setLoadingAssemblyAI(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('assemblyai_api_key')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading AssemblyAI key:', error);
+      }
+
+      if (data?.assemblyai_api_key) {
+        setAssemblyAIKey(data.assemblyai_api_key);
+        setHasAssemblyAIKey(true);
+      } else {
+        setHasAssemblyAIKey(false);
+      }
+    } catch (err) {
+      console.error('Error loading AssemblyAI key:', err);
+    } finally {
+      setLoadingAssemblyAI(false);
+    }
+  };
+
   const saveAssemblyAIKey = async (apiKey: string) => {
     if (!user) return false;
     try {
@@ -120,7 +153,9 @@ export const Settings: React.FC = () => {
           onConflict: 'user_id'
         });
       if (error) throw error;
-      alert('AssemblyAI API key saved successfully! You can now transcribe large video/audio files.');
+
+      setAssemblyAIKey(apiKey);
+      setHasAssemblyAIKey(!!apiKey);
       return true;
     } catch (err: any) {
       console.error('Error saving AssemblyAI key:', err);
@@ -465,11 +500,25 @@ export const Settings: React.FC = () => {
 
             {/* AssemblyAI Section */}
             <div className="border-t border-gray-200 pt-6 mt-6">
-              <Card className={isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'}>
+              <Card className={hasAssemblyAIKey
+                ? isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
+                : isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'
+              }>
                 <div className="flex items-center">
-                  <Key className={`h-5 w-5 mr-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
-                  <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>
-                    AssemblyAI transcribes large video/audio files over 25MB. Costs $0.015/minute. Optional but recommended for long meetings.
+                  <Key className={`h-5 w-5 mr-2 ${
+                    hasAssemblyAIKey
+                      ? isDark ? 'text-primary-400' : 'text-primary-600'
+                      : isDark ? 'text-blue-400' : 'text-blue-600'
+                  }`} />
+                  <p className={`text-sm ${
+                    hasAssemblyAIKey
+                      ? isDark ? 'text-primary-300' : 'text-primary-800'
+                      : isDark ? 'text-blue-300' : 'text-blue-800'
+                  }`}>
+                    {hasAssemblyAIKey
+                      ? 'AssemblyAI is configured. You can now transcribe large video/audio files (>25MB).'
+                      : 'AssemblyAI transcribes large video/audio files over 25MB. Costs $0.015/minute. Optional but recommended for long meetings.'
+                    }
                   </p>
                 </div>
               </Card>
@@ -480,17 +529,15 @@ export const Settings: React.FC = () => {
                     AssemblyAI API Key (Optional)
                   </h4>
                   <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    For transcribing files larger than 25MB (OpenAI Whisper limit)
+                    {hasAssemblyAIKey ? 'API key configured for large file transcription' : 'For transcribing files larger than 25MB (OpenAI Whisper limit)'}
                   </p>
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    const key = prompt('Enter your AssemblyAI API key (get one free at assemblyai.com):');
-                    if (key) saveAssemblyAIKey(key);
-                  }}
+                  onClick={() => setShowAssemblyAISetup(true)}
+                  loading={loadingAssemblyAI}
                 >
-                  Configure AssemblyAI
+                  {hasAssemblyAIKey ? 'Update API Key' : 'Set Up AssemblyAI'}
                 </Button>
               </div>
             </div>
@@ -690,6 +737,68 @@ export const Settings: React.FC = () => {
           // Optionally show a success message or refresh data
         }}
       />
+
+      {/* AssemblyAI Setup Modal */}
+      <Modal
+        isOpen={showAssemblyAISetup}
+        onClose={() => setShowAssemblyAISetup(false)}
+        title="AssemblyAI API Setup"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <h4 className="font-medium text-blue-900 mb-2">What is AssemblyAI?</h4>
+            <p className="text-sm text-blue-800 mb-2">
+              AssemblyAI transcribes large video/audio files that exceed OpenAI Whisper's 25MB limit.
+              Perfect for long meetings (1-2 hours) and high-quality recordings.
+            </p>
+            <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
+              <li>Supports unlimited file sizes</li>
+              <li>Costs $0.015/minute ($0.00025/second)</li>
+              <li>High accuracy transcription</li>
+              <li>Get a free API key at <a href="https://www.assemblyai.com/" target="_blank" rel="noopener noreferrer" className="underline font-medium">assemblyai.com</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              AssemblyAI API Key
+            </label>
+            <Input
+              type="password"
+              placeholder="Enter your AssemblyAI API key"
+              value={assemblyAIKey}
+              onChange={(e) => setAssemblyAIKey(e.target.value)}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Your API key is stored securely and only used for transcribing large files.
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAssemblyAISetup(false);
+                loadAssemblyAIKey(); // Reload to reset if user cancels
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                const success = await saveAssemblyAIKey(assemblyAIKey);
+                if (success) {
+                  setShowAssemblyAISetup(false);
+                  alert('AssemblyAI API key saved successfully! You can now transcribe large video/audio files.');
+                }
+              }}
+              disabled={!assemblyAIKey.trim()}
+            >
+              Save API Key
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Mux Setup Modal */}
       <Modal
