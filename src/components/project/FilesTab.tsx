@@ -81,6 +81,27 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
 
     try {
       setUploading(true);
+
+      // Validate file size (200MB limit)
+      const maxSize = 200 * 1024 * 1024; // 200MB in bytes
+      if (selectedFile.size > maxSize) {
+        alert(
+          `File is too large (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB). ` +
+          `Maximum file size is 200MB. ` +
+          `\n\nFor larger files, please:\n` +
+          `1. Compress the video using HandBrake or similar tool\n` +
+          `2. Use a lower quality/bitrate setting\n` +
+          `3. Or split into smaller segments`
+        );
+        setUploading(false);
+        return;
+      }
+
+      // Show progress for large files
+      if (selectedFile.size > 25 * 1024 * 1024) {
+        console.log(`📤 Uploading large file: ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`);
+      }
+
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${Date.now()}_${selectedFile.name}`;
       const filePath = `${projectId}/${fileName}`;
@@ -124,9 +145,25 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
       if (uploadForm.include_in_generation && data) {
         triggerAutoExtraction(data.id);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading file:', error);
-      alert('Failed to upload file');
+
+      let errorMessage = 'Failed to upload file';
+
+      if (error.message) {
+        errorMessage += ': ' + error.message;
+      }
+
+      // Provide helpful context for common errors
+      if (error.message?.includes('size')) {
+        errorMessage += '\n\nThe file may be too large. Maximum size is 200MB.';
+      } else if (error.message?.includes('type') || error.message?.includes('mime')) {
+        errorMessage += '\n\nThis file type may not be supported.';
+      } else if (error.message?.includes('storage')) {
+        errorMessage += '\n\nThere may be a storage configuration issue. Please contact support.';
+      }
+
+      alert(errorMessage);
     } finally {
       setUploading(false);
     }
@@ -392,9 +429,21 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
               className="w-full"
             />
             {selectedFile && (
-              <p className="text-sm text-gray-600 mt-2">
-                Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-              </p>
+              <div className="mt-2 space-y-1">
+                <p className="text-sm text-gray-600">
+                  Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                </p>
+                {selectedFile.size > 200 * 1024 * 1024 && (
+                  <p className="text-sm text-red-600 font-medium">
+                    ⚠️ File exceeds 200MB limit. Please compress before uploading.
+                  </p>
+                )}
+                {selectedFile.size > 25 * 1024 * 1024 && selectedFile.size <= 200 * 1024 * 1024 && (
+                  <p className="text-sm text-blue-600">
+                    ℹ️ Large file - will use AssemblyAI for transcription if configured
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
