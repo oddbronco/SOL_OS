@@ -107,6 +107,28 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const saveAssemblyAIKey = async (apiKey: string) => {
+    if (!user) return false;
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: user.id,
+          assemblyai_api_key: apiKey || null,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+      if (error) throw error;
+      alert('AssemblyAI API key saved successfully! You can now transcribe large video/audio files.');
+      return true;
+    } catch (err: any) {
+      console.error('Error saving AssemblyAI key:', err);
+      alert(err.message || 'Failed to save AssemblyAI key');
+      return false;
+    }
+  };
+
  // Save Mux credentials
   const saveMuxCredentials = async (
     tokenId: string,
@@ -441,8 +463,40 @@ export const Settings: React.FC = () => {
               </Button>
             </div>
 
+            {/* AssemblyAI Section */}
+            <div className="border-t border-gray-200 pt-6 mt-6">
+              <Card className={isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'}>
+                <div className="flex items-center">
+                  <Key className={`h-5 w-5 mr-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>
+                    AssemblyAI transcribes large video/audio files over 25MB. Costs $0.015/minute. Optional but recommended for long meetings.
+                  </p>
+                </div>
+              </Card>
+
+              <div className="flex items-center justify-between mt-4">
+                <div>
+                  <h4 className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    AssemblyAI API Key (Optional)
+                  </h4>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    For transcribing files larger than 25MB (OpenAI Whisper limit)
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const key = prompt('Enter your AssemblyAI API key (get one free at assemblyai.com):');
+                    if (key) saveAssemblyAIKey(key);
+                  }}
+                >
+                  Configure AssemblyAI
+                </Button>
+              </div>
+            </div>
+
             {/* Mux Section */}
-            <div className="border-t border-gray-200 pt-6">
+            <div className="border-t border-gray-200 pt-6 mt-6">
               <Card className={hasMuxKey
                 ? isDark ? 'bg-green-900/20 border-primary-500/30' : 'bg-primary-50 border-green-200'
                 : isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'
