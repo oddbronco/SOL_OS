@@ -8,6 +8,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { FileContentExtractor } from './FileContentExtractor';
 
 interface ProjectUpload {
   id: string;
@@ -197,6 +198,9 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
           Upload File
         </Button>
       </div>
+
+      {/* File Content Extraction */}
+      <FileContentExtractor projectId={projectId} />
 
       {/* Search and Filter */}
       {uploads.length > 0 && (

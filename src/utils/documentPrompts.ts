@@ -10,6 +10,7 @@ import {
   groupResponsesByCategory,
   groupResponsesByStakeholder
 } from './documentDataPrep';
+import { createContextChunks, buildPromptWithinLimit, estimateTokens } from './contextChunking';
 
 export interface PromptContext {
   projectName?: string;
@@ -21,6 +22,14 @@ export interface PromptContext {
   project?: any;
   client?: any;
   stakeholders?: any[];
+}
+
+export interface EnhancedPromptResult {
+  prompt: string;
+  tokenEstimate: number;
+  usedVariables: string[];
+  droppedContent?: string[];
+  needsChunking: boolean;
 }
 
 export const buildStructuredPrompt = (
@@ -316,4 +325,96 @@ Requirements Basis:
 
 Technical References:
 {{uploads}}`
+};
+
+export const buildEnhancedPrompt = (
+  basePrompt: string,
+  context: PromptContext,
+  documentTitle: string,
+  maxTokens: number = 120000
+): EnhancedPromptResult => {
+  const contextParts: Record<string, string> = {};
+
+  contextParts.project_summary = context.project
+    ? formatProjectForPrompt(prepareProjectSummary(context.project, context.client))
+    : '';
+
+  contextParts.template_prompt = basePrompt;
+
+  if (context.stakeholderResponses && context.stakeholderResponses.length > 0) {
+    const qaPairs = prepareQuestionAnswerPairs(context.stakeholderResponses);
+    contextParts.question_answers = formatQuestionAnswersForPrompt(qaPairs);
+
+    if (context.stakeholders) {
+      const profiles = prepareStakeholderProfiles(context.stakeholders, context.stakeholderResponses);
+      contextParts.stakeholder_profiles = formatStakeholdersForPrompt(profiles);
+    }
+  }
+
+  if (context.uploads && context.uploads.length > 0) {
+    const files = prepareUploadedFiles(context.uploads);
+    contextParts.file_content = formatUploadsForPrompt(files);
+  }
+
+  if (context.questions && context.questions.length > 0) {
+    contextParts.questions_list = context.questions
+      .map(q => `- [${q.category}] ${q.text}`)
+      .join('\n');
+  }
+
+  contextParts.metadata = `Document: ${documentTitle}\nGenerated: ${new Date().toLocaleString()}`;
+
+  const chunkedContext = createContextChunks(contextParts, {
+    maxTokens,
+    overlapTokens: 2000,
+    priorityOrder: [
+      'project_summary',
+      'template_prompt',
+      'question_answers',
+      'stakeholder_profiles',
+      'file_content',
+      'questions_list',
+      'metadata'
+    ]
+  });
+
+  console.log(`📊 Context Analysis:
+  - Total chunks: ${chunkedContext.chunks.length}
+  - Estimated tokens: ${chunkedContext.totalTokens}
+  - Needs chunking: ${chunkedContext.needsChaining}
+  - Strategy: ${chunkedContext.chainStrategy || 'single-pass'}`);
+
+  chunkedContext.chunks.forEach(chunk => {
+    console.log(`  - ${chunk.type}: ~${chunk.tokenEstimate} tokens (priority: ${chunk.priority})`);
+  });
+
+  const { prompt, usedChunks, droppedChunks } = buildPromptWithinLimit(
+    chunkedContext,
+    basePrompt,
+    maxTokens
+  );
+
+  const finalPrompt = buildStructuredPrompt(prompt, context, documentTitle);
+
+  const usedVariables: string[] = [];
+  const variablePatterns = [
+    'project_name', 'project_description', 'transcript',
+    'stakeholder_responses', 'question_answers', 'responses_by_category',
+    'responses_by_stakeholder', 'stakeholder_profiles', 'stakeholders',
+    'uploads', 'files', 'questions', 'question_list', 'project_summary'
+  ];
+
+  variablePatterns.forEach(varName => {
+    if (basePrompt.includes(`{{${varName}}}`)) {
+      usedVariables.push(varName);
+    }
+  });
+
+  return {
+    prompt: finalPrompt,
+    tokenEstimate: estimateTokens(finalPrompt),
+    usedVariables,
+    droppedContent: droppedChunks.length > 0 ? droppedChunks : undefined,
+    needsChunking: chunkedContext.needsChaining
+  };
 };
