@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
-const MAX_WHISPER_SIZE = 24 * 1024 * 1024; // 24MB to be safe (Whisper limit is 25MB)
+const MAX_WHISPER_SIZE = 24 * 1024 * 1024;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -76,12 +76,11 @@ Deno.serve(async (req: Request) => {
     console.log('🔄 Processing large file:', upload.file_name, `(${(upload.file_size / (1024 * 1024)).toFixed(2)} MB)`);
 
     let extractedContent = '';
-    let contentType = 'binary';
+    let contentType2 = 'binary';
     let extractionStatus = 'completed';
     let extractionError = null;
 
     try {
-      // Check if it's a video/audio file
       const mimeType = upload.mime_type?.toLowerCase() || '';
       const fileName = upload.file_name?.toLowerCase() || '';
 
@@ -94,11 +93,9 @@ Deno.serve(async (req: Request) => {
 
       if (isVideo || isAudio) {
         console.log(`🎬 Large ${isVideo ? 'video' : 'audio'} file detected, using chunked transcription...`);
-
-        // For large files, use AssemblyAI or provide alternative
         const result = await transcribeLargeFile(supabase, upload, user.id, isVideo, fileBlob);
         extractedContent = result.content;
-        contentType = isVideo ? 'video_transcript' : 'audio_transcript';
+        contentType2 = isVideo ? 'video_transcript' : 'audio_transcript';
       } else {
         throw new Error('This endpoint is only for large video/audio files');
       }
@@ -113,7 +110,7 @@ Deno.serve(async (req: Request) => {
       .from('project_uploads')
       .update({
         extracted_content: extractedContent || null,
-        content_type: contentType,
+        content_type: contentType2,
         extraction_status: extractionStatus,
         extraction_error: extractionError,
       })
@@ -125,7 +122,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         uploadId,
-        contentType,
+        contentType: contentType2,
         extractionStatus,
         wordCount: extractedContent ? extractedContent.split(/\s+/).length : 0,
       }),
@@ -189,19 +186,16 @@ async function transcribeLargeFile(
 
   console.log(`📊 File size: ${(fileSize / (1024 * 1024)).toFixed(2)} MB`);
 
-  // If under Whisper limit and OpenAI is configured, use Whisper
   if (fileSize < MAX_WHISPER_SIZE && settings?.openai_api_key) {
     console.log('✅ File under 25MB, using single Whisper request');
     return await transcribeWithWhisper(fileData, upload.file_name, settings.openai_api_key);
   }
 
-  // For files over 25MB, use AssemblyAI if configured
   if (settings?.assemblyai_api_key) {
     console.log(`🎙️ File over 25MB (${(fileSize / (1024 * 1024)).toFixed(2)} MB), using AssemblyAI`);
     return await transcribeWithAssemblyAI(fileData, upload.file_name, settings.assemblyai_api_key);
   }
 
-  // No appropriate transcription service configured
   throw new Error(
     `File is ${(fileSize / (1024 * 1024)).toFixed(2)} MB. ` +
     `Files over 25MB require AssemblyAI to be configured. ` +
