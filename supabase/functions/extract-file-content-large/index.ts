@@ -34,10 +34,28 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { uploadId } = await req.json();
+    const contentType = req.headers.get('content-type') || '';
+    let uploadId: string;
+    let fileBlob: Blob | null = null;
 
-    if (!uploadId) {
-      throw new Error('Missing uploadId parameter');
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      uploadId = formData.get('uploadId') as string;
+      fileBlob = formData.get('file') as Blob;
+
+      if (!uploadId) {
+        throw new Error('Missing uploadId in form data');
+      }
+      if (!fileBlob) {
+        throw new Error('Missing file in form data');
+      }
+    } else {
+      const body = await req.json();
+      uploadId = body.uploadId;
+
+      if (!uploadId) {
+        throw new Error('Missing uploadId parameter');
+      }
     }
 
     const { data: upload, error: uploadError } = await supabase
@@ -78,7 +96,7 @@ Deno.serve(async (req: Request) => {
         console.log(`🎬 Large ${isVideo ? 'video' : 'audio'} file detected, using chunked transcription...`);
 
         // For large files, use AssemblyAI or provide alternative
-        const result = await transcribeLargeFile(supabase, upload, user.id, isVideo);
+        const result = await transcribeLargeFile(supabase, upload, user.id, isVideo, fileBlob);
         extractedContent = result.content;
         contentType = isVideo ? 'video_transcript' : 'audio_transcript';
       } else {
@@ -139,46 +157,55 @@ async function transcribeLargeFile(
   supabase: any,
   upload: any,
   userId: string,
-  isVideo: boolean
+  isVideo: boolean,
+  providedFileBlob: Blob | null = null
 ): Promise<{ content: string }> {
   const { data: settings } = await supabase
     .from('user_settings')
-    .select('openai_api_key')
+    .select('openai_api_key, assemblyai_api_key')
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (!settings?.openai_api_key) {
-    throw new Error('OpenAI API key not configured');
+  let fileData: Blob;
+  let fileSize: number;
+
+  if (providedFileBlob) {
+    console.log('📦 Using directly provided file blob');
+    fileData = providedFileBlob;
+    fileSize = fileData.size;
+  } else {
+    const { data: downloadedFile, error: downloadError } = await supabase
+      .storage
+      .from('project-files')
+      .download(upload.file_path);
+
+    if (downloadError) {
+      throw new Error(`Failed to download file: ${downloadError.message}`);
+    }
+
+    fileData = downloadedFile;
+    fileSize = fileData.size;
   }
 
-  // Download file
-  const { data: fileData, error: downloadError } = await supabase
-    .storage
-    .from('project-files')
-    .download(upload.file_path);
-
-  if (downloadError) {
-    throw new Error(`Failed to download file: ${downloadError.message}`);
-  }
-
-  const fileSize = fileData.size;
   console.log(`📊 File size: ${(fileSize / (1024 * 1024)).toFixed(2)} MB`);
 
-  // If under Whisper limit, use single request
-  if (fileSize < MAX_WHISPER_SIZE) {
+  // If under Whisper limit and OpenAI is configured, use Whisper
+  if (fileSize < MAX_WHISPER_SIZE && settings?.openai_api_key) {
     console.log('✅ File under 25MB, using single Whisper request');
     return await transcribeWithWhisper(fileData, upload.file_name, settings.openai_api_key);
   }
 
-  // For files over 25MB, we need to provide alternative instructions
-  // Since we can't easily split audio/video in Deno without ffmpeg
+  // For files over 25MB, use AssemblyAI if configured
+  if (settings?.assemblyai_api_key) {
+    console.log(`🎙️ File over 25MB (${(fileSize / (1024 * 1024)).toFixed(2)} MB), using AssemblyAI`);
+    return await transcribeWithAssemblyAI(fileData, upload.file_name, settings.assemblyai_api_key);
+  }
+
+  // No appropriate transcription service configured
   throw new Error(
     `File is ${(fileSize / (1024 * 1024)).toFixed(2)} MB. ` +
-    `Files over 25MB require pre-processing. ` +
-    `Please use a tool like HandBrake or FFmpeg to compress the video to under 25MB, ` +
-    `or split it into smaller segments before uploading. ` +
-    `Alternatively, upload the video to YouTube (as unlisted) and use a transcript service like Rev.com or Otter.ai, ` +
-    `then upload the resulting transcript as a text file.`
+    `Files over 25MB require AssemblyAI to be configured. ` +
+    `Please add your AssemblyAI API key in Settings.`
   );
 }
 
@@ -229,4 +256,119 @@ function formatTimestamp(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+async function transcribeWithAssemblyAI(
+  fileBlob: Blob,
+  fileName: string,
+  apiKey: string
+): Promise<{ content: string }> {
+  console.log('📤 Uploading file to AssemblyAI...');
+
+  const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
+    method: 'POST',
+    headers: {
+      'Authorization': apiKey,
+    },
+    body: fileBlob,
+  });
+
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text();
+    throw new Error(`AssemblyAI upload error: ${errorText}`);
+  }
+
+  const { upload_url } = await uploadResponse.json();
+  console.log('✅ File uploaded to AssemblyAI');
+  console.log('🎙️ Starting transcription...');
+
+  const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
+    method: 'POST',
+    headers: {
+      'Authorization': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      audio_url: upload_url,
+    }),
+  });
+
+  if (!transcriptResponse.ok) {
+    const errorText = await transcriptResponse.text();
+    throw new Error(`AssemblyAI transcription error: ${errorText}`);
+  }
+
+  const { id: transcriptId } = await transcriptResponse.json();
+
+  let transcript;
+  let attempts = 0;
+  const maxAttempts = 120;
+
+  while (attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    const statusResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
+      headers: {
+        'Authorization': apiKey,
+      },
+    });
+
+    if (!statusResponse.ok) {
+      throw new Error('Failed to check transcription status');
+    }
+
+    transcript = await statusResponse.json();
+
+    if (transcript.status === 'completed') {
+      console.log('✅ Transcription completed');
+      break;
+    } else if (transcript.status === 'error') {
+      throw new Error(`AssemblyAI transcription failed: ${transcript.error}`);
+    }
+
+    attempts++;
+    console.log(`⏳ Transcription in progress... (${attempts * 5}s)`);
+  }
+
+  if (!transcript || transcript.status !== 'completed') {
+    throw new Error('Transcription timed out');
+  }
+
+  let formattedTranscript = `FILE: ${fileName}\n`;
+  formattedTranscript += `Duration: ${transcript.audio_duration ? Math.round(transcript.audio_duration) + 's' : 'Unknown'}\n`;
+  formattedTranscript += `Confidence: ${transcript.confidence ? (transcript.confidence * 100).toFixed(1) + '%' : 'N/A'}\n\n`;
+  formattedTranscript += `=== TRANSCRIPT ===\n\n`;
+
+  if (transcript.utterances && transcript.utterances.length > 0) {
+    transcript.utterances.forEach((utterance: any) => {
+      const timestamp = formatTimestamp(utterance.start / 1000);
+      const speaker = utterance.speaker ? `Speaker ${utterance.speaker}` : 'Speaker';
+      formattedTranscript += `[${timestamp}] ${speaker}: ${utterance.text}\n`;
+    });
+  } else if (transcript.words && transcript.words.length > 0) {
+    let currentTime = 0;
+    let currentSegment = '';
+
+    transcript.words.forEach((word: any, index: number) => {
+      if (word.start / 1000 - currentTime > 30 || index === 0) {
+        if (currentSegment) {
+          const timestamp = formatTimestamp(currentTime);
+          formattedTranscript += `[${timestamp}] ${currentSegment.trim()}\n`;
+        }
+        currentTime = word.start / 1000;
+        currentSegment = word.text + ' ';
+      } else {
+        currentSegment += word.text + ' ';
+      }
+    });
+
+    if (currentSegment) {
+      const timestamp = formatTimestamp(currentTime);
+      formattedTranscript += `[${timestamp}] ${currentSegment.trim()}\n`;
+    }
+  } else {
+    formattedTranscript += transcript.text;
+  }
+
+  return { content: formattedTranscript };
 }

@@ -97,20 +97,47 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
         return;
       }
 
-      // Warn for very large files (>500MB)
-      if (selectedFile.size > 500 * 1024 * 1024) {
+      // Check if file is too large for Supabase storage (>50MB)
+      const supabaseLimit = 50 * 1024 * 1024;
+      const isLargeFile = selectedFile.size > supabaseLimit;
+
+      if (isLargeFile) {
+        // Check if it's a video/audio file that can be transcribed
+        const mimeType = selectedFile.type?.toLowerCase() || '';
+        const fileName = selectedFile.name?.toLowerCase() || '';
+
+        const isVideo = mimeType.includes('video/') ||
+          fileName.endsWith('.mp4') || fileName.endsWith('.mov') ||
+          fileName.endsWith('.avi') || fileName.endsWith('.webm');
+
+        const isAudio = mimeType.includes('audio/') ||
+          fileName.endsWith('.mp3') || fileName.endsWith('.wav') || fileName.endsWith('.m4a');
+
+        if (!isVideo && !isAudio) {
+          alert(
+            `This file is too large for direct upload (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB). ` +
+            `Only video and audio files over 50MB can be processed via transcription. ` +
+            `\n\nFor other file types, please compress the file to under 50MB.`
+          );
+          setUploading(false);
+          return;
+        }
+
+        // Handle large video/audio files via direct transcription
+        await handleLargeFileTranscription();
+        return;
+      }
+
+      // Warn for very large files (>25MB but under 50MB)
+      if (selectedFile.size > 25 * 1024 * 1024) {
         const proceed = confirm(
           `Large file detected (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB). ` +
-          `Upload may take several minutes. Continue?`
+          `Upload may take a minute or two. Continue?`
         );
         if (!proceed) {
           setUploading(false);
           return;
         }
-      }
-
-      // Show progress for large files
-      if (selectedFile.size > 25 * 1024 * 1024) {
         console.log(`📤 Uploading large file: ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`);
       }
 
@@ -167,8 +194,9 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
       }
 
       // Provide helpful context for common errors
-      if (error.message?.includes('size')) {
-        errorMessage += '\n\nThe file may be too large. Maximum size is 2GB for browser uploads.';
+      if (error.message?.includes('size') || error.message?.includes('exceeded')) {
+        errorMessage = 'File upload failed: The file is too large for Supabase storage (50MB limit). ';
+        errorMessage += '\n\nFor video/audio files over 50MB, they will be sent directly to transcription. Please try again.';
       } else if (error.message?.includes('type') || error.message?.includes('mime')) {
         errorMessage += '\n\nThis file type may not be supported.';
       } else if (error.message?.includes('storage')) {
@@ -178,6 +206,95 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
       alert(errorMessage);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleLargeFileTranscription = async () => {
+    if (!selectedFile || !user) return;
+
+    try {
+      console.log(`📤 Processing large file (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB) via direct transcription...`);
+
+      alert(
+        `Large file detected (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB).\n\n` +
+        `This file will be sent directly to AssemblyAI for transcription.\n` +
+        `This may take several minutes depending on file length.\n\n` +
+        `You'll see it appear in your files list with "processing" status.`
+      );
+
+      const filePath = `large-files/${projectId}/${Date.now()}_${selectedFile.name}`;
+
+      const { data, error } = await supabase
+        .from('project_uploads')
+        .insert({
+          project_id: projectId,
+          upload_type: uploadForm.upload_type,
+          file_name: selectedFile.name,
+          file_path: filePath,
+          file_size: selectedFile.size,
+          mime_type: selectedFile.type,
+          uploaded_by: user.id,
+          description: uploadForm.description,
+          meeting_date: uploadForm.meeting_date || null,
+          include_in_generation: uploadForm.include_in_generation,
+          extraction_status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setUploads([data, ...uploads]);
+      setShowUploadModal(false);
+      const uploadId = data.id;
+
+      setSelectedFile(null);
+      setUploadForm({
+        upload_type: 'supplemental_doc',
+        description: '',
+        meeting_date: '',
+        include_in_generation: true
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const fileBlob = selectedFile;
+
+      console.log('📤 Uploading directly to transcription service...');
+
+      const formData = new FormData();
+      formData.append('file', fileBlob);
+      formData.append('uploadId', uploadId);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-file-content-large`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Transcription failed');
+      }
+
+      console.log('✅ Large file transcription started successfully');
+
+      setTimeout(() => {
+        loadUploads();
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Error processing large file:', error);
+      alert(`Failed to process large file: ${error.message}`);
     }
   };
 
