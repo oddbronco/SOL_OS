@@ -168,7 +168,7 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
 
       // Provide helpful context for common errors
       if (error.message?.includes('size')) {
-        errorMessage += '\n\nThe file may be too large. Maximum size is 200MB.';
+        errorMessage += '\n\nThe file may be too large. Maximum size is 2GB for browser uploads.';
       } else if (error.message?.includes('type') || error.message?.includes('mime')) {
         errorMessage += '\n\nThis file type may not be supported.';
       } else if (error.message?.includes('storage')) {
