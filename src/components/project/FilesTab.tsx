@@ -82,12 +82,12 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
     try {
       setUploading(true);
 
-      // Validate file size (200MB limit)
-      const maxSize = 200 * 1024 * 1024; // 200MB in bytes
+      // Validate file size (2GB practical limit)
+      const maxSize = 2 * 1024 * 1024 * 1024; // 2GB in bytes
       if (selectedFile.size > maxSize) {
         alert(
           `File is too large (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB). ` +
-          `Maximum file size is 200MB. ` +
+          `Maximum file size is 2GB for browser uploads. ` +
           `\n\nFor larger files, please:\n` +
           `1. Compress the video using HandBrake or similar tool\n` +
           `2. Use a lower quality/bitrate setting\n` +
@@ -95,6 +95,18 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
         );
         setUploading(false);
         return;
+      }
+
+      // Warn for very large files (>500MB)
+      if (selectedFile.size > 500 * 1024 * 1024) {
+        const proceed = confirm(
+          `Large file detected (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB). ` +
+          `Upload may take several minutes. Continue?`
+        );
+        if (!proceed) {
+          setUploading(false);
+          return;
+        }
       }
 
       // Show progress for large files
@@ -433,12 +445,17 @@ export const FilesTab: React.FC<FilesTabProps> = ({ projectId }) => {
                 <p className="text-sm text-gray-600">
                   Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
                 </p>
-                {selectedFile.size > 200 * 1024 * 1024 && (
+                {selectedFile.size > 2 * 1024 * 1024 * 1024 && (
                   <p className="text-sm text-red-600 font-medium">
-                    ⚠️ File exceeds 200MB limit. Please compress before uploading.
+                    ⚠️ File exceeds 2GB limit. Please compress before uploading.
                   </p>
                 )}
-                {selectedFile.size > 25 * 1024 * 1024 && selectedFile.size <= 200 * 1024 * 1024 && (
+                {selectedFile.size > 500 * 1024 * 1024 && selectedFile.size <= 2 * 1024 * 1024 * 1024 && (
+                  <p className="text-sm text-orange-600 font-medium">
+                    ⚡ Very large file - upload may take 5-10 minutes
+                  </p>
+                )}
+                {selectedFile.size > 25 * 1024 * 1024 && selectedFile.size <= 500 * 1024 * 1024 && (
                   <p className="text-sm text-blue-600">
                     ℹ️ Large file - will use AssemblyAI for transcription if configured
                   </p>
